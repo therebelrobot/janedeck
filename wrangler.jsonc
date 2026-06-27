@@ -1,0 +1,27 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "janedeck",
+  "main": "src/server/index.ts",
+  "compatibility_date": "2025-04-01",
+  "assets": {
+    "directory": "./dist"
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "GameRoom",
+        "class_name": "GameRoom"
+      },
+      {
+        "name": "AuthGate",
+        "class_name": "AuthGate"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["GameRoom", "AuthGate"]
+    }
+  ]
+}

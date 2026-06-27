@@ -1,0 +1,38 @@
+# ─────────────────────────────────────────────────────────────
+# JaneDeck — Docker Compose
+#
+# Usage:
+#   cp .env.example .env   # Set your admin password
+#   docker compose up -d   # Start JaneDeck
+#
+# Access:
+#   http://localhost:5173   (or http://<pi-ip>:5173 on LAN)
+#
+# Supports: amd64 (x86_64) and arm64 (Raspberry Pi 4/5)
+# ─────────────────────────────────────────────────────────────
+
+services:
+  janedeck:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: janedeck
+    ports:
+      - "5173:5173"
+    env_file:
+      - .env
+    volumes:
+      # Persist game state across container restarts
+      - janedeck-data:/app/.wrangler
+    restart: unless-stopped
+    # Resource limits suitable for Raspberry Pi
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 128M
+
+volumes:
+  janedeck-data:
+    driver: local
