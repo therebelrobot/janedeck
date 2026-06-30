@@ -12,6 +12,7 @@ import { useGameStore } from "../../stores/gameStore";
 import { usePlayerStore } from "../../stores/playerStore";
 import { useNotificationStore } from "../../stores/notificationStore";
 import { playMarkSound, playWinSound } from "../../utils/soundEffects";
+import { generateAvatarSeed, generateAlternativeSeeds, getAvatarDataUri } from "../../utils/avatarUtils";
 import { colors, spacing, radii } from "../../styles/theme";
 import { JoinScreen } from "./JoinScreen";
 import { PlayerQuestionScreen } from "./QuestionScreen";
@@ -50,6 +51,9 @@ export function PlayerView(): React.ReactElement {
   // Stores
   const gameStore = useGameStore();
   const playerStore = usePlayerStore();
+
+  // Avatar seed — generated once on mount, player can change it in the lobby
+  const [pendingAvatarSeed] = useState<string>(() => generateAvatarSeed());
 
   // Local state
   const [hasJoined, setHasJoined] = useState(false);
@@ -269,12 +273,13 @@ export function PlayerView(): React.ReactElement {
       setIsJoining(true);
       setJoinError(null);
       playerStore.setDisplayName(displayName);
+      playerStore.setAvatarSeed(pendingAvatarSeed);
       send({
         type: "PLAYER_JOIN",
-        payload: { displayName },
+        payload: { displayName, avatarSeed: pendingAvatarSeed },
       });
     },
-    [send, playerStore],
+    [send, playerStore, pendingAvatarSeed],
   );
 
   // Handle answer submission
@@ -353,6 +358,7 @@ export function PlayerView(): React.ReactElement {
   const {
     playerId,
     displayName,
+    avatarSeed,
     score,
     rank,
     hasSubmitted,
@@ -360,6 +366,14 @@ export function PlayerView(): React.ReactElement {
     wasKicked,
     kickReason,
   } = playerStore;
+
+  const handleAvatarChange = useCallback(
+    (newSeed: string) => {
+      playerStore.setAvatarSeed(newSeed);
+      send({ type: "PLAYER_UPDATE_AVATAR", payload: { avatarSeed: newSeed } });
+    },
+    [send, playerStore],
+  );
 
   // Kicked screen
   if (wasKicked) {
@@ -496,6 +510,8 @@ export function PlayerView(): React.ReactElement {
               displayName={displayName}
               playerCount={gameStore.playerCount}
               gameCode={gameCode || ""}
+              avatarSeed={avatarSeed}
+              onAvatarChange={handleAvatarChange}
             />
           )}
 
@@ -580,17 +596,32 @@ export function PlayerView(): React.ReactElement {
 
 // ─── Sub-views ────────────────────────────────────────────────────────────────
 
-/** Lobby waiting screen for joined players */
+const PICKER_COUNT = 6;
+
+/** Lobby waiting screen for joined players — shows current avatar + a picker */
 function LobbyWaiting({
   displayName,
   playerCount,
   gameCode,
+  avatarSeed,
+  onAvatarChange,
 }: {
   displayName: string | null;
   playerCount: number;
   gameCode: string;
+  avatarSeed: string | null;
+  onAvatarChange: (seed: string) => void;
 }): React.ReactElement {
   const prefersReducedMotion = useReducedMotion();
+  const [alternatives, setAlternatives] = useState<string[]>(() =>
+    generateAlternativeSeeds(PICKER_COUNT, avatarSeed ?? ""),
+  );
+
+  const refreshAlternatives = useCallback(() => {
+    setAlternatives(generateAlternativeSeeds(PICKER_COUNT, avatarSeed ?? ""));
+  }, [avatarSeed]);
+
+  const currentSrc = avatarSeed ? getAvatarDataUri(avatarSeed) : null;
 
   return (
     <div
@@ -603,28 +634,28 @@ function LobbyWaiting({
         padding: `${spacing[8]} 0`,
       }}
     >
+      {/* Current avatar */}
       <motion.div
-        animate={
-          prefersReducedMotion
-            ? { opacity: 1 }
-            : {
-                scale: [1, 1.05, 1],
-                opacity: 1,
-              }
-        }
+        animate={prefersReducedMotion ? { opacity: 1 } : { scale: [1, 1.04, 1], opacity: 1 }}
         transition={
           prefersReducedMotion
             ? { duration: 0.01 }
-            : {
-                scale: { duration: 2, repeat: Infinity, ease: "easeInOut" },
-              }
+            : { scale: { duration: 2.5, repeat: Infinity, ease: "easeInOut" } }
         }
-        style={{
-          fontSize: "4rem",
-        }}
+        style={{ lineHeight: 0 }}
         aria-hidden="true"
       >
-        🎮
+        {currentSrc ? (
+          <img
+            src={currentSrc}
+            alt=""
+            width={96}
+            height={96}
+            style={{ borderRadius: "var(--radius-full)", display: "block" }}
+          />
+        ) : (
+          <span style={{ fontSize: "5rem" }}>🎮</span>
+        )}
       </motion.div>
 
       <h2
@@ -639,16 +670,84 @@ function LobbyWaiting({
         You're in, {displayName}!
       </h2>
 
-      <p
-        style={{
-          color: colors.textSecondary,
-          fontSize: "var(--text-lg)",
-          margin: 0,
-        }}
-      >
-        Waiting for the host to start the game...
+      <p style={{ color: colors.textSecondary, fontSize: "var(--text-lg)", margin: 0 }}>
+        Waiting for the host to start...
       </p>
 
+      {/* Avatar picker */}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          gap: spacing[3],
+          padding: spacing[4],
+          backgroundColor: colors.bgCard,
+          borderRadius: radii.xl,
+          border: `1px solid ${colors.border}`,
+          width: "100%",
+        }}
+      >
+        <p style={{ fontSize: "var(--text-sm)", color: colors.textSecondary, margin: 0 }}>
+          Pick a different avatar:
+        </p>
+        <div
+          style={{ display: "flex", gap: spacing[3], flexWrap: "wrap", justifyContent: "center" }}
+          role="group"
+          aria-label="Alternative avatars"
+        >
+          {alternatives.map((seed) => (
+            <button
+              key={seed}
+              type="button"
+              onClick={() => onAvatarChange(seed)}
+              aria-label="Use this avatar"
+              style={{
+                padding: 0,
+                background: "none",
+                border: `2px solid ${colors.border}`,
+                borderRadius: "var(--radius-full)",
+                cursor: "pointer",
+                lineHeight: 0,
+                transition: "border-color 0.15s, transform 0.15s",
+              }}
+              onMouseEnter={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.borderColor = colors.primary;
+                (e.currentTarget as HTMLButtonElement).style.transform = "scale(1.1)";
+              }}
+              onMouseLeave={(e) => {
+                (e.currentTarget as HTMLButtonElement).style.borderColor = colors.border;
+                (e.currentTarget as HTMLButtonElement).style.transform = "scale(1)";
+              }}
+            >
+              <img
+                src={getAvatarDataUri(seed)}
+                alt=""
+                width={56}
+                height={56}
+                style={{ borderRadius: "var(--radius-full)", display: "block" }}
+              />
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          onClick={refreshAlternatives}
+          className="btn-ghost"
+          style={{ fontSize: "var(--text-sm)", color: colors.textSecondary }}
+        >
+          ↻ Show more options
+        </button>
+        <p style={{ fontSize: "var(--text-xs)", color: colors.textSecondary, margin: 0, opacity: 0.6 }}>
+          Avatars:{" "}
+          <a href="https://www.dicebear.com/styles/lorelei-neutral/" target="_blank" rel="noopener noreferrer" style={{ color: "inherit" }}>Lorelei Neutral</a>
+          {" by "}
+          <a href="https://www.instagram.com/lischi_art/" target="_blank" rel="noopener noreferrer" style={{ color: "inherit" }}>@lischi_art</a>
+          {" · CC BY 4.0"}
+        </p>
+      </div>
+
+      {/* Game info */}
       <div
         style={{
           padding: `${spacing[3]} ${spacing[6]}`,
@@ -657,13 +756,7 @@ function LobbyWaiting({
           border: `1px solid ${colors.primary}30`,
         }}
       >
-        <p
-          style={{
-            fontSize: "var(--text-sm)",
-            color: colors.textSecondary,
-            margin: 0,
-          }}
-        >
+        <p style={{ fontSize: "var(--text-sm)", color: colors.textSecondary, margin: 0 }}>
           Game: <strong style={{ color: colors.accentYellow }}>{gameCode}</strong>
           {" · "}
           <span aria-live="polite">{playerCount} player{playerCount !== 1 ? "s" : ""}</span>

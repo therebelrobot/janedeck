@@ -119,6 +119,14 @@ export interface PlayerJoinMessage {
   type: "PLAYER_JOIN";
   payload: {
     displayName: string;
+    avatarSeed: string;
+  };
+}
+
+export interface PlayerUpdateAvatarMessage {
+  type: "PLAYER_UPDATE_AVATAR";
+  payload: {
+    avatarSeed: string;
   };
 }
 
@@ -234,7 +242,8 @@ export type ClientMessage =
   | HostEndBingoGameMessage
   | HostResetBingoGameMessage
   | PlayerMarkSquareMessage
-  | PlayerUnmarkSquareMessage;
+  | PlayerUnmarkSquareMessage
+  | PlayerUpdateAvatarMessage;
 
 // ─── Server → Client Messages ────────────────────────────────────────────────
 
@@ -255,7 +264,17 @@ export interface PlayerJoinedMessage {
   payload: {
     playerId: string;
     displayName: string;
+    avatarSeed: string;
     playerCount: number;
+  };
+  timestamp: number;
+}
+
+export interface PlayerAvatarUpdatedMessage {
+  type: "PLAYER_AVATAR_UPDATED";
+  payload: {
+    playerId: string;
+    avatarSeed: string;
   };
   timestamp: number;
 }
@@ -386,6 +405,7 @@ export interface JoinAcceptedMessage {
   type: "JOIN_ACCEPTED";
   payload: {
     playerId: string;
+    avatarSeed: string;
     gameSettings: GameSettings | BingoSettings;
   };
   timestamp: number;
@@ -520,4 +540,5 @@ export type ServerMessage =
   | BingoSquareMarkedMessage
   | BingoSquareUnmarkedMessage
   | BingoWinnerMessage
-  | BingoGameEndedMessage;
+  | BingoGameEndedMessage
+  | PlayerAvatarUpdatedMessage;

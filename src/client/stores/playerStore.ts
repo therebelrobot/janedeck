@@ -18,6 +18,8 @@ interface PlayerStoreState {
   playerId: string | null;
   /** Player's chosen display name — R1.4 */
   displayName: string | null;
+  /** DiceBear avatar seed (set before joining, confirmed by server on JOIN_ACCEPTED) */
+  avatarSeed: string | null;
   /** Player's current score */
   score: number;
   /** Player's current rank */
@@ -40,6 +42,7 @@ interface PlayerStoreState {
   // Actions
   setPlayerId: (id: string) => void;
   setDisplayName: (name: string) => void;
+  setAvatarSeed: (seed: string) => void;
   setScore: (score: number) => void;
   setRank: (rank: number) => void;
   setHasSubmitted: (submitted: boolean) => void;
@@ -54,6 +57,7 @@ interface PlayerStoreState {
 const initialState = {
   playerId: null as string | null,
   displayName: null as string | null,
+  avatarSeed: null as string | null,
   score: 0,
   rank: null as number | null,
   hasSubmitted: false,
@@ -70,6 +74,7 @@ export const usePlayerStore = create<PlayerStoreState>((set) => ({
 
   setPlayerId: (playerId) => set({ playerId }),
   setDisplayName: (displayName) => set({ displayName }),
+  setAvatarSeed: (avatarSeed) => set({ avatarSeed }),
   setScore: (score) => set({ score }),
   setRank: (rank) => set({ rank }),
   setHasSubmitted: (hasSubmitted) => set({ hasSubmitted }),

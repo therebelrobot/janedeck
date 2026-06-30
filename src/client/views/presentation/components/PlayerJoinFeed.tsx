@@ -9,6 +9,7 @@ import { colors, spacing, radii } from "../../../styles/theme";
 interface PlayerJoinEntry {
   playerId: string;
   displayName: string;
+  avatarSeed?: string;
 }
 
 interface PlayerJoinFeedProps {
@@ -85,7 +86,7 @@ export function PlayerJoinFeed({
               border: `1px solid ${colors.border}`,
             }}
           >
-            <PlayerAvatar displayName={player.displayName} isConnected size="md" />
+            <PlayerAvatar displayName={player.displayName} avatarSeed={player.avatarSeed} isConnected size="md" />
             <span
               style={{
                 fontFamily: "var(--font-display)",

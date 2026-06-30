@@ -246,6 +246,7 @@ export const PlayerJoinSchema = z.object({
   type: z.literal("PLAYER_JOIN"),
   payload: z.object({
     displayName: z.string().min(1).max(256),
+    avatarSeed: z.string().min(1).max(64).default("default"),
   }),
 });
 
@@ -332,6 +333,13 @@ export const PlayerUnmarkSquareSchema = z.object({
   }),
 });
 
+export const PlayerUpdateAvatarSchema = z.object({
+  type: z.literal("PLAYER_UPDATE_AVATAR"),
+  payload: z.object({
+    avatarSeed: z.string().min(1).max(64),
+  }),
+});
+
 /** Discriminated union schema for all client → server messages */
 export const ClientMessageSchema = z.discriminatedUnion("type", [
   HostCreateGameSchema,
@@ -360,6 +368,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   HostResetBingoGameSchema,
   PlayerMarkSquareSchema,
   PlayerUnmarkSquareSchema,
+  PlayerUpdateAvatarSchema,
 ]);
 
 // ─── Server → Client Message Schemas ──────────────────────────────────────────

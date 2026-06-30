@@ -344,7 +344,30 @@ export class GameRoom extends Server<Env> {
         if (state.role !== "player") return;
         await handleUnmarkSquare(this, parsed, sender);
         break;
+
+      case "PLAYER_UPDATE_AVATAR":
+        if (state.role !== "player" || !state.playerId) return;
+        await this.handleUpdateAvatar(parsed, sender);
+        break;
     }
+  }
+
+  private async handleUpdateAvatar(
+    msg: { payload: { avatarSeed: string } },
+    sender: Connection<ConnectionState>,
+  ): Promise<void> {
+    if (!this.game) return;
+    const playerId = sender.state?.playerId;
+    if (!playerId) return;
+    const player = this.game.players[playerId];
+    if (!player) return;
+    player.avatarSeed = msg.payload.avatarSeed.slice(0, 64);
+    await this.persistGame();
+    broadcastToAll(this, {
+      type: "PLAYER_AVATAR_UPDATED",
+      payload: { playerId, avatarSeed: player.avatarSeed },
+      timestamp: Date.now(),
+    });
   }
 
   /** Handle WebSocket disconnections */
@@ -1025,9 +1048,11 @@ export class GameRoom extends Server<Env> {
 
     // Create the player
     const playerId = nanoid(12);
+    const avatarSeed = (msg.payload.avatarSeed || "default").slice(0, 64);
     const player: Player = {
       id: playerId,
       displayName,
+      avatarSeed,
       role: "player",
       score: 0,
       isConnected: true,
@@ -1051,6 +1076,7 @@ export class GameRoom extends Server<Env> {
       type: "JOIN_ACCEPTED",
       payload: {
         playerId,
+        avatarSeed,
         gameSettings: this.game.settings,
       },
       timestamp: Date.now(),
@@ -1066,6 +1092,7 @@ export class GameRoom extends Server<Env> {
       payload: {
         playerId,
         displayName,
+        avatarSeed,
         playerCount,
       },
       timestamp: Date.now(),
@@ -1107,6 +1134,7 @@ export class GameRoom extends Server<Env> {
       type: "JOIN_ACCEPTED",
       payload: {
         playerId: player.id,
+        avatarSeed: player.avatarSeed ?? "",
         gameSettings: this.game.settings,
       },
       timestamp: Date.now(),
@@ -1259,6 +1287,7 @@ export class GameRoom extends Server<Env> {
     const audienceMember: Player = {
       id: playerId,
       displayName,
+      avatarSeed: "",
       role: "audience",
       score: 0,
       isConnected: true,
@@ -1280,6 +1309,7 @@ export class GameRoom extends Server<Env> {
       type: "JOIN_ACCEPTED",
       payload: {
         playerId,
+        avatarSeed: "",
         gameSettings: this.game.settings,
       },
       timestamp: Date.now(),

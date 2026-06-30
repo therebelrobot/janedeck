@@ -33,6 +33,7 @@ interface BingoActivityEntry {
 interface PlayerEntry {
   playerId: string;
   displayName: string;
+  avatarSeed: string;
 }
 
 /**
@@ -78,6 +79,7 @@ export function PresentationView(): React.ReactElement {
               {
                 playerId: message.payload.playerId,
                 displayName: message.payload.displayName,
+                avatarSeed: message.payload.avatarSeed ?? "",
               },
               ...prev,
             ];
@@ -87,6 +89,16 @@ export function PresentationView(): React.ReactElement {
 
         case "PLAYER_LEFT":
           setTotalPlayers(message.payload.playerCount);
+          break;
+
+        case "PLAYER_AVATAR_UPDATED":
+          setPlayers((prev) =>
+            prev.map((p) =>
+              p.playerId === message.payload.playerId
+                ? { ...p, avatarSeed: message.payload.avatarSeed }
+                : p,
+            ),
+          );
           break;
 
         case "ANSWER_SUBMITTED_NOTIFICATION":

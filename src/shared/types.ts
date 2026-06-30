@@ -145,6 +145,8 @@ export interface Player {
   joinedAt: number;
   /** Answers keyed by question ID */
   answers: Record<string, Answer>;
+  /** DiceBear seed — determines both the style (bottts vs funEmoji) and the avatar shape */
+  avatarSeed: string;
 }
 
 // === Answer ===
