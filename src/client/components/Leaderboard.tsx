@@ -73,7 +73,7 @@ export function Leaderboard({
                 {entry.rank <= 3 ? ["🥇", "🥈", "🥉"][entry.rank - 1] : `#${entry.rank}`}
               </span>
 
-              <PlayerAvatar displayName={entry.displayName} isConnected />
+              <PlayerAvatar displayName={entry.displayName} avatarSeed={entry.avatarSeed} isConnected />
 
               <span className="leaderboard__name">{entry.displayName}</span>
 

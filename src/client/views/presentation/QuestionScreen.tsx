@@ -70,7 +70,7 @@ export function PresentationQuestionScreen({
         }
         style={{
           fontFamily: "var(--font-display)",
-          fontSize: "clamp(1rem, 2vw, 1.5rem)",
+          fontSize: "clamp(1.25rem, 2.5vw, 2rem)",
           color: colors.textSecondary,
           textTransform: "uppercase",
           letterSpacing: "0.1em",
@@ -103,18 +103,19 @@ export function PresentationQuestionScreen({
         }
         style={{
           fontFamily: "var(--font-display)",
-          fontSize: "clamp(1.5rem, 5vw, 3.5rem)",
+          fontSize: "clamp(2rem, 6vw, 5.5rem)",
           fontWeight: 700,
           color: colors.text,
           textAlign: "center",
-          lineHeight: 1.3,
-          maxWidth: 900,
+          lineHeight: 1.25,
+          maxWidth: "min(1400px, 90vw)",
           margin: 0,
-          padding: `${spacing[6]} ${spacing[8]}`,
-          backgroundColor: colors.bgCard,
+          padding: `clamp(1.5rem, 3vw, 3rem) clamp(2rem, 5vw, 5rem)`,
+          backgroundColor: `${colors.bgCard}cc`,
           borderRadius: radii.xl,
           border: `2px solid ${colors.primary}`,
-          boxShadow: shadows.glow,
+          boxShadow: `0 0 40px rgba(59, 130, 246, 0.4), 0 0 80px rgba(59, 130, 246, 0.15)`,
+          backdropFilter: "blur(12px)",
         }}
       >
         {questionText}
@@ -155,7 +156,7 @@ export function PresentationQuestionScreen({
             <p
               style={{
                 fontFamily: "var(--font-display)",
-                fontSize: "clamp(2rem, 6vw, 5rem)",
+                fontSize: "clamp(3rem, 8vw, 7rem)",
                 fontWeight: 700,
                 color: colors.primary,
                 margin: 0,

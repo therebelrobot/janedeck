@@ -101,6 +101,7 @@ export function computeLeaderboard(game: Game): ScoreEntry[] {
     displayName: player.displayName,
     score: player.score,
     rank: index + 1,
+    avatarSeed: player.avatarSeed,
   }));
 }
 

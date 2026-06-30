@@ -100,7 +100,7 @@ export function AudienceLeaderboard({
               </span>
 
               {/* Avatar */}
-              <PlayerAvatar displayName={entry.displayName} isConnected size="sm" />
+              <PlayerAvatar displayName={entry.displayName} avatarSeed={entry.avatarSeed} isConnected size="sm" />
 
               {/* Name */}
               <span

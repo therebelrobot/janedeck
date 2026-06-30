@@ -60,11 +60,14 @@ export function ScoreRevealScreen({
         }
         style={{
           fontFamily: "var(--font-display)",
-          fontSize: "clamp(2rem, 4vw, 3.5rem)",
+          fontSize: "clamp(2.5rem, 5vw, 5rem)",
           fontWeight: 700,
           color: isRoundResults ? colors.accentOrange : colors.accentPurple,
           textAlign: "center",
           margin: 0,
+          textShadow: isRoundResults
+            ? "0 0 40px rgba(249, 115, 22, 0.4)"
+            : "0 0 40px rgba(168, 85, 247, 0.4)",
         }}
       >
         {isRoundResults
@@ -150,7 +153,7 @@ export function ScoreRevealScreen({
         }
         style={{
           width: "100%",
-          maxWidth: 700,
+          maxWidth: "min(1000px, 90vw)",
           display: "flex",
           justifyContent: "center",
         }}

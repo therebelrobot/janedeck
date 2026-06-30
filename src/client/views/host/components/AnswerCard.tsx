@@ -104,7 +104,7 @@ export function AnswerCard({
           gap: spacing[3],
         }}
       >
-        <PlayerAvatar displayName={answer.displayName} isConnected size="sm" />
+        <PlayerAvatar displayName={answer.displayName} avatarSeed={answer.avatarSeed} isConnected size="sm" />
         <span
           style={{
             fontFamily: "var(--font-display)",

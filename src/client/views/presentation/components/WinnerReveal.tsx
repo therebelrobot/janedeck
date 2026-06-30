@@ -24,9 +24,9 @@ const PODIUM_CONFIG = [
     nameColor: colors.accentYellow,
     emoji: "👑",
     label: "1st",
-    glowShadow: `0 0 40px rgba(250, 204, 21, 0.4)`,
+    glowShadow: `0 0 60px rgba(250, 204, 21, 0.5), 0 0 120px rgba(250, 204, 21, 0.2)`,
     delay: 1.2,
-    fontSize: "clamp(1.5rem, 4vw, 2.5rem)",
+    fontSize: "clamp(2rem, 5vw, 3.5rem)",
   },
   {
     // 2nd place
@@ -36,9 +36,9 @@ const PODIUM_CONFIG = [
     nameColor: colors.text,
     emoji: "🥈",
     label: "2nd",
-    glowShadow: `0 0 20px rgba(148, 163, 184, 0.3)`,
+    glowShadow: `0 0 30px rgba(148, 163, 184, 0.35)`,
     delay: 0.6,
-    fontSize: "clamp(1.2rem, 3vw, 2rem)",
+    fontSize: "clamp(1.5rem, 3.5vw, 2.75rem)",
   },
   {
     // 3rd place
@@ -48,9 +48,9 @@ const PODIUM_CONFIG = [
     nameColor: colors.accentOrange,
     emoji: "🥉",
     label: "3rd",
-    glowShadow: `0 0 20px rgba(249, 115, 22, 0.3)`,
+    glowShadow: `0 0 30px rgba(249, 115, 22, 0.35)`,
     delay: 0.0,
-    fontSize: "clamp(1rem, 2.5vw, 1.75rem)",
+    fontSize: "clamp(1.25rem, 3vw, 2.25rem)",
   },
 ];
 
@@ -93,10 +93,10 @@ export function WinnerReveal({
         display: "flex",
         alignItems: "flex-end",
         justifyContent: "center",
-        gap: spacing[4],
+        gap: spacing[6],
         width: "100%",
-        maxWidth: 900,
-        minHeight: 300,
+        maxWidth: "min(1400px, 90vw)",
+        minHeight: "clamp(300px, 35vh, 500px)",
         padding: `${spacing[8]} 0`,
       }}
       role="list"
@@ -147,7 +147,7 @@ export function WinnerReveal({
           >
             {/* Position emoji */}
             <span
-              style={{ fontSize: "clamp(2rem, 5vw, 3.5rem)" }}
+              style={{ fontSize: "clamp(3rem, 7vw, 5rem)" }}
               aria-hidden="true"
             >
               {config.emoji}
@@ -156,6 +156,7 @@ export function WinnerReveal({
             {/* Avatar */}
             <PlayerAvatar
               displayName={player.displayName}
+              avatarSeed={player.avatarSeed}
               isConnected
               size="lg"
             />
@@ -181,7 +182,7 @@ export function WinnerReveal({
             <span
               style={{
                 fontFamily: "var(--font-display)",
-                fontSize: "var(--text-xl)",
+                fontSize: "clamp(1.25rem, 2.5vw, 2rem)",
                 fontWeight: 700,
                 color: colors.primaryLight,
               }}

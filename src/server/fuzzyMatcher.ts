@@ -162,6 +162,7 @@ export function batchMatch(
       answerId: answer.id,
       playerId: answer.playerId,
       displayName: player?.displayName ?? "Unknown",
+      avatarSeed: player?.avatarSeed,
       text: answer.text,
       fuzzyScore: result.score,
       fuzzyMatchedAgainst: result.matchedAgainst,

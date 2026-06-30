@@ -62,57 +62,67 @@ export const winnerVariants: Variants = {
 
 // ─── State-Specific Color Schemes ─────────────────────────────────────────────
 
-/** Color scheme per game state for backgrounds, accents, etc. */
-export const stateColors: Record<string, { bg: string; accent: string; text: string }> = {
+/** Color scheme per game state for backgrounds, accents, and animated orb colors. */
+export const stateColors: Record<string, { bg: string; accent: string; text: string; orbColors: [string, string, string] }> = {
   LOBBY: {
     bg: colors.bg,
     accent: colors.primary,
     text: colors.text,
+    orbColors: [colors.primary, colors.secondary, colors.accentPurple],
   },
   ROUND_INTRO: {
     bg: colors.bg,
     accent: colors.accentPurple,
     text: colors.text,
+    orbColors: [colors.accentPurple, colors.secondary, colors.primary],
   },
   QUESTION_DISPLAY: {
     bg: colors.bg,
     accent: colors.primary,
     text: colors.text,
+    orbColors: [colors.primary, colors.accentPurple, colors.primaryLight],
   },
   ANSWERING: {
     bg: colors.bg,
     accent: colors.primary,
     text: colors.text,
+    orbColors: [colors.accentGreen, colors.primary, colors.accentPurple],
   },
   REVIEWING: {
     bg: colors.bg,
     accent: colors.accentYellow,
     text: colors.text,
+    orbColors: [colors.accentYellow, colors.accentOrange, colors.primary],
   },
   SCORE_REVEAL: {
     bg: colors.bg,
     accent: colors.accentGreen,
     text: colors.text,
+    orbColors: [colors.accentGreen, colors.accentPurple, colors.primary],
   },
   ROUND_RESULTS: {
     bg: colors.bg,
     accent: colors.accentPurple,
     text: colors.text,
+    orbColors: [colors.accentPurple, colors.accentYellow, colors.secondary],
   },
   GAME_OVER: {
     bg: colors.bg,
     accent: colors.secondary,
     text: colors.text,
+    orbColors: [colors.secondary, colors.accentYellow, colors.accentPurple],
   },
   BINGO_PLAYING: {
     bg: colors.bg,
     accent: colors.accentPurple,
     text: colors.text,
+    orbColors: [colors.accentPurple, colors.primary, colors.accentGreen],
   },
   BINGO_ENDED: {
     bg: colors.bg,
     accent: colors.secondary,
     text: colors.text,
+    orbColors: [colors.secondary, colors.accentPurple, colors.accentYellow],
   },
 };
 

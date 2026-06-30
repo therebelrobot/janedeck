@@ -108,6 +108,7 @@ export function HostDashboard(): React.ReactElement {
                 displayName: message.payload.displayName,
                 score: 0,
                 isConnected: true,
+                avatarSeed: message.payload.avatarSeed,
               },
             ];
           });
@@ -118,6 +119,16 @@ export function HostDashboard(): React.ReactElement {
             prev.map((p) =>
               p.id === message.payload.playerId
                 ? { ...p, isConnected: false }
+                : p,
+            ),
+          );
+          break;
+
+        case "PLAYER_AVATAR_UPDATED":
+          setPlayers((prev) =>
+            prev.map((p) =>
+              p.id === message.payload.playerId
+                ? { ...p, avatarSeed: message.payload.avatarSeed }
                 : p,
             ),
           );

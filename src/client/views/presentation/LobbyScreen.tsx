@@ -51,11 +51,12 @@ export function LobbyScreen({
         }
         style={{
           fontFamily: "var(--font-display)",
-          fontSize: "clamp(2rem, 5vw, 4rem)",
+          fontSize: "clamp(3rem, 8vw, 8rem)",
           fontWeight: 700,
           color: colors.secondary,
-          textShadow: "0 0 30px rgba(236, 72, 153, 0.4)",
+          textShadow: "0 0 60px rgba(236, 72, 153, 0.6), 0 0 120px rgba(236, 72, 153, 0.2)",
           margin: 0,
+          letterSpacing: "-0.02em",
         }}
       >
         JaneDeck
@@ -82,7 +83,7 @@ export function LobbyScreen({
         <span
           style={{
             fontFamily: "var(--font-display)",
-            fontSize: "var(--text-2xl)",
+            fontSize: "clamp(1.5rem, 3vw, 3rem)",
             fontWeight: 700,
             color: colors.primaryLight,
           }}
@@ -93,7 +94,9 @@ export function LobbyScreen({
 
       {/* Player join feed */}
       {players.length > 0 && (
-        <PlayerJoinFeed players={players} maxDisplay={10} />
+        <div style={{ width: "100%", maxWidth: "min(900px, 90vw)" }}>
+          <PlayerJoinFeed players={players} maxDisplay={20} />
+        </div>
       )}
 
       {/* Waiting message */}

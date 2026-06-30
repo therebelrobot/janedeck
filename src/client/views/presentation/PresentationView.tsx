@@ -228,8 +228,15 @@ export function PresentationView(): React.ReactElement {
       style={{
         position: "relative",
         overflow: "hidden",
+        minHeight: "100vh",
       }}
     >
+      {/* Dynamic animated orb background */}
+      <DynamicBackground
+        orbColors={currentStateColors.orbColors}
+        prefersReducedMotion={!!prefersReducedMotion}
+      />
+
       {/* Connection indicator — subtle, top-right */}
       {status !== "connected" && (
         <div
@@ -284,7 +291,9 @@ export function PresentationView(): React.ReactElement {
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            minHeight: "90vh",
+            minHeight: "100vh",
+            position: "relative",
+            zIndex: 1,
           }}
         >
           {/* LOBBY */}
@@ -641,6 +650,41 @@ function ReviewingScreen(): React.ReactElement {
       >
         The host is checking your answers
       </p>
+    </div>
+  );
+}
+
+/** Animated orb background that shifts colors based on game state */
+function DynamicBackground({
+  orbColors,
+  prefersReducedMotion,
+}: {
+  orbColors: [string, string, string];
+  prefersReducedMotion: boolean;
+}): React.ReactElement {
+  const [c1, c2, c3] = orbColors;
+  const transition = prefersReducedMotion
+    ? { duration: 0 }
+    : { duration: 1.8, ease: "easeInOut" };
+
+  return (
+    <div className="presentation-bg" aria-hidden="true">
+      <div className="presentation-bg__grid" />
+      <motion.div
+        className="presentation-bg__orb presentation-bg__orb--1"
+        animate={{ backgroundColor: c1 }}
+        transition={transition}
+      />
+      <motion.div
+        className="presentation-bg__orb presentation-bg__orb--2"
+        animate={{ backgroundColor: c2 }}
+        transition={transition}
+      />
+      <motion.div
+        className="presentation-bg__orb presentation-bg__orb--3"
+        animate={{ backgroundColor: c3 }}
+        transition={transition}
+      />
     </div>
   );
 }

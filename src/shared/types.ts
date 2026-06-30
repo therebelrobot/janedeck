@@ -177,6 +177,7 @@ export interface AnswerReview {
   answerId: string;
   playerId: string;
   displayName: string;
+  avatarSeed?: string;
   text: string;
   /** 0.0 to 1.0 match score against correctAnswer */
   fuzzyScore: number;
@@ -262,6 +263,7 @@ export interface ScoreEntry {
   displayName: string;
   score: number;
   rank: number;
+  avatarSeed?: string;
 }
 
 // === Score Change (for animated score reveals) ===

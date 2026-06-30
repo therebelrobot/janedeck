@@ -13,6 +13,7 @@ export interface PlayerListEntry {
   displayName: string;
   score: number;
   isConnected: boolean;
+  avatarSeed?: string;
 }
 
 type SortMode = "joined" | "score" | "name";
@@ -174,6 +175,7 @@ export function PlayerList({
               >
                 <PlayerAvatar
                   displayName={player.displayName}
+                  avatarSeed={player.avatarSeed}
                   isConnected={player.isConnected}
                   size="sm"
                 />
