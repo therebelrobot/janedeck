@@ -11,6 +11,8 @@
 # Supports: amd64 (x86_64) and arm64 (Raspberry Pi 4/5)
 # ─────────────────────────────────────────────────────────────
 
+version: "3.8"
+
 services:
   janedeck:
     build:
@@ -28,11 +30,13 @@ services:
       # Persist game state across container restarts
       - janedeck-data:/app/.wrangler
     restart: unless-stopped
-    # Resource limits suitable for Raspberry Pi
+    # No hard memory limit: workerd's allocator (tcmalloc) reserves a 1GiB
+    # virtual-memory arena up front at startup. A hard cgroup cap below that
+    # (even one well above workerd's actual ~250-500MB working set) can make
+    # that reservation fail outright and crash-loop the container. The
+    # reservation below is a soft scheduling hint, not an enforced ceiling.
     deploy:
       resources:
-        limits:
-          memory: 512M
         reservations:
           memory: 128M
 

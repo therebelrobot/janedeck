@@ -308,7 +308,7 @@ docker compose down -v
 | Per active game room | ~1–5 MB |
 | **Total (1–5 concurrent games)** | **~250–500 MB** |
 
-A Raspberry Pi 4 (2 GB+) or Pi 5 handles 16–50 players comfortably. The Docker Compose file limits the container to 512 MB RAM.
+A Raspberry Pi 4 (2 GB+) or Pi 5 handles 16–50 players comfortably. The compose files don't set a hard memory cap on the container — `workerd`'s allocator reserves a large virtual-memory arena up front at startup, and a tight cgroup limit can make that reservation fail rather than actually constraining real usage (which stays in the range above).
 
 ### Adding HTTPS (Optional)
 
