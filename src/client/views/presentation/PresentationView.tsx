@@ -354,6 +354,7 @@ export function PresentationView(): React.ReactElement {
       </AnimatePresence>
 
       {gameType === "bingo" && <Confetti active={bingoCelebrate} />}
+      <FullscreenButton />
     </motion.div>
   );
 }
@@ -629,5 +630,78 @@ function ReviewingScreen(): React.ReactElement {
         The host is checking your answers
       </p>
     </div>
+  );
+}
+
+/** Fullscreen toggle button — fixed bottom-right, fades in on hover */
+function FullscreenButton(): React.ReactElement {
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [isHovered, setIsHovered] = useState(false);
+
+  useEffect(() => {
+    const update = () =>
+      setIsFullscreen(!!(document.fullscreenElement || (document as any).webkitFullscreenElement));
+    document.addEventListener("fullscreenchange", update);
+    document.addEventListener("webkitfullscreenchange", update);
+    return () => {
+      document.removeEventListener("fullscreenchange", update);
+      document.removeEventListener("webkitfullscreenchange", update);
+    };
+  }, []);
+
+  const toggle = () => {
+    if (!document.fullscreenElement && !(document as any).webkitFullscreenElement) {
+      const el = document.documentElement;
+      (el.requestFullscreen ?? (el as any).webkitRequestFullscreen)?.call(el);
+    } else {
+      (document.exitFullscreen ?? (document as any).webkitExitFullscreen)?.call(document);
+    }
+  };
+
+  return (
+    <button
+      onClick={toggle}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+      title={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+      style={{
+        position: "fixed",
+        bottom: spacing[4],
+        right: spacing[4],
+        zIndex: 50,
+        width: 40,
+        height: 40,
+        borderRadius: radii.lg,
+        border: `1px solid ${colors.border}`,
+        backgroundColor: `${colors.bgCard}${isHovered ? "cc" : "55"}`,
+        cursor: "pointer",
+        opacity: isHovered ? 1 : 0.35,
+        transition: "opacity 0.2s ease, background-color 0.2s ease",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: 0,
+        color: colors.textSecondary,
+      }}
+    >
+      {isFullscreen ? <CompressIcon /> : <ExpandIcon />}
+    </button>
+  );
+}
+
+function ExpandIcon(): React.ReactElement {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M8 3H5a2 2 0 0 0-2 2v3m18 0V5a2 2 0 0 0-2-2h-3m0 18h3a2 2 0 0 0 2-2v-3M3 16v3a2 2 0 0 0 2 2h3" />
+    </svg>
+  );
+}
+
+function CompressIcon(): React.ReactElement {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M8 3v3a2 2 0 0 1-2 2H3m18 0h-3a2 2 0 0 1-2-2V3m0 18v-3a2 2 0 0 1 2-2h3M3 16h3a2 2 0 0 1 2 2v3" />
+    </svg>
   );
 }
