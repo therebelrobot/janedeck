@@ -151,3 +151,6 @@ vite.config.ts.timestamp-*
 # Docker
 docker-compose.override.yml
 .wrangler
+
+# Self-hosted persistent data (docker-compose.prod.yml bind mount)
+/data

@@ -1,0 +1,46 @@
+# ─────────────────────────────────────────────────────────────
+# JaneDeck — Docker Compose (self-hosted, prebuilt image)
+#
+# Pulls the published image from GHCR instead of building from
+# source — no repo clone required. If you're working from a
+# local checkout of the source instead, use docker-compose.yml.
+#
+# Usage:
+#   mkdir janedeck && cd janedeck
+#   curl -O https://raw.githubusercontent.com/therebelrobot/janebox/main/docker-compose.prod.yml
+#   echo "JANEDECK_ADMIN_PASSWORD=your-strong-password" > .env
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Access:
+#   http://localhost:5173   (or http://<host-ip>:5173 on LAN)
+#
+# Persistent game data is stored in ./data, next to this file —
+# a plain folder you can see, back up, or delete, not a hidden
+# Docker-managed volume.
+#
+# Supports: amd64 (x86_64) and arm64 (Raspberry Pi 4/5)
+# ─────────────────────────────────────────────────────────────
+
+services:
+  janedeck:
+    image: ghcr.io/therebelrobot/janedeck:latest
+    container_name: janedeck
+    ports:
+      - "5173:5173"
+    env_file:
+      - .env
+    environment:
+      # set JANEDECK_ADMIN_PASSWORD from .env with default
+      - JANEDECK_ADMIN_PASSWORD=${JANEDECK_ADMIN_PASSWORD:-changeme}
+    volumes:
+      # Persist game state across container restarts — bind-mounted
+      # to a local folder instead of a named Docker volume
+      - ./data:/app/.wrangler
+    restart: unless-stopped
+    # Resource limits suitable for Raspberry Pi
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 128M

@@ -192,19 +192,62 @@ npm run deploy
 
 ## Docker Deployment
 
-JaneDeck can run in Docker on any platform — including **Raspberry Pi 4/5** (ARM64).
+JaneDeck can run in Docker on any platform — including **Raspberry Pi 4/5** (ARM64). There are two ways to run it:
+
+- **Self-hosted (prebuilt image)** — pulls the published image from GHCR, no repo clone needed. Recommended for most self-hosters.
+- **Build from source** — clones the repo and builds the image locally. Use this if you're developing or want to run an unreleased change.
 
 ### Prerequisites
 
 - Docker Engine 20+ and Docker Compose v2
 - For Raspberry Pi: **64-bit OS required** (Raspberry Pi OS 64-bit, Ubuntu Server 64-bit, or Debian arm64). The 32-bit armv7l OS is not supported because the `workerd` runtime only ships ARM64 binaries.
 
-### Quick Start (Docker)
+### Option A: Self-Hosted (Prebuilt Image)
+
+```bash
+# 1. Make a directory for JaneDeck's compose file and data
+mkdir janedeck && cd janedeck
+
+# 2. Download the self-hoster compose file
+curl -O https://raw.githubusercontent.com/therebelrobot/janebox/main/docker-compose.prod.yml
+
+# 3. Create your environment file
+echo "JANEDECK_ADMIN_PASSWORD=your-strong-password" > .env
+
+# 4. Start
+docker compose -f docker-compose.prod.yml up -d
+
+# 5. Open in browser
+# http://localhost:5173          (local)
+# http://<your-pi-ip>:5173      (LAN)
+```
+
+Game data persists in `./data`, right next to `docker-compose.prod.yml` — a plain folder you can see, back up, or delete, not a hidden Docker-managed volume.
+
+```bash
+# Start in background
+docker compose -f docker-compose.prod.yml up -d
+
+# View logs
+docker compose -f docker-compose.prod.yml logs -f janedeck
+
+# Stop
+docker compose -f docker-compose.prod.yml down
+
+# Update to the latest published image
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
+
+# Reset game data
+rm -rf ./data
+```
+
+### Option B: Build from Source
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/therebelrobot/janedeck.git
-cd janedeck
+git clone https://github.com/therebelrobot/janebox.git
+cd janebox
 
 # 2. Create your environment file
 cp .env.example .env
@@ -217,8 +260,6 @@ docker compose up -d
 # http://localhost:5173          (local)
 # http://<your-pi-ip>:5173      (LAN)
 ```
-
-### Docker Commands
 
 ```bash
 # Start in background
@@ -249,13 +290,12 @@ docker compose down -v
    docker --version
    ```
 
-3. **Clone and run JaneDeck**:
+3. **Set up and run JaneDeck** (prebuilt image — see [Option A](#option-a-self-hosted-prebuilt-image) above; swap in [Option B](#option-b-build-from-source) if you'd rather build from source):
    ```bash
-   git clone https://github.com/therebelrobot/janedeck.git
-   cd janedeck
-   cp .env.example .env
-   nano .env  # Set your admin password
-   docker compose up -d
+   mkdir janedeck && cd janedeck
+   curl -O https://raw.githubusercontent.com/therebelrobot/janebox/main/docker-compose.prod.yml
+   echo "JANEDECK_ADMIN_PASSWORD=your-strong-password" > .env
+   docker compose -f docker-compose.prod.yml up -d
    ```
 
 4. **Access from your network**: Open `http://<pi-ip>:5173` from any device on the same network. Find your Pi's IP with `hostname -I`.
@@ -291,10 +331,10 @@ Caddy automatically provisions TLS certificates via Let's Encrypt.
 
 ### Persistent Storage
 
-Game state is stored in a Docker volume (`janedeck-data`). This means:
-- Game data survives container restarts (`docker compose restart`)
-- To clear all game data: `docker compose down -v`
-- Volume is stored at `/var/lib/docker/volumes/janedeck_janedeck-data/`
+Where game state lives depends on which compose file you used:
+
+- **Option A (`docker-compose.prod.yml`)** — bind-mounted to `./data`, right next to the compose file. It's a plain folder: back it up with a normal file copy, or wipe it with `rm -rf ./data` (container must be stopped first).
+- **Option B (`docker-compose.yml`)** — a named Docker volume (`janedeck-data`), stored at `/var/lib/docker/volumes/janedeck_janedeck-data/`. Survives `docker compose restart`; clear it with `docker compose down -v`.
 
 ## Routes
 
