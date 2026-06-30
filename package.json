@@ -1,6 +1,6 @@
 {
   "name": "janedeck",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "description": "A real-time multiplayer trivia game platform built with partyserver",
   "type": "module",
