@@ -1,8 +1,9 @@
 // src/client/stores/gameStore.ts — Zustand: synced game state
 // Central store for game state shared across all views (host, player, presentation, audience).
 import { create } from "zustand";
-import type { GameState, ScoreEntry, ScoreChange } from "@/shared/types";
+import type { GameState, GameType, ScoreEntry, ScoreChange, BingoSquare, BingoWinner } from "@/shared/types";
 import type { ServerMessage } from "@/shared/messages";
+import { usePlayerStore } from "./playerStore";
 
 interface GameStoreState {
   /** Current game state from server */
@@ -36,6 +37,12 @@ interface GameStoreState {
   timerTotal: number | null;
   /** Player count in the game */
   playerCount: number;
+  /** Which game type this room is running */
+  gameType: GameType;
+  /** The local player's bingo card (player role only) */
+  bingoCard: { squares: BingoSquare[]; marked: number[] } | null;
+  /** Bingo winners-so-far (across all configured patterns) */
+  bingoWinners: BingoWinner[];
 
   // Actions
   setGameState: (state: GameState) => void;
@@ -67,6 +74,9 @@ const initialState = {
   timerSeconds: null as number | null,
   timerTotal: null as number | null,
   playerCount: 0,
+  gameType: "trivia" as GameType,
+  bingoCard: null as GameStoreState["bingoCard"],
+  bingoWinners: [] as BingoWinner[],
 };
 
 export const useGameStore = create<GameStoreState>((set) => ({
@@ -88,6 +98,7 @@ export const useGameStore = create<GameStoreState>((set) => ({
       case "GAME_STATE_CHANGED":
         set({
           gameState: message.payload.state,
+          gameType: message.payload.gameType,
           ...(message.payload.roundIndex !== undefined && {
             roundIndex: message.payload.roundIndex,
           }),
@@ -169,6 +180,55 @@ export const useGameStore = create<GameStoreState>((set) => ({
 
       case "PLAYER_LEFT":
         set({ playerCount: message.payload.playerCount });
+        break;
+
+      case "BINGO_CARD_ASSIGNED":
+        set({
+          bingoCard: {
+            squares: message.payload.squares,
+            marked: message.payload.marked,
+          },
+        });
+        break;
+
+      case "BINGO_SQUARE_MARKED":
+        if (message.payload.playerId === usePlayerStore.getState().playerId) {
+          set((state) =>
+            state.bingoCard
+              ? {
+                bingoCard: {
+                  ...state.bingoCard,
+                  marked: [...state.bingoCard.marked, message.payload.squareIndex],
+                },
+              }
+              : {},
+          );
+        }
+        break;
+
+      case "BINGO_SQUARE_UNMARKED":
+        if (message.payload.playerId === usePlayerStore.getState().playerId) {
+          set((state) =>
+            state.bingoCard
+              ? {
+                bingoCard: {
+                  ...state.bingoCard,
+                  marked: state.bingoCard.marked.filter(
+                    (index) => index !== message.payload.squareIndex,
+                  ),
+                },
+              }
+              : {},
+          );
+        }
+        break;
+
+      case "BINGO_WINNER":
+        set({ bingoWinners: message.payload.allWinners });
+        break;
+
+      case "BINGO_GAME_ENDED":
+        set({ bingoWinners: message.payload.winners });
         break;
 
       default:

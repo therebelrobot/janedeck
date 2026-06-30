@@ -4,7 +4,6 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { colors, radii, spacing } from "../../../styles/theme";
-import { staggerItem } from "../../../animations/presets";
 import { DEFAULT_TIME_LIMIT } from "@/shared/constants";
 
 /** Data shape for a question in the editor */
@@ -50,7 +49,10 @@ export function QuestionEditor({
 
   return (
     <motion.div
-      variants={staggerItem}
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10 }}
+      transition={{ type: "spring", stiffness: 300, damping: 30 }}
       style={{
         backgroundColor: colors.bgElevated,
         borderRadius: radii.lg,

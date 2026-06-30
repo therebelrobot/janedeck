@@ -14,6 +14,17 @@ import { colors, spacing, radii, shadows } from "../../styles/theme";
 import { AudienceLeaderboard } from "./AudienceLeaderboard";
 import { VoteInput } from "./VoteInput";
 
+const WIN_PATTERN_LABELS: Record<string, string> = {
+  line: "a line",
+  four_corners: "four corners",
+  blackout: "a blackout",
+};
+
+interface BingoActivityEntry {
+  id: string;
+  message: string;
+}
+
 /**
  * Get byte length of a string (UTF-8).
  * R1.2: Field length ≥ 256 bytes.
@@ -39,6 +50,7 @@ export function AudienceView(): React.ReactElement {
   const [joinError, setJoinError] = useState<string | null>(null);
   const [hasVoted, setHasVoted] = useState(false);
   const [isVotingActive, setIsVotingActive] = useState(false);
+  const [bingoActivity, setBingoActivity] = useState<BingoActivityEntry[]>([]);
 
   // Handle server messages
   const handleMessage = useCallback(
@@ -67,6 +79,39 @@ export function AudienceView(): React.ReactElement {
           }
           break;
 
+        case "BINGO_SQUARE_MARKED":
+          setBingoActivity((prev) => [
+            {
+              id: `mark-${message.payload.playerId}-${message.payload.squareIndex}-${prev.length}`,
+              message: `${message.payload.displayName} marked ${message.payload.label}`,
+            },
+            ...prev.slice(0, 19),
+          ]);
+          break;
+
+        case "BINGO_SQUARE_UNMARKED":
+          setBingoActivity((prev) => [
+            {
+              id: `unmark-${message.payload.playerId}-${message.payload.squareIndex}-${prev.length}`,
+              message: `${message.payload.displayName} unmarked ${message.payload.label}`,
+            },
+            ...prev.slice(0, 19),
+          ]);
+          break;
+
+        case "BINGO_WINNER": {
+          const patternLabel =
+            WIN_PATTERN_LABELS[message.payload.pattern] || message.payload.pattern;
+          setBingoActivity((prev) => [
+            {
+              id: `win-${message.payload.playerId}-${message.payload.pattern}`,
+              message: `🏆 ${message.payload.displayName} got ${patternLabel}!`,
+            },
+            ...prev.slice(0, 19),
+          ]);
+          break;
+        }
+
         default:
           break;
       }
@@ -75,19 +120,18 @@ export function AudienceView(): React.ReactElement {
   );
 
   const { send, status } = usePartySocket({
-    gameCode: gameCode || "",
+    gameCode: gameCode || null,
     role: "audience",
     onMessage: handleMessage,
     onOpen: () => gameStore.setIsConnected(true),
     onClose: () => gameStore.setIsConnected(false),
   });
 
-  // Set game code in store
   useEffect(() => {
     if (gameCode) {
-      gameStore.setGameCode(gameCode);
+      useGameStore.getState().setGameCode(gameCode);
     }
-  }, [gameCode, gameStore]);
+  }, [gameCode]);
 
   // Handle join
   const handleJoin = (e: React.FormEvent) => {
@@ -130,7 +174,7 @@ export function AudienceView(): React.ReactElement {
   };
 
   // Derived state
-  const { gameState, currentQuestion, leaderboard } = gameStore;
+  const { gameState, gameType, currentQuestion, leaderboard, bingoWinners } = gameStore;
 
   // Join screen
   if (!hasJoined) {
@@ -462,11 +506,92 @@ export function AudienceView(): React.ReactElement {
               </h3>
             </div>
           )}
+
+          {/* BINGO_PLAYING / BINGO_ENDED — spectate-only: winners + activity feed, no card */}
+          {(gameState === "BINGO_PLAYING" || gameState === "BINGO_ENDED") && (
+            <div style={{ display: "flex", flexDirection: "column", gap: spacing[4] }}>
+              <div style={{ textAlign: "center" }}>
+                <h2
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    fontSize: "var(--text-xl)",
+                    fontWeight: 700,
+                    color: colors.accentPurple,
+                    margin: 0,
+                  }}
+                >
+                  {gameState === "BINGO_ENDED" ? "🏁 Bingo Ended" : "🎱 Bingo in Progress"}
+                </h2>
+              </div>
+
+              <div
+                style={{
+                  padding: spacing[4],
+                  backgroundColor: colors.bgCard,
+                  borderRadius: radii.xl,
+                  border: `1px solid ${colors.border}`,
+                }}
+              >
+                <h3
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    fontSize: "var(--text-base)",
+                    fontWeight: 700,
+                    margin: 0,
+                    marginBottom: spacing[2],
+                  }}
+                >
+                  Winners {bingoWinners.length > 0 && `(${bingoWinners.length})`}
+                </h3>
+                {bingoWinners.length === 0 ? (
+                  <p style={{ color: colors.textSecondary, fontSize: "var(--text-sm)", margin: 0 }}>
+                    No one has won yet.
+                  </p>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: spacing[1] }}>
+                    {bingoWinners.map((winner, i) => (
+                      <p
+                        key={`${winner.playerId}-${winner.pattern}-${i}`}
+                        style={{ fontSize: "var(--text-sm)", margin: 0 }}
+                      >
+                        🏆 {winner.displayName} — {WIN_PATTERN_LABELS[winner.pattern] || winner.pattern}
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div
+                style={{
+                  maxHeight: 200,
+                  overflowY: "auto",
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: spacing[1],
+                }}
+                aria-live="polite"
+              >
+                <AnimatePresence mode="popLayout">
+                  {bingoActivity.map((entry) => (
+                    <motion.p
+                      key={entry.id}
+                      initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0 }}
+                      style={{ fontSize: "var(--text-xs)", color: colors.textSecondary, margin: 0 }}
+                    >
+                      {entry.message}
+                    </motion.p>
+                  ))}
+                </AnimatePresence>
+              </div>
+            </div>
+          )}
         </motion.div>
       </AnimatePresence>
 
-      {/* Leaderboard — always visible when we have data */}
-      {leaderboard.length > 0 && (
+      {/* Leaderboard — trivia only; bingo uses the winners list above */}
+      {gameType !== "bingo" && leaderboard.length > 0 && (
         <div style={{ width: "100%", marginTop: spacing[4] }}>
           <AudienceLeaderboard entries={leaderboard} maxDisplay={15} />
         </div>

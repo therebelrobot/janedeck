@@ -10,8 +10,8 @@ import { PARTY_GAME_ROOM } from "@/shared/constants";
 export type ConnectionStatus = "connecting" | "connected" | "disconnected" | "error";
 
 interface UsePartySocketOptions {
-  /** Game code (room ID) */
-  gameCode: string;
+  /** Game code (room ID). Pass null to stay disconnected (no socket created). */
+  gameCode: string | null;
   /** Role for this connection */
   role: PlayerRole;
   /** Auth token (for host/presentation connections) */
@@ -50,7 +50,7 @@ export function usePartySocket({
   onError,
 }: UsePartySocketOptions): UsePartySocketReturn {
   const socketRef = useRef<PartySocket | null>(null);
-  const [status, setStatus] = useState<ConnectionStatus>("connecting");
+  const [status, setStatus] = useState<ConnectionStatus>("disconnected");
 
   // Stabilize callbacks with refs to avoid reconnecting on every render
   const onMessageRef = useRef(onMessage);
@@ -64,6 +64,12 @@ export function usePartySocket({
   useEffect(() => { onErrorRef.current = onError; }, [onError]);
 
   useEffect(() => {
+    if (!gameCode) {
+      setStatus("disconnected");
+      socketRef.current = null;
+      return;
+    }
+
     const query: Record<string, string> = { role };
     if (token) {
       query.token = token;

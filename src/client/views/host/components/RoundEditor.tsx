@@ -4,7 +4,7 @@
 import React, { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { colors, radii, spacing } from "../../../styles/theme";
-import { staggerContainer, staggerItem } from "../../../animations/presets";
+import { staggerItem } from "../../../animations/presets";
 import { DEFAULT_POINT_VALUE, DEFAULT_TIME_LIMIT } from "@/shared/constants";
 import { QuestionEditor, type QuestionEditorData } from "./QuestionEditor";
 
@@ -241,11 +241,10 @@ export function RoundEditor({
         {!isCollapsed && (
           <motion.div
             id={`${roundId}-body`}
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
+            initial={{ height: 0, opacity: 0, overflow: "hidden" }}
+            animate={{ height: "auto", opacity: 1, overflow: "visible" }}
+            exit={{ height: 0, opacity: 0, overflow: "hidden" }}
             transition={{ duration: 0.2 }}
-            style={{ overflow: "hidden" }}
           >
             <div
               style={{
@@ -266,10 +265,7 @@ export function RoundEditor({
               </span>
 
               {/* Question list */}
-              <motion.div
-                variants={staggerContainer}
-                initial="hidden"
-                animate="show"
+              <div
                 style={{ display: "flex", flexDirection: "column", gap: spacing[3] }}
               >
                 <AnimatePresence mode="popLayout">
@@ -285,7 +281,7 @@ export function RoundEditor({
                     />
                   ))}
                 </AnimatePresence>
-              </motion.div>
+              </div>
 
               {/* Add question button */}
               <button

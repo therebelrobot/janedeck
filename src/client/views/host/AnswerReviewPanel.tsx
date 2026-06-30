@@ -87,16 +87,18 @@ export function AnswerReviewPanel({
 
   const handleReject = useCallback(
     (answerId: string) => {
+      const bonus = bonusPoints[answerId] ?? 0;
       setReviewStatuses((prev) => ({ ...prev, [answerId]: "rejected" }));
       send({
         type: "HOST_JUDGE_ANSWER",
         payload: {
           answerId,
-          status: "incorrect",
+          status: bonus > 0 ? "bonus" : "incorrect",
+          bonusPoints: bonus > 0 ? bonus : undefined,
         },
       });
     },
-    [send],
+    [send, bonusPoints],
   );
 
   const handleBonusChange = useCallback(

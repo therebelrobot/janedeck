@@ -80,6 +80,7 @@ export const shadows = {
   glow: "0 0 20px rgba(59, 130, 246, 0.3)",
   glowPink: "0 0 20px rgba(236, 72, 153, 0.3)",
   glowGreen: "0 0 20px rgba(34, 197, 94, 0.3)",
+  glowYellow: "0 0 20px rgba(250, 204, 21, 0.4)",
 } as const;
 
 export const breakpoints = {

@@ -48,6 +48,14 @@ const STATE_STYLES: Record<
     backgroundColor: "var(--color-secondary)",
     color: "#ffffff",
   },
+  BINGO_PLAYING: {
+    backgroundColor: "var(--color-accent-green)",
+    color: "#000000",
+  },
+  BINGO_ENDED: {
+    backgroundColor: "var(--color-secondary)",
+    color: "#ffffff",
+  },
 };
 
 /**

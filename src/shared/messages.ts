@@ -4,8 +4,13 @@
 import type {
   AnswerReview,
   AnswerStatus,
+  BingoSettings,
+  BingoSquare,
+  BingoWinPattern,
+  BingoWinner,
   GameSettings,
   GameState,
+  GameType,
   ScoreChange,
   ScoreEntry,
   GameStats,
@@ -90,6 +95,11 @@ export interface HostResetGameMessage {
   payload: Record<string, never>;
 }
 
+export interface HostEndGameMessage {
+  type: "HOST_END_GAME";
+  payload: Record<string, never>;
+}
+
 export interface HostKickPlayerMessage {
   type: "HOST_KICK_PLAYER";
   payload: {
@@ -158,6 +168,45 @@ export interface PresentationConnectMessage {
   };
 }
 
+// ─── Bingo Messages (Client → Server) ──────────────────────────────────────────
+
+export interface HostCreateBingoGameMessage {
+  type: "HOST_CREATE_BINGO_GAME";
+  payload: {
+    token: string;
+    settings: BingoSettings;
+  };
+}
+
+export interface HostStartBingoGameMessage {
+  type: "HOST_START_BINGO_GAME";
+  payload: Record<string, never>;
+}
+
+export interface HostEndBingoGameMessage {
+  type: "HOST_END_BINGO_GAME";
+  payload: Record<string, never>;
+}
+
+export interface HostResetBingoGameMessage {
+  type: "HOST_RESET_BINGO_GAME";
+  payload: Record<string, never>;
+}
+
+export interface PlayerMarkSquareMessage {
+  type: "PLAYER_MARK_SQUARE";
+  payload: {
+    squareIndex: number;
+  };
+}
+
+export interface PlayerUnmarkSquareMessage {
+  type: "PLAYER_UNMARK_SQUARE";
+  payload: {
+    squareIndex: number;
+  };
+}
+
 /** Union of all client → server messages */
 export type ClientMessage =
   | HostCreateGameMessage
@@ -170,6 +219,7 @@ export type ClientMessage =
   | HostNextQuestionMessage
   | HostNextRoundMessage
   | HostResetGameMessage
+  | HostEndGameMessage
   | HostKickPlayerMessage
   | HostUpdateSettingsMessage
   | PlayerJoinMessage
@@ -178,7 +228,13 @@ export type ClientMessage =
   | PlayerBuzzerMessage
   | AudienceJoinMessage
   | AudienceVoteMessage
-  | PresentationConnectMessage;
+  | PresentationConnectMessage
+  | HostCreateBingoGameMessage
+  | HostStartBingoGameMessage
+  | HostEndBingoGameMessage
+  | HostResetBingoGameMessage
+  | PlayerMarkSquareMessage
+  | PlayerUnmarkSquareMessage;
 
 // ─── Server → Client Messages ────────────────────────────────────────────────
 
@@ -186,6 +242,7 @@ export type ClientMessage =
 export interface GameStateChangedMessage {
   type: "GAME_STATE_CHANGED";
   payload: {
+    gameType: GameType;
     state: GameState;
     roundIndex?: number;
     questionIndex?: number;
@@ -329,7 +386,7 @@ export interface JoinAcceptedMessage {
   type: "JOIN_ACCEPTED";
   payload: {
     playerId: string;
-    gameSettings: GameSettings;
+    gameSettings: GameSettings | BingoSettings;
   };
   timestamp: number;
 }
@@ -380,6 +437,64 @@ export interface ErrorMessage {
   timestamp: number;
 }
 
+// ─── Bingo Messages (Server → Client) ──────────────────────────────────────────
+
+/** Sent privately to a player when their card is assigned (on start, or on rejoin) */
+export interface BingoCardAssignedMessage {
+  type: "BINGO_CARD_ASSIGNED";
+  payload: {
+    squares: BingoSquare[];
+    marked: number[];
+  };
+  timestamp: number;
+}
+
+/** Broadcast to everyone in the room whenever any player marks a square */
+export interface BingoSquareMarkedMessage {
+  type: "BINGO_SQUARE_MARKED";
+  payload: {
+    playerId: string;
+    displayName: string;
+    squareIndex: number;
+    label: string;
+    totalMarked: number;
+  };
+  timestamp: number;
+}
+
+/** Broadcast to everyone in the room whenever any player unmarks a square */
+export interface BingoSquareUnmarkedMessage {
+  type: "BINGO_SQUARE_UNMARKED";
+  payload: {
+    playerId: string;
+    displayName: string;
+    squareIndex: number;
+    label: string;
+    totalMarked: number;
+  };
+  timestamp: number;
+}
+
+/** Broadcast to everyone whenever a player completes a configured win pattern */
+export interface BingoWinnerMessage {
+  type: "BINGO_WINNER";
+  payload: {
+    playerId: string;
+    displayName: string;
+    pattern: BingoWinPattern;
+    allWinners: BingoWinner[];
+  };
+  timestamp: number;
+}
+
+export interface BingoGameEndedMessage {
+  type: "BINGO_GAME_ENDED";
+  payload: {
+    winners: BingoWinner[];
+  };
+  timestamp: number;
+}
+
 /** Union of all server → client messages */
 export type ServerMessage =
   | GameStateChangedMessage
@@ -400,4 +515,9 @@ export type ServerMessage =
   | YourAnswerResultMessage
   | YourScoreMessage
   | KickedMessage
-  | ErrorMessage;
+  | ErrorMessage
+  | BingoCardAssignedMessage
+  | BingoSquareMarkedMessage
+  | BingoSquareUnmarkedMessage
+  | BingoWinnerMessage
+  | BingoGameEndedMessage;

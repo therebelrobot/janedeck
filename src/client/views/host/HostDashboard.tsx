@@ -2,7 +2,7 @@
 // R5.3: Semantic HTML. R5.6: aria-live regions for dynamic content.
 // R5.9: Keyboard shortcuts (Space = advance, Escape = close).
 // R1.4: displayName is the chosen name. R7.4: No blame language.
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import type { ServerMessage } from "@/shared/messages";
@@ -13,15 +13,27 @@ import { useAuth } from "../../hooks/useAuth";
 import { usePartySocket, type ConnectionStatus } from "../../hooks/usePartySocket";
 import { useGameStore } from "../../stores/gameStore";
 import { useHostStore } from "../../stores/hostStore";
+import { useNotificationStore } from "../../stores/notificationStore";
+import { playMarkSound, playWinSound } from "../../utils/soundEffects";
 import { colors, radii, spacing, shadows } from "../../styles/theme";
+import { leaderboardToCSV, downloadCSV } from "../../utils/csv";
 import { pageTransition, slideFromBottom, fadeInOut } from "../../animations/presets";
 import { StatusBadge } from "../../components/StatusBadge";
+import { LogoutButton } from "../../components/LogoutButton";
+import { SoundToggle } from "../../components/SoundToggle";
 import { Timer } from "../../components/Timer";
 import { Leaderboard } from "../../components/Leaderboard";
 import { Confetti } from "../../components/Confetti";
 import { PlayerList, type PlayerListEntry } from "./components/PlayerList";
 import { GameControls } from "./components/GameControls";
 import { AnswerReviewPanel } from "./AnswerReviewPanel";
+import { BingoHostDashboard, BingoControls, type BingoActivityEntry } from "./BingoHostDashboard";
+
+const WIN_PATTERN_LABELS: Record<string, string> = {
+  line: "a line",
+  four_corners: "four corners",
+  blackout: "a blackout",
+};
 
 /** Notification for answer submissions */
 interface AnswerNotification {
@@ -38,7 +50,7 @@ interface AnswerNotification {
 export function HostDashboard(): React.ReactElement {
   const { gameCode } = useParams<{ gameCode: string }>();
   const navigate = useNavigate();
-  const { isAuthenticated, token } = useAuth();
+  const { isAuthenticated, token, logout } = useAuth();
 
   // Stores
   const gameStore = useGameStore();
@@ -62,6 +74,7 @@ export function HostDashboard(): React.ReactElement {
     finalLeaderboard: ScoreEntry[];
   } | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
+  const [bingoActivity, setBingoActivity] = useState<BingoActivityEntry[]>([]);
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -169,13 +182,57 @@ export function HostDashboard(): React.ReactElement {
             setRoundMVP(null);
           }
           break;
+
+        case "BINGO_SQUARE_MARKED": {
+          const text = `${message.payload.displayName} marked ${message.payload.label}`;
+          useNotificationStore.getState().push("mark", text);
+          playMarkSound();
+          setBingoActivity((prev) => [
+            { id: `mark-${message.payload.playerId}-${message.payload.squareIndex}-${Date.now()}`, kind: "mark", message: text, timestamp: Date.now() },
+            ...prev.slice(0, 49),
+          ]);
+          break;
+        }
+
+        case "BINGO_SQUARE_UNMARKED": {
+          const text = `${message.payload.displayName} unmarked ${message.payload.label}`;
+          useNotificationStore.getState().push("mark", text);
+          setBingoActivity((prev) => [
+            { id: `unmark-${message.payload.playerId}-${message.payload.squareIndex}-${Date.now()}`, kind: "mark", message: text, timestamp: Date.now() },
+            ...prev.slice(0, 49),
+          ]);
+          break;
+        }
+
+        case "BINGO_WINNER": {
+          const patternLabel = WIN_PATTERN_LABELS[message.payload.pattern] || message.payload.pattern;
+          const text = `${message.payload.displayName} got ${patternLabel}!`;
+          useNotificationStore.getState().push("win", `${text} 🏆`);
+          playWinSound();
+          setShowConfetti(true);
+          setTimeout(() => setShowConfetti(false), 4000);
+          setBingoActivity((prev) => [
+            { id: `win-${message.payload.playerId}-${message.payload.pattern}-${Date.now()}`, kind: "win", message: text, timestamp: Date.now() },
+            ...prev.slice(0, 49),
+          ]);
+          break;
+        }
+
+        case "ERROR":
+          if (message.payload.code === "AUTH_FAILED") {
+            // Stale/invalid token — clear it automatically instead of leaving
+            // the host stuck reconnecting with a token the server keeps rejecting.
+            logout();
+            navigate("/host", { replace: true });
+          }
+          break;
       }
     },
-    [gameStore, hostStore],
+    [gameStore, hostStore, logout, navigate],
   );
 
   const { send, status } = usePartySocket({
-    gameCode: gameCode || "",
+    gameCode: gameCode || null,
     role: "host",
     token: token || undefined,
     onMessage: handleMessage,
@@ -183,12 +240,15 @@ export function HostDashboard(): React.ReactElement {
     onClose: () => gameStore.setIsConnected(false),
   });
 
-  // Set the game code in the store
+  // Set the game code in the store. Access setGameCode imperatively so the
+  // store object itself is not a dep — including it would cause an infinite
+  // loop: setGameCode updates the store → new store reference → effect
+  // re-fires → setGameCode again → repeat.
   useEffect(() => {
     if (gameCode) {
-      gameStore.setGameCode(gameCode);
+      useGameStore.getState().setGameCode(gameCode);
     }
-  }, [gameCode, gameStore]);
+  }, [gameCode]);
 
   // Keyboard shortcuts — R5.9
   useEffect(() => {
@@ -276,6 +336,17 @@ export function HostDashboard(): React.ReactElement {
             gap: spacing[6],
           }}
         >
+          {gameStore.gameType === "bingo" ? (
+            <BingoHostDashboard
+              gameCode={gameCode || ""}
+              gameState={gameState}
+              players={players}
+              bingoWinners={gameStore.bingoWinners}
+              activityFeed={bingoActivity}
+              onKick={handleKickPlayer}
+            />
+          ) : (
+            <>
           {/* LOBBY */}
           {gameState === "LOBBY" && (
             <LobbyView
@@ -343,6 +414,8 @@ export function HostDashboard(): React.ReactElement {
               leaderboard={leaderboard}
             />
           )}
+            </>
+          )}
         </motion.div>
       </AnimatePresence>
 
@@ -358,14 +431,18 @@ export function HostDashboard(): React.ReactElement {
           zIndex: 20,
         }}
       >
-        <GameControls
-          gameState={gameState}
-          playerCount={players.filter((p) => p.isConnected).length}
-          allAnswersReviewed={allAnswersReviewed}
-          hasMoreQuestions={hasMoreQuestions}
-          hasMoreRounds={hasMoreRounds}
-          send={send}
-        />
+        {gameStore.gameType === "bingo" ? (
+          <BingoControls gameState={gameState} send={send} />
+        ) : (
+          <GameControls
+            gameState={gameState}
+            playerCount={players.filter((p) => p.isConnected).length}
+            allAnswersReviewed={allAnswersReviewed}
+            hasMoreQuestions={hasMoreQuestions}
+            hasMoreRounds={hasMoreRounds}
+            send={send}
+          />
+        )}
       </div>
     </motion.div>
   );
@@ -454,6 +531,9 @@ function StatusBar({
         />
         <span>{connectionStatus}</span>
       </div>
+
+      <SoundToggle />
+      <LogoutButton />
     </header>
   );
 }
@@ -877,6 +957,12 @@ function GameOverView({
   const displayLeaderboard = gameOverData?.finalLeaderboard || leaderboard;
   const winner = gameOverData?.winner;
 
+  const handleExportResults = useCallback(() => {
+    const csv = leaderboardToCSV(displayLeaderboard);
+    const date = new Date().toISOString().slice(0, 10);
+    downloadCSV(csv, `janedeck-results-${date}.csv`);
+  }, [displayLeaderboard]);
+
   return (
     <div
       style={{
@@ -941,6 +1027,25 @@ function GameOverView({
       )}
 
       <Leaderboard entries={displayLeaderboard} maxDisplay={20} />
+
+      {/* Export results CSV — R5.2: SC 2.5.8 ≥ 44px touch target */}
+      {displayLeaderboard.length > 0 && (
+        <button
+          type="button"
+          onClick={handleExportResults}
+          className="btn-ghost"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: spacing[2],
+            minHeight: 44,
+            minWidth: 44,
+            fontSize: "var(--text-sm)",
+          }}
+        >
+          📤 Export Results CSV
+        </button>
+      )}
     </div>
   );
 }

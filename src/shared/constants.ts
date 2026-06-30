@@ -1,5 +1,7 @@
 // src/shared/constants.ts — Shared constants for JaneDeck
 
+import type { BingoPhraseEntry } from "./types";
+
 /** Length of the game code (alphanumeric characters) */
 export const GAME_CODE_LENGTH = 6;
 
@@ -52,4 +54,15 @@ export const DEFAULT_GAME_SETTINGS = {
   audienceBonusPoints: 1,
   defaultTimeLimit: DEFAULT_TIME_LIMIT,
   showAnswersToPlayers: true,
+} as const;
+
+/** Default bingo settings */
+export const DEFAULT_BINGO_SETTINGS = {
+  maxPlayers: 16,
+  cardMode: "numbered",
+  numberRange: 75,
+  phrasePool: [] as BingoPhraseEntry[],
+  gridSize: 5,
+  freeSpace: true,
+  winPatterns: ["line"],
 } as const;

@@ -70,6 +70,9 @@ web_modules/
 .env.*
 !.env.example
 
+# wrangler local dev bindings (generated from .env at container start)
+.dev.vars
+
 # parcel-bundler cache (https://parceljs.org/)
 .cache
 .parcel-cache
@@ -147,3 +150,4 @@ vite.config.ts.timestamp-*
 
 # Docker
 docker-compose.override.yml
+.wrangler

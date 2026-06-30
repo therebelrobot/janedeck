@@ -1,22 +1,35 @@
 // src/client/views/host/GameCreator.tsx — Game setup page
 // R5.3: Semantic HTML. R5.6: Proper labels, aria-describedby.
 // R5.2: SC 2.5.7 — reorder has single-pointer alternative.
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { customAlphabet } from "nanoid";
 import { useAuth } from "../../hooks/useAuth";
 import { useHostStore } from "../../stores/hostStore";
 import { usePartySocket } from "../../hooks/usePartySocket";
-import type { ServerMessage } from "@/shared/messages";
+import type { ClientMessage, ServerMessage } from "@/shared/messages";
 import {
   DEFAULT_TIME_LIMIT,
   DEFAULT_POINT_VALUE,
   DEFAULT_BONUS_POINTS,
+  GAME_CODE_CHARS,
+  GAME_CODE_LENGTH,
 } from "@/shared/constants";
 import { colors, radii, spacing, shadows } from "../../styles/theme";
 import { pageTransition, staggerContainer, staggerItem } from "../../animations/presets";
+import { LogoutButton } from "../../components/LogoutButton";
 import { RoundEditor, type RoundEditorData } from "./components/RoundEditor";
 import type { QuestionEditorData } from "./components/QuestionEditor";
+import {
+  gameToCSV,
+  templateCSV,
+  downloadCSV,
+  csvToGame,
+} from "../../utils/csv";
+
+/** Generate a game code client-side using the same alphabet as the server */
+const generateGameCode = customAlphabet(GAME_CODE_CHARS, GAME_CODE_LENGTH);
 
 /** Quick start template with sample trivia */
 function getQuickStartTemplate(): {
@@ -84,7 +97,7 @@ function getQuickStartTemplate(): {
  */
 export function GameCreator(): React.ReactElement {
   const navigate = useNavigate();
-  const { isAuthenticated, token } = useAuth();
+  const { isAuthenticated, token, logout } = useAuth();
   const hostStore = useHostStore();
 
   // Redirect if not authenticated
@@ -120,6 +133,16 @@ export function GameCreator(): React.ReactElement {
   const [validationError, setValidationError] = useState<string | null>(null);
   const [socketGameCode, setSocketGameCode] = useState<string | null>(null);
 
+  // Pending create message — sent once the socket to the new room opens
+  const pendingCreateRef = useRef<ClientMessage | null>(null);
+
+  // CSV import state
+  const csvFileInputRef = useRef<HTMLInputElement>(null);
+  const [csvFeedback, setCsvFeedback] = useState<{
+    type: "success" | "warning" | "error";
+    messages: string[];
+  } | null>(null);
+
   // Handle server messages for game creation
   const handleMessage = useCallback(
     (message: ServerMessage) => {
@@ -130,26 +153,57 @@ export function GameCreator(): React.ReactElement {
       if (message.type === "ERROR") {
         setIsCreating(false);
         setValidationError(message.payload.message);
+        if (message.payload.code === "AUTH_FAILED") {
+          // Stale/invalid token — clear it automatically instead of leaving
+          // the host stuck reconnecting with a token the server keeps rejecting.
+          logout();
+          navigate("/host", { replace: true });
+        }
       }
     },
-    [hostStore],
+    [hostStore, logout, navigate],
   );
 
-  // Only connect when we're creating a game — use a placeholder code
+  // Only connect once the host clicks Start Game and socketGameCode is set.
+  // Passing null keeps the hook dormant and avoids a premature connection to a
+  // placeholder room (which would trigger unnecessary auth validation on the server).
   const { send, status } = usePartySocket({
-    gameCode: socketGameCode || "create",
+    gameCode: socketGameCode,
     role: "host",
     token: token || undefined,
     onMessage: handleMessage,
   });
 
-  // Navigate once game is created
+  // Once the socket to the new game-code room opens, send the pending
+  // HOST_CREATE_GAME message that was queued by handleCreateGame.
+  useEffect(() => {
+    if (status === "connected" && socketGameCode && pendingCreateRef.current) {
+      send(pendingCreateRef.current);
+      pendingCreateRef.current = null;
+    }
+  }, [status, socketGameCode, send]);
+
+  // Navigate once game is created — guard with socketGameCode so a stale
+  // hostStore.gameCode from a previous session can't trigger early navigation.
   useEffect(() => {
     const gameCode = hostStore.gameCode;
-    if (gameCode && isCreating) {
+    if (gameCode && isCreating && gameCode === socketGameCode) {
       navigate(`/host/${gameCode}`);
     }
-  }, [hostStore.gameCode, isCreating, navigate]);
+  }, [hostStore.gameCode, isCreating, navigate, socketGameCode]);
+
+  // Safety timeout: if GAME_CREATED hasn't arrived within 15 s, reset the
+  // spinner so the host can try again instead of waiting forever.
+  useEffect(() => {
+    if (!isCreating) return;
+    const timer = setTimeout(() => {
+      setIsCreating(false);
+      setSocketGameCode(null);
+      pendingCreateRef.current = null;
+      setValidationError("Game creation timed out. Please check your connection and try again.");
+    }, 15000);
+    return () => clearTimeout(timer);
+  }, [isCreating]);
 
   // Round manipulation handlers
   const handleRoundChange = useCallback(
@@ -218,6 +272,117 @@ export function GameCreator(): React.ReactElement {
     setDefaultBonus(template.settings.defaultBonus);
   }, []);
 
+  // ── CSV Handlers ──────────────────────────────────────────────────────
+
+  /** Check whether the form has meaningful data (non-empty questions). */
+  const hasExistingData = rounds.some((r) =>
+    r.questions.some((q) => q.text.trim() || q.correctAnswer.trim()),
+  );
+
+  /** Export current game as CSV download */
+  const handleExportCSV = useCallback(() => {
+    const csv = gameToCSV(rounds);
+    const date = new Date().toISOString().slice(0, 10);
+    downloadCSV(csv, `janedeck-game-${date}.csv`);
+  }, [rounds]);
+
+  /** Download empty template CSV */
+  const handleDownloadTemplate = useCallback(() => {
+    const csv = templateCSV();
+    downloadCSV(csv, "janedeck-template.csv");
+  }, []);
+
+  /** Trigger file picker for CSV import */
+  const handleImportClick = useCallback(() => {
+    csvFileInputRef.current?.click();
+  }, []);
+
+  /** Process imported CSV file */
+  const handleCSVFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      // Confirm replacement if form has existing data
+      if (hasExistingData) {
+        const confirmed = window.confirm(
+          "This will replace your current game data. Continue?",
+        );
+        if (!confirmed) {
+          // Reset file input so the same file can be re-selected
+          if (csvFileInputRef.current) csvFileInputRef.current.value = "";
+          return;
+        }
+      }
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const csvContent = event.target?.result;
+        if (typeof csvContent !== "string") {
+          setCsvFeedback({
+            type: "error",
+            messages: ["Unable to read the file. Please try again with a .csv file."],
+          });
+          return;
+        }
+
+        const result = csvToGame(csvContent);
+
+        if (result.errors.length > 0 && result.rounds.length === 0) {
+          // Only errors, no usable data
+          setCsvFeedback({ type: "error", messages: result.errors });
+        } else if (result.rounds.length > 0) {
+          // Successfully imported — apply to form
+          setRounds(result.rounds);
+          setValidationError(null);
+
+          const allMessages: string[] = [];
+          const totalQuestions = result.rounds.reduce(
+            (sum, r) => sum + r.questions.length,
+            0,
+          );
+          allMessages.push(
+            `Imported ${result.rounds.length} round${result.rounds.length !== 1 ? "s" : ""} with ${totalQuestions} question${totalQuestions !== 1 ? "s" : ""}.`,
+          );
+
+          if (result.warnings.length > 0) {
+            allMessages.push(...result.warnings);
+          }
+          if (result.errors.length > 0) {
+            allMessages.push(...result.errors);
+          }
+
+          setCsvFeedback({
+            type:
+              result.errors.length > 0 || result.warnings.length > 0
+                ? "warning"
+                : "success",
+            messages: allMessages,
+          });
+        }
+
+        // Reset file input for re-import
+        if (csvFileInputRef.current) csvFileInputRef.current.value = "";
+      };
+
+      reader.onerror = () => {
+        setCsvFeedback({
+          type: "error",
+          messages: ["Unable to read the file. Please check the file and try again."],
+        });
+        if (csvFileInputRef.current) csvFileInputRef.current.value = "";
+      };
+
+      reader.readAsText(file, "UTF-8");
+    },
+    [hasExistingData],
+  );
+
+  /** Whether export button should be enabled (at least 1 round with 1 filled question) */
+  const canExport = rounds.some((r) =>
+    r.questions.some((q) => q.text.trim() && q.correctAnswer.trim()),
+  );
+
   // Validation
   const validate = (): boolean => {
     for (let ri = 0; ri < rounds.length; ri++) {
@@ -259,8 +424,15 @@ export function GameCreator(): React.ReactElement {
 
     setIsCreating(true);
 
-    // Build the create message
-    send({
+    // Generate a game code client-side so the PartySocket connects to the
+    // correct Durable Object room. The server uses `this.name` (the room
+    // name) as the game ID — connecting to "create" would make the game
+    // code literally "create" and navigation would loop back here.
+    const code = generateGameCode();
+
+    // Build the create message and store it — it will be sent once the
+    // socket to the new room opens (via handleOpen / onOpen callback).
+    pendingCreateRef.current = {
       type: "HOST_CREATE_GAME",
       payload: {
         token,
@@ -288,8 +460,11 @@ export function GameCreator(): React.ReactElement {
           })),
         })),
       },
-    });
-  }, [token, allowAudience, defaultBonus, defaultTimeLimit, rounds, send]);
+    };
+
+    // Trigger reconnect to the real game-code room
+    setSocketGameCode(code);
+  }, [token, allowAudience, defaultBonus, defaultTimeLimit, rounds]);
 
   return (
     <motion.div
@@ -331,20 +506,167 @@ export function GameCreator(): React.ReactElement {
           </p>
         </div>
 
-        {/* Quick Start */}
+        <div style={{ display: "flex", alignItems: "center", gap: spacing[3] }}>
+          {/* Quick Start */}
+          <button
+            type="button"
+            onClick={handleQuickStart}
+            className="btn-ghost"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: spacing[2],
+            }}
+          >
+            ⚡ Quick Start
+          </button>
+
+          <LogoutButton />
+        </div>
+      </div>
+
+      {/* CSV Import/Export toolbar — R5.3: semantic <button> elements */}
+      {/* R5.2: SC 2.5.8 — buttons ≥ 44px touch targets */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: spacing[2],
+          flexWrap: "wrap",
+          width: "100%",
+        }}
+        role="toolbar"
+        aria-label="CSV import and export"
+      >
+        {/* Hidden file input for CSV import — R5.6: accessible label */}
+        <input
+          ref={csvFileInputRef}
+          type="file"
+          accept=".csv,text/csv"
+          onChange={handleCSVFileChange}
+          aria-label="Import CSV file"
+          style={{
+            position: "absolute",
+            width: 1,
+            height: 1,
+            padding: 0,
+            margin: -1,
+            overflow: "hidden",
+            clip: "rect(0, 0, 0, 0)",
+            whiteSpace: "nowrap",
+            border: 0,
+          }}
+          tabIndex={-1}
+        />
+
         <button
           type="button"
-          onClick={handleQuickStart}
+          onClick={handleImportClick}
           className="btn-ghost"
           style={{
             display: "flex",
             alignItems: "center",
             gap: spacing[2],
+            minHeight: 44,
+            minWidth: 44,
+            fontSize: "var(--text-sm)",
           }}
         >
-          ⚡ Quick Start
+          📥 Import CSV
+        </button>
+
+        <button
+          type="button"
+          onClick={handleExportCSV}
+          disabled={!canExport}
+          className="btn-ghost"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: spacing[2],
+            minHeight: 44,
+            minWidth: 44,
+            fontSize: "var(--text-sm)",
+            opacity: canExport ? 1 : 0.5,
+          }}
+          title={
+            canExport
+              ? "Export current game as CSV"
+              : "Add at least one question with text and an answer to export"
+          }
+        >
+          📤 Export CSV
+        </button>
+
+        <button
+          type="button"
+          onClick={handleDownloadTemplate}
+          className="btn-ghost"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: spacing[2],
+            minHeight: 44,
+            minWidth: 44,
+            fontSize: "var(--text-sm)",
+          }}
+        >
+          📋 Download Template
         </button>
       </div>
+
+      {/* CSV feedback messages — R7.4: non-blame language */}
+      {csvFeedback && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            width: "100%",
+            padding: spacing[3],
+            borderRadius: radii.md,
+            fontSize: "var(--text-sm)",
+            backgroundColor:
+              csvFeedback.type === "success"
+                ? `${colors.correct}15`
+                : csvFeedback.type === "warning"
+                  ? `${colors.needsReview}15`
+                  : `${colors.incorrect}15`,
+            border: `1px solid ${
+              csvFeedback.type === "success"
+                ? `${colors.correct}40`
+                : csvFeedback.type === "warning"
+                  ? `${colors.needsReview}40`
+                  : `${colors.incorrect}40`
+            }`,
+            color:
+              csvFeedback.type === "success"
+                ? colors.correct
+                : csvFeedback.type === "warning"
+                  ? colors.needsReview
+                  : colors.incorrect,
+          }}
+        >
+          {csvFeedback.messages.map((msg, i) => (
+            <p key={i} style={{ margin: i === 0 ? 0 : `${spacing[1]} 0 0` }}>
+              {msg}
+            </p>
+          ))}
+          <button
+            type="button"
+            onClick={() => setCsvFeedback(null)}
+            className="btn-ghost"
+            style={{
+              marginTop: spacing[2],
+              fontSize: "var(--text-xs)",
+              minHeight: 44,
+              minWidth: 44,
+              color: "inherit",
+            }}
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {/* Settings panel */}
       <div

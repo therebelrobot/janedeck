@@ -21,6 +21,9 @@ services:
       - "5173:5173"
     env_file:
       - .env
+    environment:
+      # set JANEDECK_ADMIN_PASSWORD from .env with default
+      - JANEDECK_ADMIN_PASSWORD=${JANEDECK_ADMIN_PASSWORD:-changeme}
     volumes:
       # Persist game state across container restarts
       - janedeck-data:/app/.wrangler

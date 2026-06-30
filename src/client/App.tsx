@@ -5,11 +5,14 @@ import React from "react";
 import { Routes, Route, useLocation } from "react-router-dom";
 import { AnimatePresence } from "framer-motion";
 import { ReducedMotionProvider } from "./animations/ReducedMotion";
+import { ToastStack } from "./components/ToastStack";
 
 // View imports
 import { HomeView } from "./views/HomeView";
 import { HostLogin } from "./views/host/HostLogin";
+import { GameTypeSelector } from "./views/host/GameTypeSelector";
 import { GameCreator } from "./views/host/GameCreator";
+import { BingoGameCreator } from "./views/host/BingoGameCreator";
 import { HostDashboard } from "./views/host/HostDashboard";
 import { PlayerView } from "./views/player/PlayerView";
 import { PresentationView } from "./views/presentation/PresentationView";
@@ -68,7 +71,9 @@ function AnimatedRoutes(): React.ReactElement {
 
         {/* Host routes */}
         <Route path="/host" element={<HostLogin />} />
-        <Route path="/host/create" element={<GameCreator />} />
+        <Route path="/host/create" element={<GameTypeSelector />} />
+        <Route path="/host/create/trivia" element={<GameCreator />} />
+        <Route path="/host/create/bingo" element={<BingoGameCreator />} />
         <Route path="/host/:gameCode" element={<HostDashboard />} />
 
         {/* Player route */}
@@ -89,6 +94,7 @@ export function App(): React.ReactElement {
     <ErrorBoundary>
       <ReducedMotionProvider>
         <AnimatedRoutes />
+        <ToastStack />
       </ReducedMotionProvider>
     </ErrorBoundary>
   );

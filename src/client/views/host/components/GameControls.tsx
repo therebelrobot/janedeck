@@ -77,7 +77,7 @@ export function GameControls({
 
   const handleEndGame = () => {
     if (confirmEndGame) {
-      send({ type: "HOST_RESET_GAME", payload: {} });
+      send({ type: "HOST_END_GAME", payload: {} });
       setConfirmEndGame(false);
     } else {
       setConfirmEndGame(true);

@@ -27,6 +27,9 @@ import type {
   PlayerSubmitAnswerMessage,
   AudienceJoinMessage,
   AudienceVoteMessage,
+  HostEndGameMessage,
+  HostCreateBingoGameMessage,
+  PlayerMarkSquareMessage,
 } from "@/shared/messages";
 import { ClientMessageSchema } from "@/shared/schemas";
 import { PARTY_AUTH_GATE, QUESTION_DISPLAY_DELAY } from "@/shared/constants";
@@ -55,12 +58,20 @@ import {
   cancelTimer,
   getSecondsRemaining,
 } from "@/server/timer";
+import {
+  handleCreateBingoGame,
+  handleEndBingoGame,
+  handleMarkSquare,
+  handleResetBingoGame,
+  handleStartBingoGame,
+  handleUnmarkSquare,
+} from "@/server/bingo/bingoHandlers";
 
 export class GameRoom extends Server<Env> {
   static options = { hibernate: true };
 
   /** Game state — rehydrated from storage in onStart */
-  private game: Game | null = null;
+  game: Game | null = null;
 
   /** Called when the party starts (including after hibernation) */
   async onStart(): Promise<void> {
@@ -103,18 +114,24 @@ export class GameRoom extends Server<Env> {
       sendToConnection(conn, {
         type: "GAME_STATE_CHANGED",
         payload: {
+          gameType: this.game.type,
           state: this.game.state,
-          roundIndex: this.game.currentRoundIndex,
-          questionIndex: this.game.currentQuestionIndex,
+          ...(this.game.type === "trivia"
+            ? {
+                roundIndex: this.game.currentRoundIndex,
+                questionIndex: this.game.currentQuestionIndex,
+              }
+            : {}),
         },
         timestamp: Date.now(),
       });
 
       // If in a question-related state, send question info
       if (
-        this.game.state === "QUESTION_DISPLAY" ||
-        this.game.state === "ANSWERING" ||
-        this.game.state === "REVIEWING"
+        this.game.type === "trivia" &&
+        (this.game.state === "QUESTION_DISPLAY" ||
+          this.game.state === "ANSWERING" ||
+          this.game.state === "REVIEWING")
       ) {
         const round = this.game.rounds[this.game.currentRoundIndex];
         const question = round?.questions[this.game.currentQuestionIndex];
@@ -247,6 +264,11 @@ export class GameRoom extends Server<Env> {
         await this.handleResetGame(sender);
         break;
 
+      case "HOST_END_GAME":
+        if (state.role !== "host") return;
+        await this.handleEndGame(sender);
+        break;
+
       case "HOST_KICK_PLAYER":
         if (state.role !== "host") return;
         await this.handleKickPlayer(parsed, sender);
@@ -289,6 +311,38 @@ export class GameRoom extends Server<Env> {
       // ─── Presentation Messages ──────────────────────────────────────
       case "PRESENTATION_CONNECT":
         // Presentation just connects and receives broadcasts — no special handling
+        break;
+
+      // ─── Bingo Host Messages ─────────────────────────────────────────
+      case "HOST_CREATE_BINGO_GAME":
+        if (state.role !== "host") return;
+        await handleCreateBingoGame(this, parsed, sender);
+        break;
+
+      case "HOST_START_BINGO_GAME":
+        if (state.role !== "host") return;
+        await handleStartBingoGame(this, sender);
+        break;
+
+      case "HOST_END_BINGO_GAME":
+        if (state.role !== "host") return;
+        await handleEndBingoGame(this, sender);
+        break;
+
+      case "HOST_RESET_BINGO_GAME":
+        if (state.role !== "host") return;
+        await handleResetBingoGame(this, sender);
+        break;
+
+      // ─── Bingo Player Messages ───────────────────────────────────────
+      case "PLAYER_MARK_SQUARE":
+        if (state.role !== "player") return;
+        await handleMarkSquare(this, parsed, sender);
+        break;
+
+      case "PLAYER_UNMARK_SQUARE":
+        if (state.role !== "player") return;
+        await handleUnmarkSquare(this, parsed, sender);
         break;
     }
   }
@@ -339,6 +393,7 @@ export class GameRoom extends Server<Env> {
         if (remaining <= 0) {
           // Timer expired — transition to REVIEWING
           await this.transitionTo("REVIEWING");
+          broadcastStateChange(this, this.game);
 
           // Broadcast timer expired
           broadcastToAll(this, {
@@ -412,6 +467,7 @@ export class GameRoom extends Server<Env> {
     this.game = {
       id: gameId,
       hostToken: msg.payload.token,
+      type: "trivia",
       state: "LOBBY",
       currentRoundIndex: 0,
       currentQuestionIndex: 0,
@@ -439,7 +495,7 @@ export class GameRoom extends Server<Env> {
   private async handleStartGame(
     sender: Connection<ConnectionState>,
   ): Promise<void> {
-    if (!this.game) {
+    if (!this.game || this.game.type !== "trivia") {
       this.sendError(sender, "NO_GAME", "No game has been created");
       return;
     }
@@ -826,6 +882,39 @@ export class GameRoom extends Server<Env> {
     await this.persistGame();
   }
 
+  private async handleEndGame(
+    _sender: Connection<ConnectionState>,
+  ): Promise<void> {
+    if (!this.game) return;
+
+    // Skip if already at GAME_OVER or LOBBY
+    if (this.game.state === "GAME_OVER" || this.game.state === "LOBBY") return;
+
+    // Cancel any running timer alarm
+    await cancelTimer(this.ctx.storage);
+
+    // Force transition to GAME_OVER, bypassing state machine validation
+    this.game = transition(this.game, "GAME_OVER");
+
+    const finalLeaderboard = computeLeaderboard(this.game);
+    const winner = finalLeaderboard.length > 0 ? {
+      playerId: finalLeaderboard[0].playerId,
+      displayName: finalLeaderboard[0].displayName,
+      score: finalLeaderboard[0].score,
+    } : null;
+
+    const stats = this.computeGameStats();
+
+    broadcastToAll(this, {
+      type: "GAME_OVER",
+      payload: { finalLeaderboard, winner, stats },
+      timestamp: Date.now(),
+    });
+
+    broadcastStateChange(this, this.game);
+    await this.persistGame();
+  }
+
   private async handleKickPlayer(
     msg: HostKickPlayerMessage,
     sender: Connection<ConnectionState>,
@@ -1027,12 +1116,29 @@ export class GameRoom extends Server<Env> {
     sendToConnection(sender, {
       type: "GAME_STATE_CHANGED",
       payload: {
+        gameType: this.game.type,
         state: this.game.state,
-        roundIndex: this.game.currentRoundIndex,
-        questionIndex: this.game.currentQuestionIndex,
+        ...(this.game.type === "trivia"
+          ? {
+              roundIndex: this.game.currentRoundIndex,
+              questionIndex: this.game.currentQuestionIndex,
+            }
+          : {}),
       },
       timestamp: Date.now(),
     });
+
+    // For bingo, resend the reconnecting player's card snapshot
+    if (this.game.type === "bingo") {
+      const card = this.game.cards[playerId];
+      if (card) {
+        sendToConnection(sender, {
+          type: "BINGO_CARD_ASSIGNED",
+          payload: { squares: card.squares, marked: card.marked },
+          timestamp: Date.now(),
+        });
+      }
+    }
 
     // Send current score
     const leaderboard = computeLeaderboard(this.game);
@@ -1128,7 +1234,9 @@ export class GameRoom extends Server<Env> {
       return;
     }
 
-    if (!this.game.settings.allowAudience) {
+    const allowAudience =
+      this.game.type === "trivia" ? this.game.settings.allowAudience : true;
+    if (!allowAudience) {
       sendToConnection(sender, {
         type: "JOIN_REJECTED",
         payload: { reason: "Audience mode is not enabled for this game" },
@@ -1221,7 +1329,7 @@ export class GameRoom extends Server<Env> {
   // ─── Helper Methods ──────────────────────────────────────────────────────────
 
   /** Validate a token against the AuthGate DO */
-  private async validateToken(token: string): Promise<boolean> {
+  async validateToken(token: string): Promise<boolean> {
     try {
       // Use the AuthGate DO binding to validate the token
       const authId = this.env.AuthGate.idFromName("global");
@@ -1245,7 +1353,7 @@ export class GameRoom extends Server<Env> {
   private async transitionTo(targetState: Game["state"]): Promise<boolean> {
     if (!this.game) return false;
 
-    const result = validateTransition(this.game.state, targetState);
+    const result = validateTransition(this.game, targetState);
     if (!result.success) {
       return false;
     }
@@ -1256,14 +1364,14 @@ export class GameRoom extends Server<Env> {
   }
 
   /** Persist the current game state to storage */
-  private async persistGame(): Promise<void> {
+  async persistGame(): Promise<void> {
     if (this.game) {
       await saveGame(this.ctx.storage, this.game);
     }
   }
 
   /** Send an error message to a specific connection */
-  private sendError(
+  sendError(
     conn: Connection<ConnectionState>,
     code: string,
     message: string,
@@ -1285,7 +1393,7 @@ export class GameRoom extends Server<Env> {
 
   /** Run fuzzy matching on all answers for the current question and send to host */
   private async runFuzzyMatchingAndNotifyHost(): Promise<void> {
-    if (!this.game) return;
+    if (!this.game || this.game.type !== "trivia") return;
 
     const round = this.game.rounds[this.game.currentRoundIndex];
     const question = round?.questions[this.game.currentQuestionIndex];
@@ -1341,7 +1449,7 @@ export class GameRoom extends Server<Env> {
 
   /** Compute game statistics for the game over screen */
   private computeGameStats(): GameStats {
-    if (!this.game) {
+    if (!this.game || this.game.type !== "trivia") {
       return {
         totalQuestions: 0,
         totalAnswers: 0,

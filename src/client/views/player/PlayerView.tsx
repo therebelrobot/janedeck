@@ -2,22 +2,41 @@
 // R5.3: Semantic HTML. R5.5: AnimatePresence respects prefers-reduced-motion.
 // R1.4: displayName is the chosen name. R2.1: No demographic data.
 // R7.4: Non-blame error messages. R5.2: Touch targets ≥ 44px.
-import React, { useCallback, useState, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import React, { useCallback, useState, useEffect, useMemo } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import type { ServerMessage } from "@/shared/messages";
 import type { ScoreEntry } from "@/shared/types";
 import { usePartySocket } from "../../hooks/usePartySocket";
 import { useGameStore } from "../../stores/gameStore";
 import { usePlayerStore } from "../../stores/playerStore";
+import { useNotificationStore } from "../../stores/notificationStore";
+import { playMarkSound, playWinSound } from "../../utils/soundEffects";
 import { colors, spacing, radii } from "../../styles/theme";
 import { JoinScreen } from "./JoinScreen";
 import { PlayerQuestionScreen } from "./QuestionScreen";
 import { ResultScreen } from "./ResultScreen";
+import { BingoCard } from "./BingoCard";
+import { Confetti } from "../../components/Confetti";
+import { SoundToggle } from "../../components/SoundToggle";
 
-/** sessionStorage key for player reconnection — R9.5 */
-const PLAYER_ID_KEY = "janedeck_player_id";
-const PLAYER_NAME_KEY = "janedeck_player_name";
+const WIN_PATTERN_LABELS: Record<string, string> = {
+  line: "a line",
+  four_corners: "four corners",
+  blackout: "a blackout",
+};
+
+/**
+ * sessionStorage keys for player reconnection — R9.5.
+ * Scoped per game code so stale reconnect data from a previous game in the
+ * same browser tab never gets auto-replayed against an unrelated game.
+ */
+function playerIdKey(gameCode: string): string {
+  return `janedeck_player_id:${gameCode}`;
+}
+function playerNameKey(gameCode: string): string {
+  return `janedeck_player_name:${gameCode}`;
+}
 
 /**
  * PlayerView — the main player container for mobile devices.
@@ -25,6 +44,7 @@ const PLAYER_NAME_KEY = "janedeck_player_name";
  */
 export function PlayerView(): React.ReactElement {
   const { gameCode } = useParams<{ gameCode: string }>();
+  const navigate = useNavigate();
   const prefersReducedMotion = useReducedMotion();
 
   // Stores
@@ -40,18 +60,24 @@ export function PlayerView(): React.ReactElement {
   const [gameOverData, setGameOverData] = useState<{
     winner: { playerId: string; displayName: string; score: number } | null;
   } | null>(null);
+  const [bingoCelebrate, setBingoCelebrate] = useState(false);
+  // Count of OTHER players currently holding each label marked — drives the
+  // glow hint on matching unmarked squares on our own card. Using a count
+  // (rather than a one-shot flag) means the glow correctly clears if that
+  // other player unmarks their square and no one else still has it marked.
+  const [otherMarkedLabelCounts, setOtherMarkedLabelCounts] = useState<Record<string, number>>({});
 
-  // Check for reconnection data
-  const [storedPlayerId] = useState<string | null>(() => {
+  // Check for reconnection data — scoped to this game code only.
+  const [storedPlayerId, setStoredPlayerId] = useState<string | null>(() => {
     try {
-      return sessionStorage.getItem(PLAYER_ID_KEY);
+      return gameCode ? sessionStorage.getItem(playerIdKey(gameCode)) : null;
     } catch {
       return null;
     }
   });
   const [storedName] = useState<string | null>(() => {
     try {
-      return sessionStorage.getItem(PLAYER_NAME_KEY);
+      return gameCode ? sessionStorage.getItem(playerNameKey(gameCode)) : null;
     } catch {
       return null;
     }
@@ -71,9 +97,11 @@ export function PlayerView(): React.ReactElement {
           setJoinError(null);
           // Store for reconnection
           try {
-            sessionStorage.setItem(PLAYER_ID_KEY, message.payload.playerId);
-            if (playerStore.displayName) {
-              sessionStorage.setItem(PLAYER_NAME_KEY, playerStore.displayName);
+            if (gameCode) {
+              sessionStorage.setItem(playerIdKey(gameCode), message.payload.playerId);
+              if (playerStore.displayName) {
+                sessionStorage.setItem(playerNameKey(gameCode), playerStore.displayName);
+              }
             }
           } catch {
             // sessionStorage may be unavailable
@@ -82,6 +110,23 @@ export function PlayerView(): React.ReactElement {
 
         case "JOIN_REJECTED":
           setIsJoining(false);
+          // A "Player not found" rejection only ever comes from our own
+          // automatic PLAYER_REJOIN attempt (see usePartySocket's onOpen
+          // below) — it means stale reconnect data, not something the
+          // player did wrong. Clear it silently instead of showing an
+          // error on a join screen they haven't even submitted yet.
+          if (message.payload.reason === "Player not found") {
+            try {
+              if (gameCode) {
+                sessionStorage.removeItem(playerIdKey(gameCode));
+                sessionStorage.removeItem(playerNameKey(gameCode));
+              }
+            } catch {
+              // sessionStorage may be unavailable
+            }
+            setStoredPlayerId(null);
+            break;
+          }
           // R7.4: Server provides non-blame reason text
           setJoinError(message.payload.reason);
           break;
@@ -106,22 +151,88 @@ export function PlayerView(): React.ReactElement {
         case "KICKED":
           // Clear reconnection data
           try {
-            sessionStorage.removeItem(PLAYER_ID_KEY);
-            sessionStorage.removeItem(PLAYER_NAME_KEY);
+            if (gameCode) {
+              sessionStorage.removeItem(playerIdKey(gameCode));
+              sessionStorage.removeItem(playerNameKey(gameCode));
+            }
           } catch {
             // sessionStorage may be unavailable
           }
           break;
 
+        case "BINGO_SQUARE_MARKED": {
+          // Notify on this device regardless of whether the presentation
+          // screen is being watched — that's the whole point for bingo.
+          const isSelf = message.payload.playerId === playerStore.playerId;
+          useNotificationStore
+            .getState()
+            .push(
+              "mark",
+              isSelf
+                ? `You marked ${message.payload.label}`
+                : `${message.payload.displayName} marked ${message.payload.label}`,
+            );
+          playMarkSound();
+
+          // Someone else marked a square — track it so any matching unmarked
+          // square on our own card glows as a hint we could mark it too.
+          if (!isSelf) {
+            const label = message.payload.label;
+            setOtherMarkedLabelCounts((prev) => ({ ...prev, [label]: (prev[label] || 0) + 1 }));
+          }
+          break;
+        }
+
+        case "BINGO_SQUARE_UNMARKED": {
+          const isSelf = message.payload.playerId === playerStore.playerId;
+          useNotificationStore
+            .getState()
+            .push(
+              "mark",
+              isSelf
+                ? `You unmarked ${message.payload.label}`
+                : `${message.payload.displayName} unmarked ${message.payload.label}`,
+            );
+
+          // Stop glowing matching squares once nobody else still has it marked.
+          if (!isSelf) {
+            const label = message.payload.label;
+            setOtherMarkedLabelCounts((prev) => {
+              const count = (prev[label] || 0) - 1;
+              if (count <= 0) {
+                const { [label]: _removed, ...rest } = prev;
+                return rest;
+              }
+              return { ...prev, [label]: count };
+            });
+          }
+          break;
+        }
+
+        case "BINGO_CARD_ASSIGNED":
+          // New/refreshed card — any previously tracked glow hints no longer apply.
+          setOtherMarkedLabelCounts({});
+          break;
+
+        case "BINGO_WINNER": {
+          const patternLabel = WIN_PATTERN_LABELS[message.payload.pattern] || message.payload.pattern;
+          useNotificationStore
+            .getState()
+            .push("win", `${message.payload.displayName} got ${patternLabel}! 🏆`);
+          playWinSound();
+          setBingoCelebrate(true);
+          break;
+        }
+
         default:
           break;
       }
     },
-    [gameStore, playerStore],
+    [gameStore, playerStore, gameCode],
   );
 
   const { send, status } = usePartySocket({
-    gameCode: gameCode || "",
+    gameCode: gameCode || null,
     role: "player",
     onMessage: handleMessage,
     onOpen: () => {
@@ -137,12 +248,20 @@ export function PlayerView(): React.ReactElement {
     onClose: () => gameStore.setIsConnected(false),
   });
 
-  // Set game code in store
+  // Set game code in store imperatively to avoid the store object itself being
+  // a dep (setGameCode → store update → new store ref → effect re-fires → loop).
   useEffect(() => {
     if (gameCode) {
-      gameStore.setGameCode(gameCode);
+      useGameStore.getState().setGameCode(gameCode);
     }
-  }, [gameCode, gameStore]);
+  }, [gameCode]);
+
+  // Auto-clear the bingo win celebration after the confetti burst finishes
+  useEffect(() => {
+    if (!bingoCelebrate) return;
+    const timer = setTimeout(() => setBingoCelebrate(false), 3000);
+    return () => clearTimeout(timer);
+  }, [bingoCelebrate]);
 
   // Handle join
   const handleJoin = useCallback(
@@ -176,14 +295,61 @@ export function PlayerView(): React.ReactElement {
     [send, gameStore.currentQuestion, playerStore],
   );
 
+  // Handle bingo square marking — tapping a marked (non-free) square unmarks it.
+  const handleToggleSquare = useCallback(
+    (squareIndex: number) => {
+      const isMarked = useGameStore.getState().bingoCard?.marked.includes(squareIndex) ?? false;
+      send(
+        isMarked
+          ? { type: "PLAYER_UNMARK_SQUARE", payload: { squareIndex } }
+          : { type: "PLAYER_MARK_SQUARE", payload: { squareIndex } },
+      );
+    },
+    [send],
+  );
+
+  // Leave the game — clears reconnection data and local state, then
+  // navigates away so the socket disconnects for good (no auto-reconnect).
+  const handleLeaveGame = useCallback(() => {
+    try {
+      if (gameCode) {
+        sessionStorage.removeItem(playerIdKey(gameCode));
+        sessionStorage.removeItem(playerNameKey(gameCode));
+      }
+    } catch {
+      // sessionStorage may be unavailable
+    }
+    playerStore.reset();
+    gameStore.reset();
+    navigate("/", { replace: true });
+  }, [navigate, playerStore, gameStore, gameCode]);
+
   // Derived state
   const {
     gameState,
+    gameType,
     currentQuestion,
     timerSeconds,
     timerTotal,
     leaderboard,
+    bingoCard,
+    bingoWinners,
   } = gameStore;
+
+  // Unmarked squares whose label another player currently has marked — glow hint.
+  const suggestedIndices = useMemo(() => {
+    if (!bingoCard) return [];
+    const markedSet = new Set(bingoCard.marked);
+    return bingoCard.squares
+      .filter(
+        (square) =>
+          !square.isFree &&
+          !markedSet.has(square.index) &&
+          (otherMarkedLabelCounts[square.label] || 0) > 0,
+      )
+      .map((square) => square.index);
+  }, [bingoCard, otherMarkedLabelCounts]);
+
   const {
     playerId,
     displayName,
@@ -257,6 +423,35 @@ export function PlayerView(): React.ReactElement {
           : { type: "spring", stiffness: 300, damping: 25 }
       }
     >
+      {gameType === "bingo" && <Confetti active={bingoCelebrate} />}
+
+      {/* Top bar — sound toggle + leave game */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "flex-end",
+          gap: spacing[2],
+          width: "100%",
+        }}
+      >
+        <SoundToggle />
+        <button
+          type="button"
+          onClick={handleLeaveGame}
+          className="btn-ghost"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: spacing[2],
+            color: colors.textSecondary,
+            fontSize: "var(--text-sm)",
+          }}
+        >
+          🚪 Leave game
+        </button>
+      </div>
+
       {/* Connection status — subtle indicator */}
       {status !== "connected" && (
         <div
@@ -307,6 +502,26 @@ export function PlayerView(): React.ReactElement {
           {/* ROUND_INTRO */}
           {gameState === "ROUND_INTRO" && (
             <RoundIntroPlayer roundIndex={gameStore.roundIndex} />
+          )}
+
+          {/* BINGO_PLAYING — player's tappable card */}
+          {gameType === "bingo" && gameState === "BINGO_PLAYING" && bingoCard && (
+            <div style={{ display: "flex", flexDirection: "column", gap: spacing[4], alignItems: "center" }}>
+              <p style={{ color: colors.textSecondary, fontSize: "var(--text-sm)", margin: 0 }}>
+                Tap a square to mark it, tap again to unmark
+              </p>
+              <BingoCard
+                squares={bingoCard.squares}
+                marked={bingoCard.marked}
+                suggested={suggestedIndices}
+                onMarkSquare={handleToggleSquare}
+              />
+            </div>
+          )}
+
+          {/* BINGO_ENDED — winners recap */}
+          {gameType === "bingo" && gameState === "BINGO_ENDED" && (
+            <BingoEndedScreen winners={bingoWinners} playerId={playerId} />
           )}
 
           {/* QUESTION_DISPLAY / ANSWERING / REVIEWING */}
@@ -454,6 +669,75 @@ function LobbyWaiting({
           <span aria-live="polite">{playerCount} player{playerCount !== 1 ? "s" : ""}</span>
         </p>
       </div>
+    </div>
+  );
+}
+
+/** Recap screen shown after the host ends a bingo game */
+function BingoEndedScreen({
+  winners,
+  playerId,
+}: {
+  winners: Array<{ playerId: string; displayName: string; pattern: string; achievedAt: number }>;
+  playerId: string | null;
+}): React.ReactElement {
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: spacing[4],
+        textAlign: "center",
+        padding: `${spacing[8]} 0`,
+      }}
+    >
+      <span style={{ fontSize: "3rem" }} aria-hidden="true">
+        🏁
+      </span>
+      <h2
+        style={{
+          fontFamily: "var(--font-display)",
+          fontSize: "var(--text-2xl)",
+          fontWeight: 700,
+          color: colors.text,
+          margin: 0,
+        }}
+      >
+        Game Over
+      </h2>
+      {winners.length === 0 ? (
+        <p style={{ color: colors.textSecondary, margin: 0 }}>No one completed a pattern this game.</p>
+      ) : (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: spacing[2],
+            width: "100%",
+            maxWidth: 360,
+          }}
+        >
+          {winners.map((winner, i) => (
+            <div
+              key={`${winner.playerId}-${winner.pattern}-${i}`}
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                padding: `${spacing[2]} ${spacing[3]}`,
+                borderRadius: radii.md,
+                backgroundColor:
+                  winner.playerId === playerId ? `${colors.accentYellow}20` : colors.bgCard,
+                border: `1px solid ${winner.playerId === playerId ? colors.accentYellow : colors.border}`,
+                fontSize: "var(--text-sm)",
+              }}
+            >
+              <span>{winner.displayName}</span>
+              <span style={{ color: colors.textSecondary }}>{winner.pattern.replace("_", " ")}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

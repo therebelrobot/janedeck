@@ -7,6 +7,7 @@ import type {
   PlayerRole,
   Game,
   ScoreEntry,
+  TriviaGame,
 } from "@/shared/types";
 import type { ServerMessage } from "@/shared/messages";
 
@@ -113,9 +114,14 @@ export function broadcastStateChange(
   const message: ServerMessage = {
     type: "GAME_STATE_CHANGED",
     payload: {
+      gameType: game.type,
       state: game.state,
-      roundIndex: game.currentRoundIndex,
-      questionIndex: game.currentQuestionIndex,
+      ...(game.type === "trivia"
+        ? {
+            roundIndex: game.currentRoundIndex,
+            questionIndex: game.currentQuestionIndex,
+          }
+        : {}),
     },
     timestamp: Date.now(),
   };
@@ -128,7 +134,7 @@ export function broadcastStateChange(
  */
 export function broadcastQuestion(
   server: BroadcastContext,
-  game: Game,
+  game: TriviaGame,
 ): void {
   const round = game.rounds[game.currentRoundIndex];
   if (!round) return;

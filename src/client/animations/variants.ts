@@ -104,6 +104,16 @@ export const stateColors: Record<string, { bg: string; accent: string; text: str
     accent: colors.secondary,
     text: colors.text,
   },
+  BINGO_PLAYING: {
+    bg: colors.bg,
+    accent: colors.accentPurple,
+    text: colors.text,
+  },
+  BINGO_ENDED: {
+    bg: colors.bg,
+    accent: colors.secondary,
+    text: colors.text,
+  },
 };
 
 // ─── Answer Result Variants ───────────────────────────────────────────────────

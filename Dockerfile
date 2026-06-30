@@ -7,7 +7,7 @@
 # at runtime.
 # ─────────────────────────────────────────────────────────────
 
-FROM node:20-bookworm-slim
+FROM node:24-bookworm-slim
 
 WORKDIR /app
 
@@ -17,6 +17,7 @@ RUN npm ci
 
 # Copy all source files
 COPY . .
+RUN chmod +x docker-entrypoint.sh
 
 # Vite dev server port
 EXPOSE 5173
@@ -28,5 +29,6 @@ VOLUME ["/app/.wrangler"]
 HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
   CMD node -e "fetch('http://localhost:5173/').then(r => { if (!r.ok) throw 1 }).catch(() => process.exit(1))"
 
-# Run Vite dev server, bound to all interfaces
+# Generate .dev.vars from the container env, then run Vite dev bound to all interfaces
+ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["npx", "vite", "dev", "--host", "0.0.0.0"]

@@ -1,20 +1,21 @@
 # 🎮 JaneDeck
 
-A real-time multiplayer trivia game platform inspired by Jackbox Games, built with [PartyServer](https://github.com/threepointone/partyserver) + React on Cloudflare Workers.
+A seff-hosted, real-time multiplayer party game platform inspired by Jackbox Games, built with [PartyServer](https://github.com/threepointone/partyserver) + React on Cloudflare Workers. Hosts pick **Trivia** or **Bingo** when creating a game.
 
-Players join from their phones, the host controls the game, and a presentation view shows everything on a shared screen — all connected via WebSockets.
+Players join from their phones, the host controls (or, for Bingo, simply starts/ends) the game, and a presentation view shows everything on a shared screen — all connected via WebSockets.
 
 ## Features
 
-- **Multiple rounds** with customizable questions and point values
-- **Fuzzy answer matching** — powered by Fuse.js with host override for edge cases
-- **Bonus points** for creative or funny answers
+- **Two game types**, picked by the host at creation time:
+  - **Trivia** — multiple rounds with customizable questions and point values, fuzzy answer matching (Fuse.js, with host override for edge cases), and bonus points for creative or funny answers
+  - **Bingo** — numbered or custom-phrase-pool cards, free-for-all self-marking (no host pacing), configurable win patterns (line / four corners / blackout), and cross-player glow hints when another player marks a square matching yours
 - **4 views** designed for different roles:
-  - **Host** — control panel for managing the game (desktop)
+  - **Host** — control panel for managing the game, starting with a Trivia/Bingo type picker (desktop)
   - **Presentation** — screen-share view for video calls (TV/projector)
-  - **Player** — mobile-first answer interface (phone)
+  - **Player** — mobile-first interface for answering questions or marking a bingo card (phone)
   - **Audience** — spectator mode with reactions (phone)
 - **Real-time** WebSocket communication via PartyServer
+- **In-app notifications** — toasts and synthesized sound effects (mutable) for marks, wins, and other live events, so players don't need to be watching the shared presentation screen
 - **Animated** transitions, score reveals, and celebrations (Framer Motion)
 - **Accessible** — WCAG 2.2 AA compliant (semantic HTML, keyboard navigation, screen reader support, reduced motion)
 
@@ -22,7 +23,7 @@ Players join from their phones, the host controls the game, and a presentation v
 
 ### Prerequisites
 
-- Node.js 18+
+- Node.js 22+
 - npm 9+
 
 ### Setup
@@ -44,13 +45,26 @@ The dev server starts Vite with the Cloudflare plugin, serving both the WebSocke
 ### How to Play
 
 1. **Host** opens `/host` and enters the admin password
-2. **Host** creates a game with rounds and questions (or uses Quick Start template)
+2. **Host** picks a game type at `/host/create` — **Trivia** or **Bingo**
 3. **Players** join via game code at `/play/CODE` (or from the home page at `/`)
 4. **Host** shares the Presentation view (`/present/CODE`) on a video call or screen
-5. **Host** advances through rounds — players answer from their phones
-6. After each question, the host reviews answers (auto-scored by fuzzy matching)
-7. Scores are revealed with animated leaderboard updates
-8. At the end, the winner is crowned with confetti 🎉
+
+**Trivia:**
+
+5. **Host** creates the game with rounds and questions (or uses Quick Start template)
+6. **Host** advances through rounds — players answer from their phones
+7. After each question, the host reviews answers (auto-scored by fuzzy matching)
+8. Scores are revealed with animated leaderboard updates
+9. At the end, the winner is crowned with confetti 🎉
+
+**Bingo:**
+
+5. **Host** creates the game, choosing numbered or custom-phrase cards and which win patterns count (line / four corners / blackout)
+6. **Host** starts the game — each player gets their own shuffled card
+7. **Players** tap squares to mark or unmark them at their own pace, no host pacing required
+8. When another player marks a square matching one on your card, it glows as a hint
+9. Marks and wins are announced live (toast + sound, mutable via the in-app sound toggle) so players don't need to watch the shared screen
+10. **Host** ends the game when ready — multiple players can complete multiple patterns before then
 
 ## Architecture
 
@@ -72,9 +86,10 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full system design.
                     └──────────────────────┘
 ```
 
-- **GameRoom** — main Durable Object; manages game state, player connections, timer, scoring
+- **GameRoom** — single Durable Object class shared by both game types; `Game` is a discriminated union (`TriviaGame | BingoGame`) narrowed on a `type` field, each with its own state machine and message handlers
 - **AuthGate** — secondary Durable Object; validates host passwords, issues session tokens
-- **State Machine** — `LOBBY → ROUND_INTRO → QUESTION_DISPLAY → ANSWERING → REVIEWING → SCORE_REVEAL → ROUND_RESULTS → GAME_OVER`
+- **Trivia state machine** — `LOBBY → ROUND_INTRO → QUESTION_DISPLAY → ANSWERING → REVIEWING → SCORE_REVEAL → ROUND_RESULTS → GAME_OVER`
+- **Bingo state machine** — `LOBBY → BINGO_PLAYING → BINGO_ENDED`, with marking/win-checking handled by `src/server/bingo/` (`bingoEngine.ts` for card generation and pattern checks, `bingoHandlers.ts` for the message handlers)
 
 ## Tech Stack
 
@@ -102,18 +117,22 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full system design.
 ```
 src/
 ├── shared/                  # Shared types, messages, constants
-│   ├── types.ts             # TypeScript interfaces (Game, Player, Answer, etc.)
+│   ├── types.ts             # TypeScript interfaces (Game, Player, Answer, BingoCard, etc.)
 │   ├── messages.ts          # WebSocket message type definitions
 │   ├── schemas.ts           # Zod schemas for runtime validation
-│   ├── gameStates.ts        # State machine transitions
+│   ├── gameStates.ts        # State machine transitions (trivia + bingo)
 │   └── constants.ts         # Shared constants
 ├── server/                  # PartyServer / Cloudflare Workers code
-│   ├── gameRoom.ts          # Main game room Durable Object
+│   ├── index.ts             # Worker entry point
+│   ├── gameRoom.ts          # Main game room Durable Object (both game types)
 │   ├── authGate.ts          # Authentication Durable Object
-│   ├── stateMachine.ts      # Game state transition logic
+│   ├── stateMachine.ts      # Game state transition logic (trivia + bingo)
 │   ├── timer.ts             # Alarm-based countdown timer
 │   ├── fuzzyMatcher.ts      # Fuse.js answer matching
-│   └── utils/               # Server utilities
+│   ├── bingo/                # Bingo-specific server logic
+│   │   ├── bingoEngine.ts   # Card generation, win-pattern checking
+│   │   └── bingoHandlers.ts # Message handlers (create/start/mark/unmark/end)
+│   └── utils/                # Server utilities
 │       ├── broadcast.ts     # Role-targeted message broadcasting
 │       ├── storage.ts       # Durable Object storage helpers
 │       └── gameCode.ts      # Game code generation
@@ -121,31 +140,38 @@ src/
     ├── App.tsx              # Root component with routes
     ├── main.tsx             # React entry point
     ├── styles/              # Global CSS and theme tokens
-    ├── animations/          # Framer Motion presets and variants
-    ├── hooks/               # Custom React hooks
+    ├── animations/          # Framer Motion presets, variants, reduced-motion provider
+    ├── hooks/                 # Custom React hooks
     │   ├── usePartySocket.ts # WebSocket connection management
     │   ├── useGameState.ts   # Game state subscription
-    │   ├── useAuth.ts        # Host authentication
+    │   ├── useAuth.ts        # Host authentication (login + logout)
     │   ├── useTimer.ts       # Client-side timer sync
     │   └── useAnimatedScore.ts # Score counting animation
-    ├── stores/              # Zustand state stores
-    │   ├── gameStore.ts     # Shared game state
-    │   ├── hostStore.ts     # Host-specific state
-    │   └── playerStore.ts   # Player-specific state
-    ├── components/          # Reusable UI components
-    │   ├── Timer.tsx        # SVG countdown ring
-    │   ├── Leaderboard.tsx  # Animated score list
-    │   ├── Confetti.tsx     # Canvas confetti effect
-    │   ├── StatusBadge.tsx  # Game state indicator
-    │   ├── QuestionCard.tsx # Question display
-    │   ├── PlayerAvatar.tsx # Color-coded player icon
-    │   └── AnimatedScore.tsx # Counting-up score display
-    └── views/               # Route-level view components
-        ├── HomeView.tsx     # Landing page
-        ├── host/            # Host views
-        ├── player/          # Player views
-        ├── presentation/    # Screen-share views
-        └── audience/        # Spectator views
+    ├── stores/                  # Zustand state stores
+    │   ├── gameStore.ts         # Shared game state (trivia + bingo)
+    │   ├── hostStore.ts         # Host-specific state
+    │   ├── playerStore.ts       # Player-specific state
+    │   └── notificationStore.ts # Toast notification queue
+    ├── utils/                 # Client utilities
+    │   ├── csv.ts            # CSV import/export (questions, phrase pools, results)
+    │   └── soundEffects.ts   # Web Audio synthesized sound effects (mutable)
+    ├── components/            # Reusable UI components
+    │   ├── Timer.tsx          # SVG countdown ring
+    │   ├── Leaderboard.tsx    # Animated score list
+    │   ├── Confetti.tsx       # Canvas confetti effect
+    │   ├── StatusBadge.tsx    # Game state indicator
+    │   ├── QuestionCard.tsx   # Question display
+    │   ├── PlayerAvatar.tsx   # Color-coded player icon
+    │   ├── AnimatedScore.tsx  # Counting-up score display
+    │   ├── LogoutButton.tsx   # Host session logout
+    │   ├── SoundToggle.tsx    # Mute/unmute sound effects
+    │   └── ToastStack.tsx     # Renders queued notification toasts
+    └── views/                 # Route-level view components
+        ├── HomeView.tsx       # Landing page
+        ├── host/              # Host views (login, game type selector, trivia + bingo creators/dashboards, sub-components)
+        ├── player/            # Player views (trivia question flow + BingoCard, sub-components)
+        ├── presentation/      # Screen-share views (lobby, question, score reveal, game over, sub-components)
+        └── audience/          # Spectator views (leaderboard, vote input)
 ```
 
 ## Development
@@ -276,9 +302,11 @@ Game state is stored in a Docker volume (`janedeck-data`). This means:
 |---|---|---|
 | `/` | HomeView | Landing page with join/host options |
 | `/host` | HostLogin | Host password entry |
-| `/host/create` | GameCreator | Create game with rounds/questions |
-| `/host/:gameCode` | HostDashboard | Live game control panel |
-| `/play/:gameCode` | PlayerView | Player mobile interface |
+| `/host/create` | GameTypeSelector | Choose Trivia or Bingo |
+| `/host/create/trivia` | GameCreator | Create a trivia game with rounds/questions |
+| `/host/create/bingo` | BingoGameCreator | Create a bingo game (card mode, win patterns) |
+| `/host/:gameCode` | HostDashboard | Live game control panel (trivia or bingo) |
+| `/play/:gameCode` | PlayerView | Player mobile interface (question answering or bingo card) |
 | `/present/:gameCode` | PresentationView | Screen-share display |
 | `/audience/:gameCode` | AudienceView | Spectator mode |
 

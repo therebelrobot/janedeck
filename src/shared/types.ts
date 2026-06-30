@@ -1,8 +1,12 @@
 // src/shared/types.ts — Shared TypeScript interfaces for JaneDeck
 // Used by both server (PartyKit) and client (React)
 
+// === Game Type ===
+export type GameType = "trivia" | "bingo";
+
 // === Game States ===
-export type GameState =
+/** Trivia state machine states */
+export type TriviaGameState =
   | "LOBBY"
   | "ROUND_INTRO"
   | "QUESTION_DISPLAY"
@@ -11,6 +15,12 @@ export type GameState =
   | "SCORE_REVEAL"
   | "ROUND_RESULTS"
   | "GAME_OVER";
+
+/** Bingo state machine states — "LOBBY" is shared semantically with trivia */
+export type BingoGameState = "LOBBY" | "BINGO_PLAYING" | "BINGO_ENDED";
+
+/** Union of all game states across all game types */
+export type GameState = TriviaGameState | BingoGameState;
 
 // === Player Roles ===
 export type PlayerRole = "host" | "player" | "audience" | "presentation";
@@ -22,30 +32,50 @@ export type QuestionType = "text" | "multiple-choice" | "true-false";
 export type AnswerStatus = "pending" | "correct" | "incorrect" | "bonus";
 
 // === Game ===
-export interface Game {
+/** Fields shared by every game type, regardless of `type` */
+interface BaseGame {
   /** 6-char alphanumeric game code — also the room ID */
   id: string;
   /** Opaque token identifying the host session */
   hostToken: string;
+  /** Players keyed by player ID */
+  players: Record<string, Player>;
+  /** Unix timestamp ms of creation */
+  createdAt: number;
+}
+
+export interface TriviaGame extends BaseGame {
+  type: "trivia";
   /** Current state machine state */
-  state: GameState;
+  state: TriviaGameState;
   /** Index into rounds[] */
   currentRoundIndex: number;
   /** Index into current round's questions[] */
   currentQuestionIndex: number;
   /** Ordered list of rounds */
   rounds: Round[];
-  /** Players keyed by player ID */
-  players: Record<string, Player>;
   /** Game configuration */
   settings: GameSettings;
-  /** Unix timestamp ms of creation */
-  createdAt: number;
   /** Unix timestamp ms when the current timer started (null if no timer active) */
   timerStartedAt: number | null;
   /** Duration in seconds of the current timer (null if no timer active) */
   timerDuration: number | null;
 }
+
+export interface BingoGame extends BaseGame {
+  type: "bingo";
+  /** Current state machine state */
+  state: BingoGameState;
+  /** Game configuration */
+  settings: BingoSettings;
+  /** Each player's card, keyed by player ID */
+  cards: Record<string, BingoCard>;
+  /** Chronological list of pattern completions */
+  winners: BingoWinner[];
+}
+
+/** Discriminated union — narrow on `.type` */
+export type Game = TriviaGame | BingoGame;
 
 // === Game Settings ===
 export interface GameSettings {
@@ -153,6 +183,66 @@ export interface AnswerReview {
   /** Suggested classification based on fuzzy thresholds */
   suggestedStatus: "correct" | "incorrect" | "needs_review";
   submittedAt: number;
+}
+
+// === Bingo ===
+export type BingoCardMode = "numbered" | "phrasePool";
+
+/** Win patterns a host can enable for a bingo game; multiple may be active at once */
+export type BingoWinPattern = "line" | "four_corners" | "blackout";
+
+/** A single phrase-pool entry — the phrase itself plus an optional clarification. */
+export interface BingoPhraseEntry {
+  /** The phrase/word shown on the card */
+  text: string;
+  /** Optional clarification a player can expand if the phrase needs context */
+  definition?: string;
+}
+
+export interface BingoSettings {
+  /** Maximum number of players allowed */
+  maxPlayers: number;
+  /** Where square labels come from */
+  cardMode: BingoCardMode;
+  /** Highest number in the pool, used when cardMode === "numbered" (classic: 75) */
+  numberRange: number;
+  /** Phrase pool to sample from, used when cardMode === "phrasePool" */
+  phrasePool: BingoPhraseEntry[];
+  /** Card dimensions (gridSize x gridSize). Fixed at 5 for v1. */
+  gridSize: number;
+  /** Whether the center square is a free auto-marked space */
+  freeSpace: boolean;
+  /** Optional custom phrase for the free space, in place of the default "FREE" label */
+  freeSpacePhrase?: BingoPhraseEntry;
+  /** Which win pattern(s) count as a win for this game */
+  winPatterns: BingoWinPattern[];
+}
+
+export interface BingoSquare {
+  /** Position in the flattened gridSize*gridSize card, row-major */
+  index: number;
+  /** Display label — a number (as string) or a phrase, depending on cardMode */
+  label: string;
+  /** Free spaces are auto-marked and excluded from label sampling */
+  isFree: boolean;
+  /** Optional clarification, carried from the phrase pool entry that generated this square */
+  definition?: string;
+}
+
+export interface BingoCard {
+  playerId: string;
+  squares: BingoSquare[];
+  /** Indices of marked squares, including the free space if present */
+  marked: number[];
+  /** Win patterns this player has already completed, to avoid duplicate notifications */
+  wonPatterns: BingoWinPattern[];
+}
+
+export interface BingoWinner {
+  playerId: string;
+  displayName: string;
+  pattern: BingoWinPattern;
+  achievedAt: number;
 }
 
 // === Connection State (tagged on WebSocket connections) ===
