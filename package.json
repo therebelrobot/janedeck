@@ -1,13 +1,13 @@
 {
   "name": "janedeck",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "private": true,
   "description": "A real-time multiplayer trivia game platform built with partyserver",
   "type": "module",
   "scripts": {
     "dev": "vite dev",
     "build": "vite build",
-    "deploy": "wrangler deploy",
+    "deploy": "vite build && wrangler deploy",
     "typecheck": "tsc --noEmit",
     "docker:build": "docker build -t ghcr.io/therebelrobot/janedeck:local .",
     "docker:run": "docker run --rm -p 5173:5173 -v $(pwd)/.wrangler:/app/.wrangler ghcr.io/therebelrobot/janedeck:local",
@@ -15,7 +15,9 @@
     "release:patch": "npm version patch -m \"chore: release v%s\" && git push && git push --tags",
     "release:minor": "npm version minor -m \"chore: release v%s\" && git push && git push --tags",
     "release:major": "npm version major -m \"chore: release v%s\" && git push && git push --tags",
-    "release:tags": "git tag --sort=-v:refname | grep '^v'"
+    "release:tags": "git tag --sort=-v:refname | grep '^v'",
+    "wrangler:login": "wrangler login",
+    "wrangler:logout": "wrangler logout"
   },
   "keywords": [
     "partyserver",
@@ -34,6 +36,7 @@
     "partysocket": "^1.3.0",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
+    "react-qr-code": "^2.2.0",
     "react-router-dom": "^7.18.0",
     "wrangler": "^4.105.0",
     "zod": "^4.4.3",

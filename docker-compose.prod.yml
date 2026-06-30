@@ -39,11 +39,15 @@ services:
       # to a local folder instead of a named Docker volume
       - ./data:/app/.wrangler
     restart: unless-stopped
-    # No hard memory limit: workerd's allocator (tcmalloc) reserves a 1GiB
-    # virtual-memory arena up front at startup. A hard cgroup cap below that
-    # (even one well above workerd's actual ~250-500MB working set) can make
-    # that reservation fail outright and crash-loop the container. The
-    # reservation below is a soft scheduling hint, not an enforced ceiling.
+    # workerd's allocator (tcmalloc) reserves a large virtual-memory arena at
+    # startup. A hard cgroup memory cap or a constrained virtual address space
+    # (ulimit -v, LXC/OpenVZ quotas, or an ARM64 kernel built with 39-bit VA)
+    # can cause that mmap reservation to fail and crash-loop the container.
+    # These settings address the ulimit-v/seccomp variants of that problem:
+    ulimits:
+      as: -1        # unlimited virtual address space (overrides any ulimit -v set by host Docker/LXC)
+    security_opt:
+      - seccomp=unconfined  # remove default Docker seccomp filter in case it blocks mmap flags
     deploy:
       resources:
         reservations:

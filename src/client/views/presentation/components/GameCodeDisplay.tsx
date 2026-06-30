@@ -3,6 +3,7 @@
 // R5.5: Animations respect prefers-reduced-motion via ReducedMotionProvider.
 import React from "react";
 import { motion, useReducedMotion } from "framer-motion";
+import QRCode from "react-qr-code";
 import { colors, spacing, radii, shadows } from "../../../styles/theme";
 
 interface GameCodeDisplayProps {
@@ -17,6 +18,7 @@ interface GameCodeDisplayProps {
 export function GameCodeDisplay({ gameCode }: GameCodeDisplayProps): React.ReactElement {
   const prefersReducedMotion = useReducedMotion();
   const chars = Array.from(gameCode.toUpperCase());
+  const joinUrl = `${window.location.origin}/play/${gameCode}`;
 
   return (
     <div
@@ -95,25 +97,56 @@ export function GameCodeDisplay({ gameCode }: GameCodeDisplayProps): React.React
         ))}
       </div>
 
-      {/* URL instruction */}
-      <p
+      {/* QR code + URL row */}
+      <div
         style={{
-          fontFamily: "var(--font-body)",
-          fontSize: "clamp(1rem, 2.5vw, 1.5rem)",
-          color: colors.primaryLight,
-          margin: 0,
-          padding: `${spacing[3]} ${spacing[6]}`,
-          backgroundColor: `${colors.primary}20`,
-          borderRadius: radii.lg,
-          border: `1px solid ${colors.primary}40`,
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "center",
+          gap: spacing[6],
+          flexWrap: "wrap",
+          justifyContent: "center",
         }}
       >
-        janedeck.party/play/<strong style={{ color: colors.accentYellow }}>{gameCode}</strong>
-      </p>
+        {/* QR code */}
+        <div
+          style={{
+            padding: spacing[3],
+            backgroundColor: "#ffffff",
+            borderRadius: radii.lg,
+            lineHeight: 0,
+          }}
+          aria-hidden="true"
+        >
+          <QRCode
+            value={joinUrl}
+            size={Math.min(160, Math.max(100, window.innerWidth * 0.1))}
+            fgColor="#000000"
+            bgColor="#ffffff"
+          />
+        </div>
+
+        {/* URL pill */}
+        <p
+          style={{
+            fontFamily: "var(--font-body)",
+            fontSize: "clamp(0.9rem, 2vw, 1.4rem)",
+            color: colors.primaryLight,
+            margin: 0,
+            padding: `${spacing[3]} ${spacing[6]}`,
+            backgroundColor: `${colors.primary}20`,
+            borderRadius: radii.lg,
+            border: `1px solid ${colors.primary}40`,
+            wordBreak: "break-all",
+          }}
+        >
+          {window.location.origin}/play/<strong style={{ color: colors.accentYellow }}>{gameCode}</strong>
+        </p>
+      </div>
 
       {/* Accessible screen-reader text */}
       <span className="sr-only">
-        Game code is {chars.join(" ")}. Join at janedeck.party/play/{gameCode}
+        Game code is {chars.join(" ")}. Join at {joinUrl}
       </span>
     </div>
   );

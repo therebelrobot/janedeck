@@ -5,6 +5,7 @@
 import React, { useCallback, useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import QRCode from "react-qr-code";
 import type { ServerMessage } from "@/shared/messages";
 import type { ScoreEntry, ScoreChange, BingoWinner } from "@/shared/types";
 import { usePartySocket } from "../../hooks/usePartySocket";
@@ -438,6 +439,7 @@ function BingoPresentationScreen({
   activity: BingoActivityEntry[];
 }): React.ReactElement {
   const prefersReducedMotion = useReducedMotion();
+  const joinUrl = `${window.location.origin}/play/${gameCode}`;
 
   return (
     <div
@@ -463,17 +465,41 @@ function BingoPresentationScreen({
       >
         {ended ? "🏁 Bingo Ended" : "🎱 Bingo"}
       </h2>
-      <p
+
+      {/* Join QR + code — latecomers can still scan in during an active game */}
+      <div
         style={{
-          fontFamily: "var(--font-display)",
-          fontSize: "var(--text-xl)",
-          color: colors.textSecondary,
-          letterSpacing: "0.15em",
-          margin: 0,
+          display: "flex",
+          flexDirection: "row",
+          alignItems: "center",
+          gap: spacing[4],
+          flexWrap: "wrap",
+          justifyContent: "center",
         }}
       >
-        Game Code: <span style={{ color: colors.accentYellow }}>{gameCode}</span>
-      </p>
+        <div
+          style={{ padding: spacing[2], backgroundColor: "#ffffff", borderRadius: radii.lg, lineHeight: 0 }}
+          aria-hidden="true"
+        >
+          <QRCode value={joinUrl} size={100} fgColor="#000000" bgColor="#ffffff" />
+        </div>
+        <p
+          style={{
+            fontFamily: "var(--font-display)",
+            fontSize: "var(--text-xl)",
+            color: colors.textSecondary,
+            letterSpacing: "0.15em",
+            margin: 0,
+          }}
+        >
+          Game Code:{" "}
+          <span style={{ color: colors.accentYellow }}>{gameCode}</span>
+          <br />
+          <span style={{ fontSize: "var(--text-sm)", letterSpacing: "normal", color: colors.primaryLight }}>
+            {window.location.origin}/play/{gameCode}
+          </span>
+        </p>
+      </div>
 
       <div
         style={{
