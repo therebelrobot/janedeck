@@ -6,17 +6,9 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
-import { GAME_CODE_LENGTH, MAX_DISPLAY_NAME_BYTES } from "@/shared/constants";
+import { GAME_CODE_LENGTH } from "@/shared/constants";
 import { colors, spacing, radii, shadows } from "../styles/theme";
 import { pageTransition, slideFromBottom } from "../animations/presets";
-
-/**
- * Get byte length of a string (UTF-8).
- * R1.2: Field length ≥ 256 bytes.
- */
-function getByteLength(str: string): number {
-  return new TextEncoder().encode(str).length;
-}
 
 /**
  * HomeView — the main landing page at "/".
@@ -31,10 +23,8 @@ export function HomeView(): React.ReactElement {
 
   // Join game state
   const [gameCode, setGameCode] = useState("");
-  const [displayName, setDisplayName] = useState("");
   const [joinError, setJoinError] = useState<string | null>(null);
   const codeInputRef = useRef<HTMLInputElement>(null);
-  const nameInputRef = useRef<HTMLInputElement>(null);
 
   // Focus code input on mount
   useEffect(() => {
@@ -49,33 +39,16 @@ export function HomeView(): React.ReactElement {
       setGameCode(value);
       setJoinError(null);
     }
-    if (value.length === GAME_CODE_LENGTH) {
-      nameInputRef.current?.focus();
-    }
   };
 
-  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = e.target.value;
-    // R1.2: Enforce max 256 bytes, not characters
-    if (getByteLength(value) <= MAX_DISPLAY_NAME_BYTES) {
-      setDisplayName(value);
-      setJoinError(null);
-    }
-  };
-
+  // Display name is asked for once, on the player join screen (which also
+  // receives this game code preloaded) — not here too.
   const handleJoinGame = (e: React.FormEvent) => {
     e.preventDefault();
 
     if (gameCode.length !== GAME_CODE_LENGTH) {
       setJoinError(`Please enter a ${GAME_CODE_LENGTH}-character game code.`);
       codeInputRef.current?.focus();
-      return;
-    }
-
-    const trimmedName = displayName.trim();
-    if (trimmedName.length === 0) {
-      setJoinError("Please enter a display name.");
-      nameInputRef.current?.focus();
       return;
     }
 
@@ -240,44 +213,6 @@ export function HomeView(): React.ReactElement {
               }}
             >
               {GAME_CODE_LENGTH}-character code from the host
-            </p>
-          </div>
-
-          {/* Display name input — R1.4 */}
-          <div>
-            <label
-              htmlFor="home-display-name"
-              style={{
-                fontSize: "var(--text-sm)",
-                fontWeight: 600,
-                color: colors.textSecondary,
-              }}
-            >
-              Display Name
-            </label>
-            <input
-              ref={nameInputRef}
-              id="home-display-name"
-              type="text"
-              value={displayName}
-              onChange={handleNameChange}
-              placeholder="Your name"
-              autoComplete="nickname"
-              aria-describedby="home-name-hint"
-              style={{
-                fontSize: "var(--text-xl)",
-                minHeight: 52,
-              }}
-            />
-            <p
-              id="home-name-hint"
-              style={{
-                fontSize: "var(--text-xs)",
-                color: colors.textSecondary,
-                margin: `${spacing[1]} 0 0`,
-              }}
-            >
-              This is how other players will see you
             </p>
           </div>
 

@@ -28,9 +28,12 @@ const WIN_PATTERN_LABELS: Record<string, string> = {
 };
 
 /**
- * sessionStorage keys for player reconnection — R9.5.
+ * localStorage keys for player reconnection — R9.5.
  * Scoped per game code so stale reconnect data from a previous game in the
  * same browser tab never gets auto-replayed against an unrelated game.
+ * Uses localStorage (not sessionStorage) so a player can restart their
+ * browser/tab — not just reload — and still rejoin as themselves; not worried
+ * about cross-player impersonation, so the added persistence is a pure win.
  */
 function playerIdKey(gameCode: string): string {
   return `janedeck_player_id:${gameCode}`;
@@ -74,14 +77,14 @@ export function PlayerView(): React.ReactElement {
   // Check for reconnection data — scoped to this game code only.
   const [storedPlayerId, setStoredPlayerId] = useState<string | null>(() => {
     try {
-      return gameCode ? sessionStorage.getItem(playerIdKey(gameCode)) : null;
+      return gameCode ? localStorage.getItem(playerIdKey(gameCode)) : null;
     } catch {
       return null;
     }
   });
   const [storedName] = useState<string | null>(() => {
     try {
-      return gameCode ? sessionStorage.getItem(playerNameKey(gameCode)) : null;
+      return gameCode ? localStorage.getItem(playerNameKey(gameCode)) : null;
     } catch {
       return null;
     }
@@ -102,13 +105,13 @@ export function PlayerView(): React.ReactElement {
           // Store for reconnection
           try {
             if (gameCode) {
-              sessionStorage.setItem(playerIdKey(gameCode), message.payload.playerId);
+              localStorage.setItem(playerIdKey(gameCode), message.payload.playerId);
               if (playerStore.displayName) {
-                sessionStorage.setItem(playerNameKey(gameCode), playerStore.displayName);
+                localStorage.setItem(playerNameKey(gameCode), playerStore.displayName);
               }
             }
           } catch {
-            // sessionStorage may be unavailable
+            // localStorage may be unavailable
           }
           break;
 
@@ -122,11 +125,11 @@ export function PlayerView(): React.ReactElement {
           if (message.payload.reason === "Player not found") {
             try {
               if (gameCode) {
-                sessionStorage.removeItem(playerIdKey(gameCode));
-                sessionStorage.removeItem(playerNameKey(gameCode));
+                localStorage.removeItem(playerIdKey(gameCode));
+                localStorage.removeItem(playerNameKey(gameCode));
               }
             } catch {
-              // sessionStorage may be unavailable
+              // localStorage may be unavailable
             }
             setStoredPlayerId(null);
             break;
@@ -156,11 +159,11 @@ export function PlayerView(): React.ReactElement {
           // Clear reconnection data
           try {
             if (gameCode) {
-              sessionStorage.removeItem(playerIdKey(gameCode));
-              sessionStorage.removeItem(playerNameKey(gameCode));
+              localStorage.removeItem(playerIdKey(gameCode));
+              localStorage.removeItem(playerNameKey(gameCode));
             }
           } catch {
-            // sessionStorage may be unavailable
+            // localStorage may be unavailable
           }
           break;
 
@@ -241,11 +244,20 @@ export function PlayerView(): React.ReactElement {
     onMessage: handleMessage,
     onOpen: () => {
       gameStore.setIsConnected(true);
-      // Attempt reconnection if we have stored player data
-      if (storedPlayerId && !hasJoined) {
+      // Every socket open — including PartySocket's automatic reconnects
+      // after a dropped connection, not just the very first load — hands us
+      // a brand-new, untagged connection on the server. Re-send
+      // PLAYER_REJOIN whenever we know our identity (not gated on `hasJoined`,
+      // which stays true across a reconnect) so the new connection gets
+      // re-tagged with our playerId. Without this, a brief network blip
+      // silently strands the player: the UI still shows them as joined, but
+      // the server no longer associates their connection with a playerId, so
+      // answers/marks go nowhere.
+      const knownPlayerId = usePlayerStore.getState().playerId || storedPlayerId;
+      if (knownPlayerId) {
         send({
           type: "PLAYER_REJOIN",
-          payload: { playerId: storedPlayerId },
+          payload: { playerId: knownPlayerId },
         });
       }
     },
@@ -318,11 +330,11 @@ export function PlayerView(): React.ReactElement {
   const handleLeaveGame = useCallback(() => {
     try {
       if (gameCode) {
-        sessionStorage.removeItem(playerIdKey(gameCode));
-        sessionStorage.removeItem(playerNameKey(gameCode));
+        localStorage.removeItem(playerIdKey(gameCode));
+        localStorage.removeItem(playerNameKey(gameCode));
       }
     } catch {
-      // sessionStorage may be unavailable
+      // localStorage may be unavailable
     }
     playerStore.reset();
     gameStore.reset();

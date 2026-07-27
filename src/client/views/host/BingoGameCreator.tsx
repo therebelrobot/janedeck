@@ -22,6 +22,9 @@ import {
   csvToBingoSettingsAndPhrases,
   bingoTemplateCSV,
   downloadCSV,
+  saveCachedCSV,
+  loadCachedCSV,
+  clearCachedCSV,
 } from "../../utils/csv";
 
 /** Generate a game code client-side using the same alphabet as the server */
@@ -99,6 +102,8 @@ export function BingoGameCreator(): React.ReactElement {
     type: "success" | "warning" | "error";
     messages: string[];
   } | null>(null);
+  const [hasCachedCSV, setHasCachedCSV] = useState(() => !!loadCachedCSV("bingo"));
+  const restoredCachedCSVRef = useRef(false);
 
   const handleMessage = useCallback(
     (message: ServerMessage) => {
@@ -186,6 +191,60 @@ export function BingoGameCreator(): React.ReactElement {
     csvFileInputRef.current?.click();
   }, []);
 
+  /**
+   * Parse CSV content and apply it to the form. Shared by the file-upload
+   * handler and by the silent restore-from-cache on mount. On success, the
+   * raw CSV text is cached so the host doesn't need the file handy next time.
+   */
+  const applyCSVContent = useCallback((csvContent: string, restored: boolean): void => {
+    const result = csvToBingoSettingsAndPhrases(csvContent);
+
+    if (result.errors.length > 0) {
+      if (!restored) {
+        setCsvFeedback({ type: "error", messages: [...result.errors, ...result.warnings] });
+      }
+      return;
+    }
+
+    const { settings } = result;
+    if (settings.maxPlayers !== undefined) setMaxPlayers(settings.maxPlayers);
+    if (settings.cardMode !== undefined) setCardMode(settings.cardMode);
+    if (settings.numberRange !== undefined) setNumberRange(settings.numberRange);
+    if (settings.freeSpace !== undefined) setFreeSpace(settings.freeSpace);
+    if (settings.freeSpacePhrase !== undefined) setFreeSpaceLine(formatPhraseLine(settings.freeSpacePhrase));
+    if (settings.winPatterns !== undefined) setWinPatterns(settings.winPatterns);
+    if (result.phrases.length > 0) {
+      setPhrasePoolText(result.phrases.map(formatPhraseLine).join("\n"));
+    }
+
+    setValidationError(null);
+    saveCachedCSV("bingo", csvContent);
+    setHasCachedCSV(true);
+
+    const messages: string[] = [];
+    const importedSettingsCount = Object.keys(settings).length;
+    if (restored) {
+      messages.push(
+        `Restored your last CSV import: ${importedSettingsCount} setting${importedSettingsCount !== 1 ? "s" : ""}, ${result.phrases.length} phrase${result.phrases.length !== 1 ? "s" : ""}. No need to re-upload the file.`,
+      );
+    } else {
+      if (importedSettingsCount > 0) {
+        messages.push(`Imported ${importedSettingsCount} setting${importedSettingsCount !== 1 ? "s" : ""}.`);
+      }
+      if (result.phrases.length > 0) {
+        messages.push(`Imported ${result.phrases.length} phrase${result.phrases.length !== 1 ? "s" : ""}.`);
+      }
+      if (messages.length === 0) {
+        messages.push("Nothing was imported from this file.");
+      }
+    }
+    messages.push(...result.warnings);
+    setCsvFeedback({
+      type: result.warnings.length > 0 ? "warning" : "success",
+      messages,
+    });
+  }, []);
+
   const handleCSVFileChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0];
@@ -212,43 +271,7 @@ export function BingoGameCreator(): React.ReactElement {
           return;
         }
 
-        const result = csvToBingoSettingsAndPhrases(csvContent);
-
-        if (result.errors.length > 0) {
-          setCsvFeedback({ type: "error", messages: [...result.errors, ...result.warnings] });
-          if (csvFileInputRef.current) csvFileInputRef.current.value = "";
-          return;
-        }
-
-        const { settings } = result;
-        if (settings.maxPlayers !== undefined) setMaxPlayers(settings.maxPlayers);
-        if (settings.cardMode !== undefined) setCardMode(settings.cardMode);
-        if (settings.numberRange !== undefined) setNumberRange(settings.numberRange);
-        if (settings.freeSpace !== undefined) setFreeSpace(settings.freeSpace);
-        if (settings.freeSpacePhrase !== undefined) setFreeSpaceLine(formatPhraseLine(settings.freeSpacePhrase));
-        if (settings.winPatterns !== undefined) setWinPatterns(settings.winPatterns);
-        if (result.phrases.length > 0) {
-          setPhrasePoolText(result.phrases.map(formatPhraseLine).join("\n"));
-        }
-
-        setValidationError(null);
-        const messages: string[] = [];
-        const importedSettingsCount = Object.keys(settings).length;
-        if (importedSettingsCount > 0) {
-          messages.push(`Imported ${importedSettingsCount} setting${importedSettingsCount !== 1 ? "s" : ""}.`);
-        }
-        if (result.phrases.length > 0) {
-          messages.push(`Imported ${result.phrases.length} phrase${result.phrases.length !== 1 ? "s" : ""}.`);
-        }
-        if (messages.length === 0) {
-          messages.push("Nothing was imported from this file.");
-        }
-        messages.push(...result.warnings);
-        setCsvFeedback({
-          type: result.warnings.length > 0 ? "warning" : "success",
-          messages,
-        });
-
+        applyCSVContent(csvContent, false);
         if (csvFileInputRef.current) csvFileInputRef.current.value = "";
       };
 
@@ -262,8 +285,27 @@ export function BingoGameCreator(): React.ReactElement {
 
       reader.readAsText(file, "UTF-8");
     },
-    [phrasePoolText],
+    [phrasePoolText, applyCSVContent],
   );
+
+  // Silently restore the last-imported CSV on first mount, so the host
+  // doesn't have to re-upload the file if they left and came back. Only
+  // kicks in when the phrase pool is still untouched.
+  useEffect(() => {
+    if (restoredCachedCSVRef.current) return;
+    restoredCachedCSVRef.current = true;
+    if (phrasePoolText.trim()) return;
+    const cached = loadCachedCSV("bingo");
+    if (cached) applyCSVContent(cached, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Forget the cached CSV import — it will no longer auto-restore. */
+  const handleClearCachedCSV = useCallback(() => {
+    clearCachedCSV("bingo");
+    setHasCachedCSV(false);
+    setCsvFeedback({ type: "success", messages: ["Cleared the saved CSV import."] });
+  }, []);
 
   // Validation
   const validate = (): boolean => {
@@ -481,6 +523,18 @@ export function BingoGameCreator(): React.ReactElement {
               >
                 📋 Download Template
               </button>
+
+              {hasCachedCSV && (
+                <button
+                  type="button"
+                  onClick={handleClearCachedCSV}
+                  className="btn-ghost"
+                  style={{ minHeight: 44, minWidth: 44, fontSize: "var(--text-sm)", color: colors.textSecondary }}
+                  title="Stop auto-restoring the last imported CSV on this page"
+                >
+                  🗑️ Clear Saved Import
+                </button>
+              )}
             </div>
 
             {csvFeedback && (

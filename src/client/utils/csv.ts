@@ -222,6 +222,42 @@ export function downloadCSV(csvContent: string, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
+// ─── Import Caching ───────────────────────────────────────────────────────────
+// Caches the raw text of the last-imported CSV per game type in localStorage,
+// so a host doesn't need to keep the original file handy to pick up where
+// they left off (a new tab, a refresh, coming back tomorrow, etc).
+
+export type CSVCacheKind = "trivia" | "bingo";
+
+const CSV_CACHE_PREFIX = "janedeck_csv_cache:";
+
+/** Save the raw CSV text so it can be restored without re-uploading the file. */
+export function saveCachedCSV(kind: CSVCacheKind, content: string): void {
+  try {
+    localStorage.setItem(`${CSV_CACHE_PREFIX}${kind}`, content);
+  } catch {
+    // localStorage may be unavailable — caching is best-effort
+  }
+}
+
+/** Load the last-cached raw CSV text for this game type, if any. */
+export function loadCachedCSV(kind: CSVCacheKind): string | null {
+  try {
+    return localStorage.getItem(`${CSV_CACHE_PREFIX}${kind}`);
+  } catch {
+    return null;
+  }
+}
+
+/** Clear the cached CSV for this game type. */
+export function clearCachedCSV(kind: CSVCacheKind): void {
+  try {
+    localStorage.removeItem(`${CSV_CACHE_PREFIX}${kind}`);
+  } catch {
+    // localStorage may be unavailable
+  }
+}
+
 // ─── Import Functions ─────────────────────────────────────────────────────────
 
 /** Result of parsing a CSV file into game data. */

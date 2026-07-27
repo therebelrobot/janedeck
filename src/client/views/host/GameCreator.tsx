@@ -26,6 +26,9 @@ import {
   templateCSV,
   downloadCSV,
   csvToGame,
+  saveCachedCSV,
+  loadCachedCSV,
+  clearCachedCSV,
 } from "../../utils/csv";
 
 /** Generate a game code client-side using the same alphabet as the server */
@@ -142,6 +145,8 @@ export function GameCreator(): React.ReactElement {
     type: "success" | "warning" | "error";
     messages: string[];
   } | null>(null);
+  const [hasCachedCSV, setHasCachedCSV] = useState(() => !!loadCachedCSV("trivia"));
+  const restoredCachedCSVRef = useRef(false);
 
   // Handle server messages for game creation
   const handleMessage = useCallback(
@@ -297,6 +302,45 @@ export function GameCreator(): React.ReactElement {
     csvFileInputRef.current?.click();
   }, []);
 
+  /**
+   * Parse CSV content and apply it to the form. Shared by the file-upload
+   * handler and by the silent restore-from-cache on mount. On success, the
+   * raw CSV text is cached so the host doesn't need the file handy next time.
+   */
+  const applyCSVContent = useCallback((csvContent: string, restored: boolean): void => {
+    const result = csvToGame(csvContent);
+
+    if (result.errors.length > 0 && result.rounds.length === 0) {
+      // Only errors, no usable data
+      if (!restored) setCsvFeedback({ type: "error", messages: result.errors });
+      return;
+    }
+
+    if (result.rounds.length === 0) return;
+
+    // Successfully imported — apply to form
+    setRounds(result.rounds);
+    setValidationError(null);
+    saveCachedCSV("trivia", csvContent);
+    setHasCachedCSV(true);
+
+    const allMessages: string[] = [];
+    const totalQuestions = result.rounds.reduce((sum, r) => sum + r.questions.length, 0);
+    allMessages.push(
+      restored
+        ? `Restored your last CSV import: ${result.rounds.length} round${result.rounds.length !== 1 ? "s" : ""} with ${totalQuestions} question${totalQuestions !== 1 ? "s" : ""}. No need to re-upload the file.`
+        : `Imported ${result.rounds.length} round${result.rounds.length !== 1 ? "s" : ""} with ${totalQuestions} question${totalQuestions !== 1 ? "s" : ""}.`,
+    );
+
+    if (result.warnings.length > 0) allMessages.push(...result.warnings);
+    if (result.errors.length > 0) allMessages.push(...result.errors);
+
+    setCsvFeedback({
+      type: result.errors.length > 0 || result.warnings.length > 0 ? "warning" : "success",
+      messages: allMessages,
+    });
+  }, []);
+
   /** Process imported CSV file */
   const handleCSVFileChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -326,40 +370,7 @@ export function GameCreator(): React.ReactElement {
           return;
         }
 
-        const result = csvToGame(csvContent);
-
-        if (result.errors.length > 0 && result.rounds.length === 0) {
-          // Only errors, no usable data
-          setCsvFeedback({ type: "error", messages: result.errors });
-        } else if (result.rounds.length > 0) {
-          // Successfully imported — apply to form
-          setRounds(result.rounds);
-          setValidationError(null);
-
-          const allMessages: string[] = [];
-          const totalQuestions = result.rounds.reduce(
-            (sum, r) => sum + r.questions.length,
-            0,
-          );
-          allMessages.push(
-            `Imported ${result.rounds.length} round${result.rounds.length !== 1 ? "s" : ""} with ${totalQuestions} question${totalQuestions !== 1 ? "s" : ""}.`,
-          );
-
-          if (result.warnings.length > 0) {
-            allMessages.push(...result.warnings);
-          }
-          if (result.errors.length > 0) {
-            allMessages.push(...result.errors);
-          }
-
-          setCsvFeedback({
-            type:
-              result.errors.length > 0 || result.warnings.length > 0
-                ? "warning"
-                : "success",
-            messages: allMessages,
-          });
-        }
+        applyCSVContent(csvContent, false);
 
         // Reset file input for re-import
         if (csvFileInputRef.current) csvFileInputRef.current.value = "";
@@ -375,8 +386,27 @@ export function GameCreator(): React.ReactElement {
 
       reader.readAsText(file, "UTF-8");
     },
-    [hasExistingData],
+    [hasExistingData, applyCSVContent],
   );
+
+  // Silently restore the last-imported CSV on first mount, so the host
+  // doesn't have to re-upload the file if they left and came back. Only
+  // kicks in when the form is still in its untouched default state.
+  useEffect(() => {
+    if (restoredCachedCSVRef.current) return;
+    restoredCachedCSVRef.current = true;
+    if (hasExistingData) return;
+    const cached = loadCachedCSV("trivia");
+    if (cached) applyCSVContent(cached, true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  /** Forget the cached CSV import — it will no longer auto-restore. */
+  const handleClearCachedCSV = useCallback(() => {
+    clearCachedCSV("trivia");
+    setHasCachedCSV(false);
+    setCsvFeedback({ type: "success", messages: ["Cleared the saved CSV import."] });
+  }, []);
 
   /** Whether export button should be enabled (at least 1 round with 1 filled question) */
   const canExport = rounds.some((r) =>
@@ -613,6 +643,26 @@ export function GameCreator(): React.ReactElement {
         >
           📋 Download Template
         </button>
+
+        {hasCachedCSV && (
+          <button
+            type="button"
+            onClick={handleClearCachedCSV}
+            className="btn-ghost"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: spacing[2],
+              minHeight: 44,
+              minWidth: 44,
+              fontSize: "var(--text-sm)",
+              color: colors.textSecondary,
+            }}
+            title="Stop auto-restoring the last imported CSV on this page"
+          >
+            🗑️ Clear Saved Import
+          </button>
+        )}
       </div>
 
       {/* CSV feedback messages — R7.4: non-blame language */}
