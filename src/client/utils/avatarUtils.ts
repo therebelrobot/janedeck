@@ -1,17 +1,20 @@
-// Avatars use the Lorelei Neutral style by Lisa Wischofsky (@lischi_art).
-// Style: https://www.dicebear.com/styles/lorelei-neutral/
-// Artist: https://www.instagram.com/lischi_art/
+// Avatars use the Big Smile style by Ashley Seo (www.ashleyseo.com),
+// with the "Bold Pop" preset (saturated background colors).
+// Style: https://www.dicebear.com/styles/big-smile/
+// Artist: https://www.ashleyseo.com/
 // License: CC BY 4.0
 import { createAvatar } from "@dicebear/core";
-import { loreleiNeutral } from "@dicebear/collection";
+import { bigSmile } from "@dicebear/collection";
 import { nanoid } from "nanoid";
+
+const BOLD_POP_BACKGROUND_COLORS = ["ff5d8f", "ffb703", "43aa8b", "4d96ff", "b57bff"];
 
 export function generateAvatarSeed(): string {
   return nanoid(10);
 }
 
 export function getAvatarDataUri(seed: string): string {
-  return createAvatar(loreleiNeutral, { seed }).toDataUri();
+  return createAvatar(bigSmile, { seed, backgroundColor: BOLD_POP_BACKGROUND_COLORS }).toDataUri();
 }
 
 /** Generate `count` unique seeds, all different from `exclude`. */

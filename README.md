@@ -501,6 +501,10 @@ Following the [Inclusive Software Ruleset](https://inclusive.microsoft.design/):
 - **R7.1/R7.4** — Inclusive terminology, non-blame error messages
 - **R9.5** — Session-scoped auth tokens (sessionStorage, not localStorage)
 
+## Credits
+
+Player avatars use the [Big Smile](https://www.dicebear.com/styles/big-smile/) style (Bold Pop preset) from [DiceBear](https://www.dicebear.com/), based on [Custom Avatar](https://www.figma.com/community/file/881358461963645496) by [Ashley Seo](https://www.ashleyseo.com/), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+
 ## License
 
 MIT

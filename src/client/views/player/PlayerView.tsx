@@ -841,9 +841,9 @@ function LobbyWaiting({
         </button>
         <p style={{ fontSize: "var(--text-xs)", color: colors.textSecondary, margin: 0, opacity: 0.6 }}>
           Avatars:{" "}
-          <a href="https://www.dicebear.com/styles/lorelei-neutral/" target="_blank" rel="noopener noreferrer" style={{ color: "inherit" }}>Lorelei Neutral</a>
+          <a href="https://www.dicebear.com/styles/big-smile/" target="_blank" rel="noopener noreferrer" style={{ color: "inherit" }}>Big Smile</a>
           {" by "}
-          <a href="https://www.instagram.com/lischi_art/" target="_blank" rel="noopener noreferrer" style={{ color: "inherit" }}>@lischi_art</a>
+          <a href="https://www.ashleyseo.com/" target="_blank" rel="noopener noreferrer" style={{ color: "inherit" }}>Ashley Seo</a>
           {" · CC BY 4.0"}
         </p>
       </div>
