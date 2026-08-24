@@ -3,10 +3,12 @@
 // R1.4: displayName is the chosen name.
 import React, { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import type { ScoreEntry } from "@/shared/types";
+import type { ScoreEntry, TeamScoreEntry } from "@/shared/types";
 import { Confetti } from "../../components/Confetti";
 import { Leaderboard } from "../../components/Leaderboard";
+import { TeamLeaderboard } from "../../components/TeamLeaderboard";
 import { WinnerReveal } from "./components/WinnerReveal";
+import { TeamWinnerReveal } from "./components/TeamWinnerReveal";
 import { colors, spacing } from "../../styles/theme";
 
 interface GameOverScreenProps {
@@ -18,6 +20,8 @@ interface GameOverScreenProps {
     displayName: string;
     score: number;
   } | null;
+  /** Team Play only: when present, teams are shown as first-class citizens instead of players */
+  teamLeaderboard?: TeamScoreEntry[];
 }
 
 /**
@@ -27,11 +31,13 @@ interface GameOverScreenProps {
 export function GameOverScreen({
   leaderboard,
   winner,
+  teamLeaderboard,
 }: GameOverScreenProps): React.ReactElement {
   const prefersReducedMotion = useReducedMotion();
   const [showConfetti, setShowConfetti] = useState(false);
 
   const topPlayers = leaderboard.slice(0, 3);
+  const topTeams = (teamLeaderboard ?? []).slice(0, 3);
 
   return (
     <div
@@ -71,15 +77,24 @@ export function GameOverScreen({
       </motion.h2>
 
       {/* Winner podium */}
-      {topPlayers.length > 0 && (
-        <WinnerReveal
-          topPlayers={topPlayers}
-          onFirstPlaceRevealed={() => setShowConfetti(true)}
-        />
+      {teamLeaderboard ? (
+        topTeams.length > 0 && (
+          <TeamWinnerReveal
+            topTeams={topTeams}
+            onFirstPlaceRevealed={() => setShowConfetti(true)}
+          />
+        )
+      ) : (
+        topPlayers.length > 0 && (
+          <WinnerReveal
+            topPlayers={topPlayers}
+            onFirstPlaceRevealed={() => setShowConfetti(true)}
+          />
+        )
       )}
 
       {/* Full leaderboard (below podium) */}
-      {leaderboard.length > 3 && (
+      {((teamLeaderboard?.length ?? 0) > 3 || (!teamLeaderboard && leaderboard.length > 3)) && (
         <motion.div
           initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 40 }}
           animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
@@ -107,10 +122,11 @@ export function GameOverScreen({
           >
             Final Standings
           </h3>
-          <Leaderboard
-            entries={leaderboard.slice(3)}
-            maxDisplay={20}
-          />
+          {teamLeaderboard ? (
+            <TeamLeaderboard entries={teamLeaderboard.slice(3)} maxDisplay={20} />
+          ) : (
+            <Leaderboard entries={leaderboard.slice(3)} maxDisplay={20} />
+          )}
         </motion.div>
       )}
 

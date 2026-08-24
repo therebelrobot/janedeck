@@ -6,7 +6,7 @@ import React, { useCallback, useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import type { ServerMessage } from "@/shared/messages";
-import type { ScoreEntry } from "@/shared/types";
+import type { ScoreEntry, TeamMemberInfo } from "@/shared/types";
 import { usePartySocket } from "../../hooks/usePartySocket";
 import { useGameStore } from "../../stores/gameStore";
 import { usePlayerStore } from "../../stores/playerStore";
@@ -18,8 +18,11 @@ import { JoinScreen } from "./JoinScreen";
 import { PlayerQuestionScreen } from "./QuestionScreen";
 import { ResultScreen } from "./ResultScreen";
 import { BingoCard } from "./BingoCard";
+import { TeamSelectScreen } from "./TeamSelectScreen";
+import { RoundAnsweringScreen } from "./RoundAnsweringScreen";
 import { Confetti } from "../../components/Confetti";
 import { SoundToggle } from "../../components/SoundToggle";
+import { TeamMemberAvatars } from "../../components/TeamMemberAvatars";
 
 const WIN_PATTERN_LABELS: Record<string, string> = {
   line: "a line",
@@ -68,6 +71,9 @@ export function PlayerView(): React.ReactElement {
     winner: { playerId: string; displayName: string; score: number } | null;
   } | null>(null);
   const [bingoCelebrate, setBingoCelebrate] = useState(false);
+  // Team Play: true while a player who already has a team is picking a
+  // different one — lets them back out of TeamSelectScreen to LobbyWaiting.
+  const [switchingTeam, setSwitchingTeam] = useState(false);
   // Count of OTHER players currently holding each label marked — drives the
   // glow hint on matching unmarked squares on our own card. Using a count
   // (rather than a one-shot flag) means the glow correctly clears if that
@@ -312,6 +318,23 @@ export function PlayerView(): React.ReactElement {
     [send, gameStore.currentQuestion, playerStore],
   );
 
+  // Team Play: join-or-create a team by name
+  const handleChooseTeam = useCallback(
+    (teamName: string) => {
+      send({ type: "PLAYER_SET_TEAM", payload: { teamName } });
+      setSwitchingTeam(false);
+    },
+    [send],
+  );
+
+  // Team Play: edit the team's shared answer for a question
+  const handleTeamAnswerChange = useCallback(
+    (questionId: string, text: string) => {
+      send({ type: "TEAM_ANSWER_SUBMIT", payload: { questionId, text } });
+    },
+    [send],
+  );
+
   // Handle bingo square marking — tapping a marked (non-free) square unmarks it.
   const handleToggleSquare = useCallback(
     (squareIndex: number) => {
@@ -351,6 +374,12 @@ export function PlayerView(): React.ReactElement {
     leaderboard,
     bingoCard,
     bingoWinners,
+    teamPlayEnabled,
+    maxTeamSize,
+    teams,
+    roundTitle,
+    roundQuestions,
+    roundAnswerDrafts,
   } = gameStore;
 
   // Unmarked squares whose label another player currently has marked — glow hint.
@@ -377,7 +406,10 @@ export function PlayerView(): React.ReactElement {
     lastAnswerResult,
     wasKicked,
     kickReason,
+    teamId,
   } = playerStore;
+
+  const myTeam = teams.find((t) => t.id === teamId) ?? null;
 
   const handleAvatarChange = useCallback(
     (newSeed: string) => {
@@ -516,14 +548,28 @@ export function PlayerView(): React.ReactElement {
             gap: spacing[4],
           }}
         >
-          {/* LOBBY — waiting for host */}
-          {gameState === "LOBBY" && (
+          {/* LOBBY — Team Play: choose a team first, then wait for host.
+              A player who already has a team can come back here to switch. */}
+          {gameState === "LOBBY" && teamPlayEnabled && (!teamId || switchingTeam) && (
+            <TeamSelectScreen
+              displayName={displayName}
+              teams={teams}
+              maxTeamSize={maxTeamSize}
+              currentTeamName={myTeam?.name ?? null}
+              onChooseTeam={handleChooseTeam}
+              onCancel={teamId ? () => setSwitchingTeam(false) : undefined}
+            />
+          )}
+          {gameState === "LOBBY" && (!teamPlayEnabled || (teamId && !switchingTeam)) && (
             <LobbyWaiting
               displayName={displayName}
               playerCount={gameStore.playerCount}
               gameCode={gameCode || ""}
               avatarSeed={avatarSeed}
               onAvatarChange={handleAvatarChange}
+              teamName={myTeam?.name ?? null}
+              teammates={myTeam?.members ?? []}
+              onChangeTeam={teamPlayEnabled ? () => setSwitchingTeam(true) : undefined}
             />
           )}
 
@@ -552,10 +598,47 @@ export function PlayerView(): React.ReactElement {
             <BingoEndedScreen winners={bingoWinners} playerId={playerId} />
           )}
 
-          {/* QUESTION_DISPLAY / ANSWERING / REVIEWING */}
-          {(gameState === "QUESTION_DISPLAY" ||
-            gameState === "ANSWERING" ||
-            gameState === "REVIEWING") &&
+          {/* Team Play: whole-round answering / waiting-for-review */}
+          {teamPlayEnabled && gameState === "ANSWERING" && roundQuestions && (
+            <RoundAnsweringScreen
+              roundTitle={roundTitle ?? `Round ${gameStore.roundIndex + 1}`}
+              questions={roundQuestions}
+              drafts={roundAnswerDrafts}
+              timerSeconds={timerSeconds}
+              timerTotal={timerTotal}
+              teamName={myTeam?.name ?? null}
+              onAnswerChange={handleTeamAnswerChange}
+            />
+          )}
+          {teamPlayEnabled && gameState === "REVIEWING" && (
+            <div
+              style={{
+                textAlign: "center",
+                padding: spacing[6],
+                backgroundColor: `${colors.accentYellow}10`,
+                borderRadius: radii.xl,
+                border: `1px solid ${colors.accentYellow}30`,
+              }}
+            >
+              <p
+                style={{
+                  fontFamily: "var(--font-display)",
+                  fontSize: "var(--text-lg)",
+                  fontWeight: 600,
+                  color: colors.accentYellow,
+                  margin: 0,
+                }}
+              >
+                ✏️ Host is reviewing the round...
+              </p>
+            </div>
+          )}
+
+          {/* QUESTION_DISPLAY / ANSWERING / REVIEWING — individual play */}
+          {!teamPlayEnabled &&
+            (gameState === "QUESTION_DISPLAY" ||
+              gameState === "ANSWERING" ||
+              gameState === "REVIEWING") &&
             currentQuestion && (
               <PlayerQuestionScreen
                 questionText={currentQuestion.text}
@@ -617,12 +700,18 @@ function LobbyWaiting({
   gameCode,
   avatarSeed,
   onAvatarChange,
+  teamName,
+  teammates,
+  onChangeTeam,
 }: {
   displayName: string | null;
   playerCount: number;
   gameCode: string;
   avatarSeed: string | null;
   onAvatarChange: (seed: string) => void;
+  teamName?: string | null;
+  teammates?: TeamMemberInfo[];
+  onChangeTeam?: () => void;
 }): React.ReactElement {
   const prefersReducedMotion = useReducedMotion();
   const [alternatives, setAlternatives] = useState<string[]>(() =>
@@ -758,6 +847,42 @@ function LobbyWaiting({
           {" · CC BY 4.0"}
         </p>
       </div>
+
+      {/* Team info — Team Play only */}
+      {teamName && (
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: spacing[2],
+            padding: `${spacing[3]} ${spacing[6]}`,
+            backgroundColor: `${colors.secondary}15`,
+            borderRadius: radii.lg,
+            border: `1px solid ${colors.secondary}30`,
+            textAlign: "center",
+          }}
+        >
+          <p style={{ fontSize: "var(--text-sm)", color: colors.textSecondary, margin: 0 }}>
+            Team: <strong style={{ color: colors.secondary }}>{teamName}</strong>
+          </p>
+          {teammates && teammates.length > 0 && <TeamMemberAvatars members={teammates} size="sm" />}
+          {onChangeTeam && (
+            <button
+              type="button"
+              onClick={onChangeTeam}
+              className="btn-ghost"
+              style={{
+                minHeight: 36,
+                fontSize: "var(--text-xs)",
+                color: colors.secondary,
+              }}
+            >
+              Change team
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Game info */}
       <div

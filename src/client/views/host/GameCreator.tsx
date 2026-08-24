@@ -13,6 +13,8 @@ import {
   DEFAULT_TIME_LIMIT,
   DEFAULT_POINT_VALUE,
   DEFAULT_BONUS_POINTS,
+  DEFAULT_MAX_TEAM_SIZE,
+  DEFAULT_ROUND_TIME_LIMIT,
   GAME_CODE_CHARS,
   GAME_CODE_LENGTH,
 } from "@/shared/constants";
@@ -114,6 +116,9 @@ export function GameCreator(): React.ReactElement {
   const [allowAudience, setAllowAudience] = useState(false);
   const [defaultTimeLimit, setDefaultTimeLimit] = useState(DEFAULT_TIME_LIMIT);
   const [defaultBonus, setDefaultBonus] = useState(DEFAULT_BONUS_POINTS);
+  const [maxPlayers, setMaxPlayers] = useState(16);
+  const [teamPlayEnabled, setTeamPlayEnabled] = useState(false);
+  const [maxTeamSize, setMaxTeamSize] = useState(DEFAULT_MAX_TEAM_SIZE);
 
   // Rounds data
   const [rounds, setRounds] = useState<RoundEditorData[]>([
@@ -467,14 +472,19 @@ export function GameCreator(): React.ReactElement {
       payload: {
         token,
         settings: {
-          maxPlayers: 16,
+          maxPlayers,
           allowAudience,
           audienceBonusPoints: defaultBonus,
           defaultTimeLimit,
           showAnswersToPlayers: true,
+          teamPlayEnabled,
+          maxTeamSize,
         },
         rounds: rounds.map((r) => ({
           title: r.title,
+          roundTimeLimit: teamPlayEnabled
+            ? (r.roundTimeLimit ?? DEFAULT_ROUND_TIME_LIMIT)
+            : undefined,
           questions: r.questions.map((q: QuestionEditorData) => ({
             text: q.text,
             correctAnswer: q.correctAnswer,
@@ -494,7 +504,7 @@ export function GameCreator(): React.ReactElement {
 
     // Trigger reconnect to the real game-code room
     setSocketGameCode(code);
-  }, [token, allowAudience, defaultBonus, defaultTimeLimit, rounds]);
+  }, [token, allowAudience, defaultBonus, defaultTimeLimit, maxPlayers, teamPlayEnabled, maxTeamSize, rounds]);
 
   return (
     <motion.div
@@ -822,6 +832,86 @@ export function GameCreator(): React.ReactElement {
               }
             />
           </div>
+
+          {/* Max players */}
+          <div style={{ flex: "1 1 150px", maxWidth: 200 }}>
+            <label
+              htmlFor="max-players"
+              style={{ fontSize: "var(--text-sm)" }}
+            >
+              Max players
+            </label>
+            <input
+              id="max-players"
+              type="number"
+              min={1}
+              max={100}
+              value={maxPlayers}
+              onChange={(e) =>
+                setMaxPlayers(Math.max(1, Math.min(100, parseInt(e.target.value, 10) || 16)))
+              }
+            />
+          </div>
+        </div>
+
+        {/* Team Play */}
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: spacing[3],
+            paddingTop: spacing[4],
+            borderTop: `1px solid ${colors.border}`,
+          }}
+        >
+          <label
+            htmlFor="team-play-enabled"
+            style={{
+              fontSize: "var(--text-sm)",
+              cursor: "pointer",
+              display: "flex",
+              alignItems: "center",
+              gap: spacing[2],
+            }}
+          >
+            <input
+              id="team-play-enabled"
+              type="checkbox"
+              checked={teamPlayEnabled}
+              onChange={(e) => setTeamPlayEnabled(e.target.checked)}
+              style={{
+                width: 20,
+                height: 20,
+                minHeight: "auto",
+                accentColor: colors.primary,
+              }}
+            />
+            Enable Team Play — players group into teams of up to {maxTeamSize} and submit one
+            shared answer per round
+          </label>
+
+          {teamPlayEnabled && (
+            <div style={{ flex: "1 1 200px", maxWidth: 250 }}>
+              <label
+                htmlFor="max-team-size"
+                style={{ fontSize: "var(--text-sm)" }}
+              >
+                Max players per team
+              </label>
+              <input
+                id="max-team-size"
+                type="number"
+                min={2}
+                max={10}
+                value={maxTeamSize}
+                onChange={(e) =>
+                  setMaxTeamSize(
+                    Math.max(2, Math.min(10, parseInt(e.target.value, 10) || DEFAULT_MAX_TEAM_SIZE)),
+                  )
+                }
+              />
+            </div>
+          )}
         </div>
       </div>
 
@@ -856,6 +946,7 @@ export function GameCreator(): React.ReactElement {
                 onMoveUp={handleRoundMoveUp}
                 onMoveDown={handleRoundMoveDown}
                 defaultTimeLimit={defaultTimeLimit}
+                teamMode={teamPlayEnabled}
               />
             ))}
           </AnimatePresence>

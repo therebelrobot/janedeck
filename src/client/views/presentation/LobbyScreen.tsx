@@ -2,11 +2,13 @@
 // R5.3: Semantic HTML. R5.5: Animations via ReducedMotionProvider.
 // R5.4: High contrast for screen-sharing.
 import React from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
+import type { PublicTeam } from "@/shared/types";
 import { GameCodeDisplay } from "./components/GameCodeDisplay";
 import { PlayerJoinFeed } from "./components/PlayerJoinFeed";
-import { colors, spacing } from "../../styles/theme";
-import { pulse } from "../../animations/presets";
+import { TeamMemberAvatars } from "../../components/TeamMemberAvatars";
+import { colors, spacing, radii } from "../../styles/theme";
+import { pulse, staggerContainer, staggerItem } from "../../animations/presets";
 
 interface LobbyScreenProps {
   /** The game code */
@@ -15,6 +17,10 @@ interface LobbyScreenProps {
   players: Array<{ playerId: string; displayName: string }>;
   /** Total player count */
   playerCount: number;
+  /** Whether Team Play is enabled — shows team formation instead of a flat join feed */
+  teamPlayEnabled?: boolean;
+  /** Current teams, when Team Play is enabled */
+  teams?: PublicTeam[];
 }
 
 /**
@@ -25,6 +31,8 @@ export function LobbyScreen({
   gameCode,
   players,
   playerCount,
+  teamPlayEnabled = false,
+  teams = [],
 }: LobbyScreenProps): React.ReactElement {
   const prefersReducedMotion = useReducedMotion();
 
@@ -92,26 +100,106 @@ export function LobbyScreen({
         </span>
       </motion.div>
 
-      {/* Player join feed */}
-      {players.length > 0 && (
-        <div style={{ width: "100%", maxWidth: "min(900px, 90vw)" }}>
-          <PlayerJoinFeed players={players} maxDisplay={20} />
-        </div>
-      )}
+      {teamPlayEnabled ? (
+        <TeamFormationGrid teams={teams} prefersReducedMotion={!!prefersReducedMotion} />
+      ) : (
+        <>
+          {/* Player join feed */}
+          {players.length > 0 && (
+            <div style={{ width: "100%", maxWidth: "min(900px, 90vw)" }}>
+              <PlayerJoinFeed players={players} maxDisplay={20} />
+            </div>
+          )}
 
-      {/* Waiting message */}
-      {players.length === 0 && (
-        <p
-          style={{
-            color: colors.textSecondary,
-            fontSize: "var(--text-xl)",
-            fontStyle: "italic",
-            margin: 0,
-          }}
-        >
-          Waiting for players to join...
-        </p>
+          {/* Waiting message */}
+          {players.length === 0 && (
+            <p
+              style={{
+                color: colors.textSecondary,
+                fontSize: "var(--text-xl)",
+                fontStyle: "italic",
+                margin: 0,
+              }}
+            >
+              Waiting for players to join...
+            </p>
+          )}
+        </>
       )}
     </div>
+  );
+}
+
+/** Team Play lobby: teams appear as cards as players form/join them */
+function TeamFormationGrid({
+  teams,
+  prefersReducedMotion,
+}: {
+  teams: PublicTeam[];
+  prefersReducedMotion: boolean;
+}): React.ReactElement {
+  if (teams.length === 0) {
+    return (
+      <p
+        style={{
+          color: colors.textSecondary,
+          fontSize: "var(--text-xl)",
+          fontStyle: "italic",
+          margin: 0,
+        }}
+      >
+        Waiting for teams to form...
+      </p>
+    );
+  }
+
+  return (
+    <motion.div
+      variants={staggerContainer}
+      initial="hidden"
+      animate="show"
+      style={{
+        width: "100%",
+        maxWidth: "min(1100px, 92vw)",
+        display: "grid",
+        gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+        gap: spacing[4],
+      }}
+      aria-label="Teams"
+      aria-live="polite"
+    >
+      <AnimatePresence mode="popLayout">
+        {teams.map((team) => (
+          <motion.div
+            key={team.id}
+            variants={staggerItem}
+            layout={!prefersReducedMotion}
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: spacing[3],
+              padding: spacing[4],
+              backgroundColor: colors.bgCard,
+              borderRadius: radii.xl,
+              border: `1px solid ${colors.border}`,
+            }}
+          >
+            <span
+              style={{
+                fontFamily: "var(--font-display)",
+                fontWeight: 700,
+                fontSize: "var(--text-lg)",
+              }}
+            >
+              {team.name}
+            </span>
+            <TeamMemberAvatars members={team.members} size="md" />
+            <span style={{ fontSize: "var(--text-sm)", color: colors.textSecondary }}>
+              {team.members.length} {team.members.length === 1 ? "player" : "players"}
+            </span>
+          </motion.div>
+        ))}
+      </AnimatePresence>
+    </motion.div>
   );
 }

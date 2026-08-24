@@ -13,6 +13,10 @@ import type {
   ScoreChange,
   AnswerReview,
   GameStats,
+  Team,
+  TeamAnswer,
+  TeamScoreChange,
+  TeamScoreEntry,
 } from "@/shared/types";
 import type {
   ClientMessage,
@@ -25,6 +29,8 @@ import type {
   PlayerJoinMessage,
   PlayerRejoinMessage,
   PlayerSubmitAnswerMessage,
+  PlayerSetTeamMessage,
+  TeamAnswerSubmitMessage,
   AudienceJoinMessage,
   AudienceVoteMessage,
   HostEndGameMessage,
@@ -42,17 +48,22 @@ import {
   broadcastToAll,
   broadcastToRole,
   sendToPlayer,
+  sendToPlayers,
   sendToConnection,
   computeLeaderboard,
+  computeTeamLeaderboard,
   broadcastStateChange,
   broadcastQuestion,
+  broadcastRoundQuestions,
+  broadcastTeams,
+  toPublicTeam,
 } from "@/server/utils/broadcast";
 import {
   canTransition,
   transition,
   validateTransition,
 } from "@/server/stateMachine";
-import { batchMatch } from "@/server/fuzzyMatcher";
+import { batchMatch, batchMatchTeams } from "@/server/fuzzyMatcher";
 import {
   startTimer,
   cancelTimer,
@@ -120,6 +131,8 @@ export class GameRoom extends Server<Env> {
             ? {
                 roundIndex: this.game.currentRoundIndex,
                 questionIndex: this.game.currentQuestionIndex,
+                totalRounds: this.game.rounds.length,
+                teamPlayEnabled: this.game.settings.teamPlayEnabled,
               }
             : {}),
         },
@@ -134,43 +147,92 @@ export class GameRoom extends Server<Env> {
           this.game.state === "REVIEWING")
       ) {
         const round = this.game.rounds[this.game.currentRoundIndex];
-        const question = round?.questions[this.game.currentQuestionIndex];
-        if (question && round) {
-          const questionNumber = this.game.currentQuestionIndex + 1;
-          const totalQuestions = round.questions.length;
 
-          if (role === "host") {
-            sendToConnection(conn, {
-              type: "QUESTION_SHOW_FULL",
-              payload: {
-                questionId: question.id,
-                text: question.text,
-                type: question.type,
-                choices: question.choices,
-                pointValue: question.pointValue,
-                timeLimit: question.timeLimit,
-                questionNumber,
-                totalQuestions,
-                correctAnswer: question.correctAnswer,
-                acceptableAnswers: question.acceptableAnswers ?? [],
-              },
-              timestamp: Date.now(),
-            });
-          } else {
-            sendToConnection(conn, {
-              type: "QUESTION_SHOW",
-              payload: {
-                questionId: question.id,
-                text: question.text,
-                type: question.type,
-                choices: question.choices,
-                pointValue: question.pointValue,
-                timeLimit: question.timeLimit,
-                questionNumber,
-                totalQuestions,
-              },
-              timestamp: Date.now(),
-            });
+        if (this.game.settings.teamPlayEnabled) {
+          // Team Play: send the whole round's questions at once (no
+          // QUESTION_DISPLAY state exists in this mode)
+          if (round && (this.game.state === "ANSWERING" || this.game.state === "REVIEWING")) {
+            const timeLimit =
+              round.roundTimeLimit ??
+              round.questions.reduce((sum, q) => sum + q.timeLimit, 0);
+
+            if (role === "host") {
+              sendToConnection(conn, {
+                type: "ROUND_SHOW_FULL",
+                payload: {
+                  roundIndex: this.game.currentRoundIndex,
+                  roundTitle: round.title,
+                  questions: round.questions.map((q) => ({
+                    questionId: q.id,
+                    text: q.text,
+                    type: q.type,
+                    choices: q.choices,
+                    pointValue: q.pointValue,
+                    correctAnswer: q.correctAnswer,
+                    acceptableAnswers: q.acceptableAnswers ?? [],
+                  })),
+                  timeLimit,
+                },
+                timestamp: Date.now(),
+              });
+            } else {
+              sendToConnection(conn, {
+                type: "ROUND_SHOW",
+                payload: {
+                  roundIndex: this.game.currentRoundIndex,
+                  roundTitle: round.title,
+                  questions: round.questions.map((q) => ({
+                    questionId: q.id,
+                    text: q.text,
+                    type: q.type,
+                    choices: q.choices,
+                    pointValue: q.pointValue,
+                  })),
+                  timeLimit,
+                },
+                timestamp: Date.now(),
+              });
+            }
+          }
+        } else {
+          const question = round?.questions[this.game.currentQuestionIndex];
+          if (question && round) {
+            const questionNumber = this.game.currentQuestionIndex + 1;
+            const totalQuestions = round.questions.length;
+
+            if (role === "host") {
+              sendToConnection(conn, {
+                type: "QUESTION_SHOW_FULL",
+                payload: {
+                  questionId: question.id,
+                  text: question.text,
+                  type: question.type,
+                  choices: question.choices,
+                  pointValue: question.pointValue,
+                  timeLimit: question.timeLimit,
+                  questionNumber,
+                  totalQuestions,
+                  correctAnswer: question.correctAnswer,
+                  acceptableAnswers: question.acceptableAnswers ?? [],
+                },
+                timestamp: Date.now(),
+              });
+            } else {
+              sendToConnection(conn, {
+                type: "QUESTION_SHOW",
+                payload: {
+                  questionId: question.id,
+                  text: question.text,
+                  type: question.type,
+                  choices: question.choices,
+                  pointValue: question.pointValue,
+                  timeLimit: question.timeLimit,
+                  questionNumber,
+                  totalQuestions,
+                },
+                timestamp: Date.now(),
+              });
+            }
           }
         }
 
@@ -296,6 +358,16 @@ export class GameRoom extends Server<Env> {
 
       case "PLAYER_BUZZER":
         // Optional buzz-in — not implemented in MVP
+        break;
+
+      case "PLAYER_SET_TEAM":
+        if (state.role !== "player") return;
+        await this.handleSetTeam(parsed, sender);
+        break;
+
+      case "TEAM_ANSWER_SUBMIT":
+        if (state.role !== "player") return;
+        await this.handleTeamAnswerSubmit(parsed, sender);
         break;
 
       // ─── Audience Messages ──────────────────────────────────────────
@@ -426,7 +498,11 @@ export class GameRoom extends Server<Env> {
           });
 
           // Run fuzzy matching and send results to host
-          await this.runFuzzyMatchingAndNotifyHost();
+          if (this.game.settings.teamPlayEnabled) {
+            await this.runRoundFuzzyMatchingAndNotifyHost();
+          } else {
+            await this.runFuzzyMatchingAndNotifyHost();
+          }
         } else {
           // Broadcast tick and set next alarm
           broadcastToAll(this, {
@@ -474,6 +550,7 @@ export class GameRoom extends Server<Env> {
       index: roundIndex,
       title: roundInput.title,
       state: "pending" as const,
+      roundTimeLimit: roundInput.roundTimeLimit,
       questions: roundInput.questions.map((qInput) => ({
         id: nanoid(12),
         text: qInput.text,
@@ -496,6 +573,7 @@ export class GameRoom extends Server<Env> {
       currentQuestionIndex: 0,
       rounds,
       players: {},
+      teams: {},
       settings: msg.payload.settings,
       createdAt: Date.now(),
       timerStartedAt: null,
@@ -558,6 +636,23 @@ export class GameRoom extends Server<Env> {
       return;
     }
 
+    if (this.game.settings.teamPlayEnabled) {
+      // Team Play: skip QUESTION_DISPLAY entirely — the whole round's
+      // questions show at once and answering is timed at the round level.
+      await this.transitionTo("ANSWERING");
+      broadcastStateChange(this, this.game);
+      broadcastRoundQuestions(this, this.game);
+
+      const round = this.game.rounds[this.game.currentRoundIndex];
+      if (round) {
+        const duration =
+          round.roundTimeLimit ??
+          round.questions.reduce((sum, q) => sum + q.timeLimit, 0);
+        await startTimer(this.ctx.storage, duration, round.id);
+      }
+      return;
+    }
+
     // Transition to QUESTION_DISPLAY
     await this.transitionTo("QUESTION_DISPLAY");
     broadcastStateChange(this, this.game);
@@ -592,7 +687,11 @@ export class GameRoom extends Server<Env> {
     broadcastStateChange(this, this.game);
 
     // Run fuzzy matching and send to host
-    await this.runFuzzyMatchingAndNotifyHost();
+    if (this.game.settings.teamPlayEnabled) {
+      await this.runRoundFuzzyMatchingAndNotifyHost();
+    } else {
+      await this.runFuzzyMatchingAndNotifyHost();
+    }
   }
 
   private async handleJudgeAnswer(
@@ -605,6 +704,32 @@ export class GameRoom extends Server<Env> {
     }
 
     const { answerId, status, bonusPoints, hostNote } = msg.payload;
+
+    if (this.game.settings.teamPlayEnabled) {
+      const round = this.game.rounds[this.game.currentRoundIndex];
+      for (const team of Object.values(this.game.teams)) {
+        for (const answer of Object.values(team.answers)) {
+          if (answer.id === answerId) {
+            answer.status = status;
+            answer.hostNote = hostNote ?? null;
+
+            if (status === "correct") {
+              const question = round?.questions.find((q) => q.id === answer.questionId);
+              answer.pointsAwarded = question?.pointValue ?? 100;
+            } else if (status === "bonus") {
+              answer.bonusPoints = bonusPoints ?? 0;
+              answer.pointsAwarded = bonusPoints ?? 0;
+            } else {
+              answer.pointsAwarded = 0;
+            }
+
+            await this.persistGame();
+            return;
+          }
+        }
+      }
+      return;
+    }
 
     // Find the answer across all players
     for (const player of Object.values(this.game.players)) {
@@ -643,6 +768,27 @@ export class GameRoom extends Server<Env> {
     }
 
     const round = this.game.rounds[this.game.currentRoundIndex];
+
+    if (this.game.settings.teamPlayEnabled) {
+      for (const judgment of msg.payload.judgments) {
+        for (const team of Object.values(this.game.teams)) {
+          for (const answer of Object.values(team.answers)) {
+            if (answer.id === judgment.answerId) {
+              answer.status = judgment.status;
+              if (judgment.status === "correct") {
+                const question = round?.questions.find((q) => q.id === answer.questionId);
+                answer.pointsAwarded = question?.pointValue ?? 100;
+              } else {
+                answer.pointsAwarded = 0;
+              }
+            }
+          }
+        }
+      }
+      await this.persistGame();
+      return;
+    }
+
     const question = round?.questions[this.game.currentQuestionIndex];
     const pointValue = question?.pointValue ?? 100;
 
@@ -670,6 +816,11 @@ export class GameRoom extends Server<Env> {
   ): Promise<void> {
     if (!this.game || this.game.state !== "REVIEWING") {
       this.sendError(sender, "INVALID_STATE", "Scores can only be revealed during review");
+      return;
+    }
+
+    if (this.game.settings.teamPlayEnabled) {
+      await this.handleRevealTeamScores();
       return;
     }
 
@@ -757,6 +908,99 @@ export class GameRoom extends Server<Env> {
     await this.persistGame();
   }
 
+  /** Team Play equivalent of handleRevealScores — awards points for the whole round at once */
+  private async handleRevealTeamScores(): Promise<void> {
+    if (!this.game || this.game.type !== "trivia") return;
+
+    const previousLeaderboard = computeLeaderboard(this.game);
+    const previousScores: Record<string, number> = {};
+    for (const entry of previousLeaderboard) {
+      previousScores[entry.playerId] = entry.score;
+    }
+
+    const previousTeamLeaderboard = computeTeamLeaderboard(this.game);
+    const previousTeamScores: Record<string, number> = {};
+    const previousTeamRanks: Record<string, number> = {};
+    for (const entry of previousTeamLeaderboard) {
+      previousTeamScores[entry.teamId] = entry.score;
+      previousTeamRanks[entry.teamId] = entry.rank;
+    }
+
+    // Award points for all judged answers across the whole round
+    const round = this.game.rounds[this.game.currentRoundIndex];
+    if (round) {
+      for (const team of Object.values(this.game.teams)) {
+        let roundPoints = 0;
+        for (const q of round.questions) {
+          const answer = team.answers[q.id];
+          if (answer && answer.pointsAwarded > 0) {
+            roundPoints += answer.pointsAwarded + answer.bonusPoints;
+          }
+        }
+        team.score += roundPoints;
+        // Mirror the team's score onto every member so individual
+        // leaderboards/history keep working unmodified.
+        for (const memberId of team.memberIds) {
+          const player = this.game.players[memberId];
+          if (player) player.score = team.score;
+        }
+      }
+    }
+
+    await this.transitionTo("SCORE_REVEAL");
+
+    const newTeamLeaderboard = computeTeamLeaderboard(this.game);
+    const teamChanges: TeamScoreChange[] = newTeamLeaderboard.map((entry) => ({
+      teamId: entry.teamId,
+      teamName: entry.teamName,
+      previousScore: previousTeamScores[entry.teamId] ?? 0,
+      newScore: entry.score,
+      pointsEarned: entry.score - (previousTeamScores[entry.teamId] ?? 0),
+      previousRank: previousTeamRanks[entry.teamId] ?? entry.rank,
+      newRank: entry.rank,
+    }));
+
+    broadcastToAll(this, {
+      type: "TEAM_SCORES_UPDATED",
+      payload: { leaderboard: newTeamLeaderboard, changes: teamChanges },
+      timestamp: Date.now(),
+    });
+
+    // Mirror the individual leaderboard too, so player-facing screens that
+    // read gameStore.leaderboard/scoreChanges keep working unmodified.
+    const newLeaderboard = computeLeaderboard(this.game);
+    const changes: ScoreChange[] = newLeaderboard.map((entry) => ({
+      playerId: entry.playerId,
+      displayName: entry.displayName,
+      previousScore: previousScores[entry.playerId] ?? 0,
+      newScore: entry.score,
+      pointsEarned: entry.score - (previousScores[entry.playerId] ?? 0),
+      previousRank: entry.rank,
+      newRank: entry.rank,
+    }));
+
+    broadcastToAll(this, {
+      type: "SCORES_UPDATED",
+      payload: { leaderboard: newLeaderboard, changes },
+      timestamp: Date.now(),
+    });
+
+    for (const player of Object.values(this.game.players)) {
+      if (player.role !== "player") continue;
+      const entry = newLeaderboard.find((e) => e.playerId === player.id);
+      if (entry) {
+        sendToPlayer(this, player.id, {
+          type: "YOUR_SCORE",
+          payload: { score: entry.score, rank: entry.rank },
+          timestamp: Date.now(),
+        });
+      }
+    }
+
+    broadcastStateChange(this, this.game);
+    await this.persistGame();
+  }
+
   private async handleNextQuestion(
     sender: Connection<ConnectionState>,
   ): Promise<void> {
@@ -773,6 +1017,47 @@ export class GameRoom extends Server<Env> {
 
     const round = this.game.rounds[this.game.currentRoundIndex];
     if (!round) return;
+
+    if (this.game.settings.teamPlayEnabled) {
+      // Team Play: there's only ever one round-wide answering phase, so this
+      // always advances straight to ROUND_RESULTS.
+      await this.transitionTo("ROUND_RESULTS");
+
+      const leaderboard = computeLeaderboard(this.game);
+      const teamLeaderboard = computeTeamLeaderboard(this.game);
+
+      let roundMVPTeam: { teamId: string; teamName: string; roundScore: number } | null = null;
+      let maxRoundScore = 0;
+      for (const team of Object.values(this.game.teams)) {
+        let roundScore = 0;
+        for (const q of round.questions) {
+          const answer = team.answers[q.id];
+          if (answer) {
+            roundScore += answer.pointsAwarded + answer.bonusPoints;
+          }
+        }
+        if (roundScore > maxRoundScore) {
+          maxRoundScore = roundScore;
+          roundMVPTeam = { teamId: team.id, teamName: team.name, roundScore };
+        }
+      }
+
+      broadcastToAll(this, {
+        type: "ROUND_RESULTS",
+        payload: {
+          roundIndex: this.game.currentRoundIndex,
+          leaderboard,
+          roundMVP: null,
+          teamLeaderboard,
+          roundMVPTeam,
+        },
+        timestamp: Date.now(),
+      });
+
+      broadcastStateChange(this, this.game);
+      await this.persistGame();
+      return;
+    }
 
     const hasMoreQuestions =
       this.game.currentQuestionIndex < round.questions.length - 1;
@@ -866,11 +1151,10 @@ export class GameRoom extends Server<Env> {
       await this.transitionTo("GAME_OVER");
 
       const finalLeaderboard = computeLeaderboard(this.game);
-      const winner = finalLeaderboard.length > 0 ? {
-        playerId: finalLeaderboard[0].playerId,
-        displayName: finalLeaderboard[0].displayName,
-        score: finalLeaderboard[0].score,
-      } : null;
+      const teamLeaderboard = this.game.settings.teamPlayEnabled
+        ? computeTeamLeaderboard(this.game)
+        : undefined;
+      const winner = this.computeWinnerInfo(finalLeaderboard, teamLeaderboard);
 
       const stats = this.computeGameStats();
 
@@ -880,6 +1164,7 @@ export class GameRoom extends Server<Env> {
           finalLeaderboard,
           winner,
           stats,
+          teamLeaderboard,
         },
         timestamp: Date.now(),
       });
@@ -920,17 +1205,17 @@ export class GameRoom extends Server<Env> {
     this.game = transition(this.game, "GAME_OVER");
 
     const finalLeaderboard = computeLeaderboard(this.game);
-    const winner = finalLeaderboard.length > 0 ? {
-      playerId: finalLeaderboard[0].playerId,
-      displayName: finalLeaderboard[0].displayName,
-      score: finalLeaderboard[0].score,
-    } : null;
+    const teamLeaderboard =
+      this.game.type === "trivia" && this.game.settings.teamPlayEnabled
+        ? computeTeamLeaderboard(this.game)
+        : undefined;
+    const winner = this.computeWinnerInfo(finalLeaderboard, teamLeaderboard);
 
     const stats = this.computeGameStats();
 
     broadcastToAll(this, {
       type: "GAME_OVER",
-      payload: { finalLeaderboard, winner, stats },
+      payload: { finalLeaderboard, winner, stats, teamLeaderboard },
       timestamp: Date.now(),
     });
 
@@ -967,6 +1252,18 @@ export class GameRoom extends Server<Env> {
 
     // Remove the player from the game
     delete this.game.players[playerId];
+
+    // Team Play: remove from their team too, deleting the team if now empty
+    if (this.game.type === "trivia" && this.game.settings.teamPlayEnabled && player.teamId) {
+      const team = this.game.teams[player.teamId];
+      if (team) {
+        team.memberIds = team.memberIds.filter((id) => id !== playerId);
+        if (team.memberIds.length === 0) {
+          delete this.game.teams[team.id];
+        }
+        broadcastTeams(this, this.game);
+      }
+    }
 
     // Broadcast player left
     const playerCount = this.getConnectedPlayerCount();
@@ -1150,11 +1447,38 @@ export class GameRoom extends Server<Env> {
           ? {
               roundIndex: this.game.currentRoundIndex,
               questionIndex: this.game.currentQuestionIndex,
+              totalRounds: this.game.rounds.length,
+              teamPlayEnabled: this.game.settings.teamPlayEnabled,
             }
           : {}),
       },
       timestamp: Date.now(),
     });
+
+    // Team Play: resend the reconnecting player's team draft answers if
+    // they're mid-round, since onConnect fired before we knew their identity.
+    if (
+      this.game.type === "trivia" &&
+      this.game.settings.teamPlayEnabled &&
+      this.game.state === "ANSWERING" &&
+      player.teamId
+    ) {
+      const team = this.game.teams[player.teamId];
+      if (team) {
+        sendToConnection(sender, {
+          type: "TEAM_ANSWERS_SNAPSHOT",
+          payload: {
+            answers: Object.values(team.answers).map((a) => ({
+              questionId: a.questionId,
+              text: a.text,
+              submittedBy: a.submittedBy,
+              submittedByName: this.game!.players[a.submittedBy]?.displayName ?? "Unknown",
+            })),
+          },
+          timestamp: Date.now(),
+        });
+      }
+    }
 
     // For bingo, resend the reconnecting player's card snapshot
     if (this.game.type === "bingo") {
@@ -1245,6 +1569,140 @@ export class GameRoom extends Server<Env> {
       },
       timestamp: Date.now(),
     });
+  }
+
+  // ─── Team Play Message Handlers ──────────────────────────────────────────────
+
+  private async handleSetTeam(
+    msg: PlayerSetTeamMessage,
+    sender: Connection<ConnectionState>,
+  ): Promise<void> {
+    if (!this.game || this.game.type !== "trivia" || !this.game.settings.teamPlayEnabled) {
+      return;
+    }
+
+    if (this.game.state !== "LOBBY") {
+      this.sendError(sender, "INVALID_STATE", "Teams can only be chosen in the lobby");
+      return;
+    }
+
+    const playerId = sender.state?.playerId;
+    if (!playerId) return;
+
+    const player = this.game.players[playerId];
+    if (!player || player.role !== "player") return;
+
+    const teamName = msg.payload.teamName.trim();
+    if (teamName.length === 0) return;
+
+    // Leave any previous team first, deleting it if now empty
+    if (player.teamId) {
+      const prevTeam = this.game.teams[player.teamId];
+      if (prevTeam) {
+        prevTeam.memberIds = prevTeam.memberIds.filter((id) => id !== playerId);
+        if (prevTeam.memberIds.length === 0) {
+          delete this.game.teams[prevTeam.id];
+        }
+      }
+    }
+
+    // Case-insensitive find-or-create by name
+    let team = Object.values(this.game.teams).find(
+      (t) => t.name.toLowerCase() === teamName.toLowerCase(),
+    );
+
+    if (team) {
+      const maxTeamSize = this.game.settings.maxTeamSize;
+      if (team.memberIds.length >= maxTeamSize) {
+        this.sendError(sender, "TEAM_FULL", "That team is already full");
+        return;
+      }
+      team.memberIds.push(playerId);
+    } else {
+      team = {
+        id: nanoid(12),
+        name: teamName,
+        memberIds: [playerId],
+        score: 0,
+        answers: {},
+        createdAt: Date.now(),
+      };
+      this.game.teams[team.id] = team;
+    }
+
+    player.teamId = team.id;
+
+    await this.persistGame();
+    broadcastTeams(this, this.game);
+  }
+
+  private async handleTeamAnswerSubmit(
+    msg: TeamAnswerSubmitMessage,
+    sender: Connection<ConnectionState>,
+  ): Promise<void> {
+    if (!this.game || this.game.type !== "trivia" || !this.game.settings.teamPlayEnabled) {
+      return;
+    }
+
+    if (this.game.state !== "ANSWERING") return;
+
+    const playerId = sender.state?.playerId;
+    if (!playerId) return;
+
+    const player = this.game.players[playerId];
+    if (!player || !player.teamId) return;
+
+    const team = this.game.teams[player.teamId];
+    if (!team) return;
+
+    const round = this.game.rounds[this.game.currentRoundIndex];
+    const question = round?.questions.find((q) => q.id === msg.payload.questionId);
+    if (!question) return;
+
+    const existing = team.answers[question.id];
+    const answer: TeamAnswer = {
+      id: existing?.id ?? nanoid(12),
+      questionId: question.id,
+      teamId: team.id,
+      text: msg.payload.text,
+      submittedAt: Date.now(),
+      submittedBy: playerId,
+      fuzzyScore: null,
+      status: "pending",
+      pointsAwarded: 0,
+      bonusPoints: 0,
+      hostNote: null,
+    };
+
+    team.answers[question.id] = answer;
+    await this.persistGame();
+
+    // Live-sync the edit to teammates
+    sendToPlayers(this, team.memberIds, {
+      type: "TEAM_ANSWER_UPDATED",
+      payload: {
+        questionId: question.id,
+        text: answer.text,
+        submittedBy: playerId,
+        submittedByName: player.displayName,
+      },
+      timestamp: Date.now(),
+    });
+
+    // Notify the host and presentation screen of round-answering progress
+    const answeredCount = round.questions.filter((q) => !!team.answers[q.id]).length;
+    const progressMsg: ServerMessage = {
+      type: "TEAM_ANSWER_PROGRESS",
+      payload: {
+        teamId: team.id,
+        teamName: team.name,
+        answeredCount,
+        totalQuestions: round.questions.length,
+      },
+      timestamp: Date.now(),
+    };
+    broadcastToRole(this, "host", progressMsg);
+    broadcastToRole(this, "presentation", progressMsg);
   }
 
   // ─── Audience Message Handlers ──────────────────────────────────────────────
@@ -1477,6 +1935,91 @@ export class GameRoom extends Server<Env> {
     });
   }
 
+  /**
+   * Team Play equivalent of runFuzzyMatchingAndNotifyHost — runs fuzzy
+   * matching across every question in the round × every team's answer, and
+   * sends one batched review payload to the host.
+   */
+  private async runRoundFuzzyMatchingAndNotifyHost(): Promise<void> {
+    if (!this.game || this.game.type !== "trivia") return;
+    const game = this.game;
+
+    const round = game.rounds[game.currentRoundIndex];
+    if (!round) return;
+
+    const questionsReview = round.questions.map((question) => {
+      const teamAnswers: TeamAnswer[] = [];
+      for (const team of Object.values(game.teams)) {
+        const answer = team.answers[question.id];
+        if (answer) teamAnswers.push(answer);
+      }
+
+      const reviews = batchMatchTeams(
+        teamAnswers,
+        question,
+        game.teams,
+        game.players,
+      );
+
+      // Update stored answers with fuzzy scores + auto-classification
+      for (const review of reviews) {
+        const team = game.teams[review.teamId];
+        const answer = team?.answers[question.id];
+        if (answer) {
+          answer.fuzzyScore = review.fuzzyScore;
+          if (review.suggestedStatus === "correct") {
+            answer.status = "correct";
+            answer.pointsAwarded = question.pointValue;
+          } else if (review.suggestedStatus === "incorrect") {
+            answer.status = "incorrect";
+            answer.pointsAwarded = 0;
+          }
+          // "needs_review" answers stay "pending" for host to decide
+        }
+      }
+
+      return {
+        questionId: question.id,
+        questionText: question.text,
+        correctAnswer: question.correctAnswer,
+        acceptableAnswers: question.acceptableAnswers ?? [],
+        teamAnswers: reviews,
+      };
+    });
+
+    await this.persistGame();
+
+    broadcastToRole(this, "host", {
+      type: "ROUND_ANSWERS_FOR_REVIEW",
+      payload: { questions: questionsReview },
+      timestamp: Date.now(),
+    });
+  }
+
+  /**
+   * Compute the GAME_OVER winner. Team Play: the top team (not an arbitrary
+   * top-scoring member — mirrored scores mean every teammate ties, so picking
+   * finalLeaderboard[0] would show whichever member happened to sort first).
+   */
+  private computeWinnerInfo(
+    finalLeaderboard: ScoreEntry[],
+    teamLeaderboard: TeamScoreEntry[] | undefined,
+  ): { playerId: string; displayName: string; score: number } | null {
+    if (teamLeaderboard) {
+      const topTeam = teamLeaderboard[0];
+      return topTeam
+        ? { playerId: topTeam.teamId, displayName: topTeam.teamName, score: topTeam.score }
+        : null;
+    }
+    return finalLeaderboard.length > 0
+      ? {
+          playerId: finalLeaderboard[0].playerId,
+          displayName: finalLeaderboard[0].displayName,
+          score: finalLeaderboard[0].score,
+        }
+      : null;
+  }
+
   /** Compute game statistics for the game over screen */
   private computeGameStats(): GameStats {
     if (!this.game || this.game.type !== "trivia") {
@@ -1492,6 +2035,38 @@ export class GameRoom extends Server<Env> {
     let totalQuestions = 0;
     for (const round of this.game.rounds) {
       totalQuestions += round.questions.length;
+    }
+
+    if (this.game.settings.teamPlayEnabled) {
+      const teams = Object.values(this.game.teams);
+      let totalTeamAnswers = 0;
+      let mostBonus: GameStats["mostBonusPoints"] = null;
+      let maxTeamBonus = 0;
+
+      for (const team of teams) {
+        let teamBonusTotal = 0;
+        for (const answer of Object.values(team.answers)) {
+          totalTeamAnswers++;
+          teamBonusTotal += answer.bonusPoints;
+        }
+        if (teamBonusTotal > maxTeamBonus) {
+          maxTeamBonus = teamBonusTotal;
+          mostBonus = { playerId: team.id, displayName: team.name, bonusTotal: teamBonusTotal };
+        }
+      }
+
+      // Team-weighted average — averaging over players.score would skew
+      // toward larger teams, since every member mirrors the same score.
+      const averageScore =
+        teams.length > 0 ? teams.reduce((sum, t) => sum + t.score, 0) / teams.length : 0;
+
+      return {
+        totalQuestions,
+        totalAnswers: totalTeamAnswers,
+        averageScore,
+        fastestAnswer: null,
+        mostBonusPoints: maxTeamBonus > 0 ? mostBonus : null,
+      };
     }
 
     let totalAnswers = 0;

@@ -5,7 +5,9 @@ import type { BingoGameState, GameState, TriviaGameState } from "./types";
 /** Valid trivia state transitions: maps each state to the set of states it can transition to */
 export const TRIVIA_STATE_TRANSITIONS: Record<TriviaGameState, TriviaGameState[]> = {
   LOBBY: ["ROUND_INTRO"],
-  ROUND_INTRO: ["QUESTION_DISPLAY"],
+  // ROUND_INTRO -> ANSWERING is used by Team Play, which skips QUESTION_DISPLAY
+  // entirely: the whole round's questions show at once instead of one at a time.
+  ROUND_INTRO: ["QUESTION_DISPLAY", "ANSWERING"],
   QUESTION_DISPLAY: ["ANSWERING"],
   ANSWERING: ["REVIEWING"],
   REVIEWING: ["SCORE_REVEAL"],

@@ -1,9 +1,26 @@
 // src/client/stores/gameStore.ts — Zustand: synced game state
 // Central store for game state shared across all views (host, player, presentation, audience).
 import { create } from "zustand";
-import type { GameState, GameType, ScoreEntry, ScoreChange, BingoSquare, BingoWinner } from "@/shared/types";
+import type {
+  GameState,
+  GameType,
+  ScoreEntry,
+  ScoreChange,
+  BingoSquare,
+  BingoWinner,
+  PublicTeam,
+  TeamScoreEntry,
+  TeamScoreChange,
+} from "@/shared/types";
 import type { ServerMessage } from "@/shared/messages";
 import { usePlayerStore } from "./playerStore";
+
+/** Per-team round-answering progress, from TEAM_ANSWER_PROGRESS — shared by host and presentation */
+export interface TeamAnswerProgressEntry {
+  teamName: string;
+  answeredCount: number;
+  totalQuestions: number;
+}
 
 interface GameStoreState {
   /** Current game state from server */
@@ -41,10 +58,35 @@ interface GameStoreState {
   playerCount: number;
   /** Which game type this room is running */
   gameType: GameType;
+  /** Trivia only: whether Team Play is enabled for this game */
+  teamPlayEnabled: boolean;
+  /** Team Play only: maximum players per team */
+  maxTeamSize: number;
   /** The local player's bingo card (player role only) */
   bingoCard: { squares: BingoSquare[]; marked: number[] } | null;
   /** Bingo winners-so-far (across all configured patterns) */
   bingoWinners: BingoWinner[];
+
+  /** Team Play: current team roster */
+  teams: PublicTeam[];
+  /** Team Play: current team leaderboard */
+  teamLeaderboard: TeamScoreEntry[];
+  /** Team Play: score changes from the last team score update */
+  teamScoreChanges: TeamScoreChange[];
+  /** Team Play: the current round's title, from ROUND_SHOW/ROUND_SHOW_FULL */
+  roundTitle: string | null;
+  /** Team Play: the current round's full question list (ANSWERING shows all at once) */
+  roundQuestions: {
+    questionId: string;
+    text: string;
+    type: "text" | "multiple-choice" | "true-false";
+    choices?: string[];
+    pointValue: number;
+  }[] | null;
+  /** Team Play: the team's current shared draft answers, keyed by question ID */
+  roundAnswerDrafts: Record<string, { text: string; submittedBy: string }>;
+  /** Team Play: per-team round-answering progress, keyed by team ID */
+  teamAnswerProgress: Record<string, TeamAnswerProgressEntry>;
 
   // Actions
   setGameState: (state: GameState) => void;
@@ -78,8 +120,17 @@ const initialState = {
   timerTotal: null as number | null,
   playerCount: 0,
   gameType: "trivia" as GameType,
+  teamPlayEnabled: false,
+  maxTeamSize: 4,
   bingoCard: null as GameStoreState["bingoCard"],
   bingoWinners: [] as BingoWinner[],
+  teams: [] as PublicTeam[],
+  teamLeaderboard: [] as TeamScoreEntry[],
+  teamScoreChanges: [] as TeamScoreChange[],
+  roundTitle: null as string | null,
+  roundQuestions: null as GameStoreState["roundQuestions"],
+  roundAnswerDrafts: {} as Record<string, { text: string; submittedBy: string }>,
+  teamAnswerProgress: {} as Record<string, TeamAnswerProgressEntry>,
 };
 
 export const useGameStore = create<GameStoreState>((set) => ({
@@ -111,6 +162,9 @@ export const useGameStore = create<GameStoreState>((set) => ({
           ...(message.payload.questionIndex !== undefined && {
             questionIndex: message.payload.questionIndex,
           }),
+          ...(message.payload.teamPlayEnabled !== undefined && {
+            teamPlayEnabled: message.payload.teamPlayEnabled,
+          }),
         });
         // Reset timer on state changes away from ANSWERING
         if (message.payload.state !== "ANSWERING") {
@@ -118,9 +172,83 @@ export const useGameStore = create<GameStoreState>((set) => ({
         }
         // Clear question data when returning to lobby
         if (message.payload.state === "LOBBY") {
-          set({ currentQuestion: null, timerSeconds: null, timerTotal: null });
+          set({
+            currentQuestion: null,
+            timerSeconds: null,
+            timerTotal: null,
+            roundTitle: null,
+            roundQuestions: null,
+            roundAnswerDrafts: {},
+          });
         }
         break;
+
+      case "ROUND_SHOW":
+      case "ROUND_SHOW_FULL":
+        set({
+          roundTitle: message.payload.roundTitle,
+          roundQuestions: message.payload.questions,
+          timerTotal: message.payload.timeLimit,
+          timerSeconds: message.payload.timeLimit,
+          roundAnswerDrafts: {},
+          teamAnswerProgress: {},
+        });
+        break;
+
+      case "TEAM_ANSWER_PROGRESS":
+        set((state) => ({
+          teamAnswerProgress: {
+            ...state.teamAnswerProgress,
+            [message.payload.teamId]: {
+              teamName: message.payload.teamName,
+              answeredCount: message.payload.answeredCount,
+              totalQuestions: message.payload.totalQuestions,
+            },
+          },
+        }));
+        break;
+
+      case "TEAM_UPDATED": {
+        set({ teams: message.payload.teams });
+        // Derive the local player's own team, so playerStore stays in sync
+        // even though the server never sends a dedicated "your team" ack.
+        const localPlayerId = usePlayerStore.getState().playerId;
+        if (localPlayerId) {
+          const ownTeam = message.payload.teams.find((t) =>
+            t.members.some((m) => m.id === localPlayerId),
+          );
+          usePlayerStore.getState().setTeamId(ownTeam?.id ?? null);
+        }
+        break;
+      }
+
+      case "TEAM_SCORES_UPDATED":
+        set({
+          teamLeaderboard: message.payload.leaderboard,
+          teamScoreChanges: message.payload.changes,
+        });
+        break;
+
+      case "TEAM_ANSWER_UPDATED":
+        set((state) => ({
+          roundAnswerDrafts: {
+            ...state.roundAnswerDrafts,
+            [message.payload.questionId]: {
+              text: message.payload.text,
+              submittedBy: message.payload.submittedByName,
+            },
+          },
+        }));
+        break;
+
+      case "TEAM_ANSWERS_SNAPSHOT": {
+        const drafts: Record<string, { text: string; submittedBy: string }> = {};
+        for (const a of message.payload.answers) {
+          drafts[a.questionId] = { text: a.text, submittedBy: a.submittedByName };
+        }
+        set({ roundAnswerDrafts: drafts });
+        break;
+      }
 
       case "QUESTION_SHOW":
         set({
@@ -155,6 +283,15 @@ export const useGameStore = create<GameStoreState>((set) => ({
           timerTotal: message.payload.timeLimit,
           timerSeconds: message.payload.timeLimit,
         });
+        break;
+
+      case "JOIN_ACCEPTED":
+        if ("teamPlayEnabled" in message.payload.gameSettings) {
+          set({
+            teamPlayEnabled: message.payload.gameSettings.teamPlayEnabled,
+            maxTeamSize: message.payload.gameSettings.maxTeamSize,
+          });
+        }
         break;
 
       case "TIMER_TICK":

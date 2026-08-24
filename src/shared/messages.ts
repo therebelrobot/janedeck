@@ -14,6 +14,10 @@ import type {
   ScoreChange,
   ScoreEntry,
   GameStats,
+  PublicTeam,
+  TeamAnswerReview,
+  TeamScoreChange,
+  TeamScoreEntry,
 } from "./types";
 
 // ─── Client → Server Messages ────────────────────────────────────────────────
@@ -26,6 +30,8 @@ export interface HostCreateGameMessage {
     settings: GameSettings;
     rounds: Array<{
       title: string;
+      /** Team Play only: total answering time in seconds for the whole round */
+      roundTimeLimit?: number;
       questions: Array<{
         text: string;
         correctAnswer: string;
@@ -152,6 +158,25 @@ export interface PlayerBuzzerMessage {
   };
 }
 
+// ─── Team Play Messages (Client → Server) ──────────────────────────────────────
+
+/** Join-or-create a team by name (LOBBY only). Case-insensitive match on existing teams. */
+export interface PlayerSetTeamMessage {
+  type: "PLAYER_SET_TEAM";
+  payload: {
+    teamName: string;
+  };
+}
+
+/** Upsert the team's shared draft answer for a question (ANSWERING only, any teammate) */
+export interface TeamAnswerSubmitMessage {
+  type: "TEAM_ANSWER_SUBMIT";
+  payload: {
+    questionId: string;
+    text: string;
+  };
+}
+
 // Audience messages
 export interface AudienceJoinMessage {
   type: "AUDIENCE_JOIN";
@@ -234,6 +259,8 @@ export type ClientMessage =
   | PlayerRejoinMessage
   | PlayerSubmitAnswerMessage
   | PlayerBuzzerMessage
+  | PlayerSetTeamMessage
+  | TeamAnswerSubmitMessage
   | AudienceJoinMessage
   | AudienceVoteMessage
   | PresentationConnectMessage
@@ -256,6 +283,8 @@ export interface GameStateChangedMessage {
     roundIndex?: number;
     questionIndex?: number;
     totalRounds?: number;
+    /** Trivia only: whether Team Play is enabled for this game */
+    teamPlayEnabled?: boolean;
   };
   timestamp: number;
 }
@@ -322,6 +351,14 @@ export interface RoundResultsMessage {
       displayName: string;
       roundScore: number;
     } | null;
+    /** Team Play only */
+    teamLeaderboard?: TeamScoreEntry[];
+    /** Team Play only: the top-scoring team this round */
+    roundMVPTeam?: {
+      teamId: string;
+      teamName: string;
+      roundScore: number;
+    } | null;
   };
   timestamp: number;
 }
@@ -336,6 +373,8 @@ export interface GameOverMessage {
       score: number;
     } | null;
     stats: GameStats;
+    /** Team Play only */
+    teamLeaderboard?: TeamScoreEntry[];
   };
   timestamp: number;
 }
@@ -458,6 +497,118 @@ export interface ErrorMessage {
   timestamp: number;
 }
 
+// ─── Team Play Messages (Server → Client) ──────────────────────────────────────
+
+/** Team roster broadcast to everyone — never includes answers */
+export interface TeamUpdatedMessage {
+  type: "TEAM_UPDATED";
+  payload: {
+    teams: PublicTeam[];
+  };
+  timestamp: number;
+}
+
+/** Sent privately to a team member on connect/rejoin mid-round, with the team's current draft */
+export interface TeamAnswersSnapshotMessage {
+  type: "TEAM_ANSWERS_SNAPSHOT";
+  payload: {
+    answers: Array<{
+      questionId: string;
+      text: string;
+      submittedBy: string;
+      submittedByName: string;
+    }>;
+  };
+  timestamp: number;
+}
+
+/** Sent to teammates only, whenever any member edits the team's shared answer */
+export interface TeamAnswerUpdatedMessage {
+  type: "TEAM_ANSWER_UPDATED";
+  payload: {
+    questionId: string;
+    text: string;
+    submittedBy: string;
+    submittedByName: string;
+  };
+  timestamp: number;
+}
+
+/** Sent to the host only — team equivalent of ANSWER_SUBMITTED_NOTIFICATION */
+export interface TeamAnswerProgressMessage {
+  type: "TEAM_ANSWER_PROGRESS";
+  payload: {
+    teamId: string;
+    teamName: string;
+    answeredCount: number;
+    totalQuestions: number;
+  };
+  timestamp: number;
+}
+
+/** Batch question display for Team Play — the whole round's questions at once */
+export interface RoundShowMessage {
+  type: "ROUND_SHOW";
+  payload: {
+    roundIndex: number;
+    roundTitle: string;
+    questions: Array<{
+      questionId: string;
+      text: string;
+      type: "text" | "multiple-choice" | "true-false";
+      choices?: string[];
+      pointValue: number;
+    }>;
+    timeLimit: number;
+  };
+  timestamp: number;
+}
+
+/** Host-only full version of ROUND_SHOW, with correct answers */
+export interface RoundShowFullMessage {
+  type: "ROUND_SHOW_FULL";
+  payload: {
+    roundIndex: number;
+    roundTitle: string;
+    questions: Array<{
+      questionId: string;
+      text: string;
+      type: "text" | "multiple-choice" | "true-false";
+      choices?: string[];
+      pointValue: number;
+      correctAnswer: string;
+      acceptableAnswers: string[];
+    }>;
+    timeLimit: number;
+  };
+  timestamp: number;
+}
+
+/** Host-only batch answer review, sent when a Team Play round closes */
+export interface RoundAnswersForReviewMessage {
+  type: "ROUND_ANSWERS_FOR_REVIEW";
+  payload: {
+    questions: Array<{
+      questionId: string;
+      questionText: string;
+      correctAnswer: string;
+      acceptableAnswers: string[];
+      teamAnswers: TeamAnswerReview[];
+    }>;
+  };
+  timestamp: number;
+}
+
+/** Team equivalent of SCORES_UPDATED */
+export interface TeamScoresUpdatedMessage {
+  type: "TEAM_SCORES_UPDATED";
+  payload: {
+    leaderboard: TeamScoreEntry[];
+    changes: TeamScoreChange[];
+  };
+  timestamp: number;
+}
+
 // ─── Bingo Messages (Server → Client) ──────────────────────────────────────────
 
 /** Sent privately to a player when their card is assigned (on start, or on rejoin) */
@@ -537,6 +688,14 @@ export type ServerMessage =
   | YourScoreMessage
   | KickedMessage
   | ErrorMessage
+  | TeamUpdatedMessage
+  | TeamAnswersSnapshotMessage
+  | TeamAnswerUpdatedMessage
+  | TeamAnswerProgressMessage
+  | RoundShowMessage
+  | RoundShowFullMessage
+  | RoundAnswersForReviewMessage
+  | TeamScoresUpdatedMessage
   | BingoCardAssignedMessage
   | BingoSquareMarkedMessage
   | BingoSquareUnmarkedMessage

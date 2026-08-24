@@ -3,8 +3,9 @@
 // R5.4: High contrast colors for screen-sharing.
 import React from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import type { ScoreEntry, ScoreChange } from "@/shared/types";
+import type { ScoreEntry, ScoreChange, TeamScoreEntry, TeamScoreChange } from "@/shared/types";
 import { Leaderboard } from "../../components/Leaderboard";
+import { TeamLeaderboard } from "../../components/TeamLeaderboard";
 import { colors, spacing, radii, shadows } from "../../styles/theme";
 
 interface ScoreRevealScreenProps {
@@ -21,6 +22,9 @@ interface ScoreRevealScreenProps {
     displayName: string;
     roundScore: number;
   } | null;
+  /** Team Play only: when present, teams are shown as first-class rows instead of leaderboard/roundMVP */
+  teamLeaderboard?: TeamScoreEntry[];
+  teamScoreChanges?: TeamScoreChange[];
 }
 
 /**
@@ -34,6 +38,8 @@ export function ScoreRevealScreen({
   roundIndex,
   isRoundResults = false,
   roundMVP,
+  teamLeaderboard,
+  teamScoreChanges,
 }: ScoreRevealScreenProps): React.ReactElement {
   const prefersReducedMotion = useReducedMotion();
 
@@ -72,7 +78,9 @@ export function ScoreRevealScreen({
       >
         {isRoundResults
           ? `🏁 Round ${(roundIndex ?? 0) + 1} Complete`
-          : "📊 Scores"}
+          : teamLeaderboard
+            ? "📊 Team Scores"
+            : "📊 Scores"}
       </motion.h2>
 
       {/* Round MVP */}
@@ -158,12 +166,21 @@ export function ScoreRevealScreen({
           justifyContent: "center",
         }}
       >
-        <Leaderboard
-          entries={leaderboard}
-          showChanges={!isRoundResults}
-          scoreChanges={scoreChanges}
-          maxDisplay={10}
-        />
+        {teamLeaderboard ? (
+          <TeamLeaderboard
+            entries={teamLeaderboard}
+            showChanges={!isRoundResults}
+            scoreChanges={teamScoreChanges}
+            maxDisplay={10}
+          />
+        ) : (
+          <Leaderboard
+            entries={leaderboard}
+            showChanges={!isRoundResults}
+            scoreChanges={scoreChanges}
+            maxDisplay={10}
+          />
+        )}
       </motion.div>
     </div>
   );

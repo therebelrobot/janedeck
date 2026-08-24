@@ -75,12 +75,22 @@ function triviaTransition(game: TriviaGame, to: TriviaGameState): TriviaGame {
     }
 
     case "ANSWERING": {
-      // Start timer for the current question
       const round = updatedGame.rounds[updatedGame.currentRoundIndex];
-      const question = round?.questions[updatedGame.currentQuestionIndex];
-      if (question) {
-        updatedGame.timerStartedAt = Date.now();
-        updatedGame.timerDuration = question.timeLimit;
+      if (updatedGame.settings.teamPlayEnabled) {
+        // Team Play: one timer for the whole round's worth of questions
+        if (round) {
+          updatedGame.timerStartedAt = Date.now();
+          updatedGame.timerDuration =
+            round.roundTimeLimit ??
+            round.questions.reduce((sum, q) => sum + q.timeLimit, 0);
+        }
+      } else {
+        // Start timer for the current question
+        const question = round?.questions[updatedGame.currentQuestionIndex];
+        if (question) {
+          updatedGame.timerStartedAt = Date.now();
+          updatedGame.timerDuration = question.timeLimit;
+        }
       }
       break;
     }
@@ -136,6 +146,16 @@ function triviaTransition(game: TriviaGame, to: TriviaGameState): TriviaGame {
         ...round,
         state: "pending" as const,
       }));
+
+      // Team Play: reset team scores/answers, but keep membership intact
+      // so the host can replay the same teams.
+      if (updatedGame.settings.teamPlayEnabled) {
+        const teams = { ...updatedGame.teams };
+        for (const teamId of Object.keys(teams)) {
+          teams[teamId] = { ...teams[teamId], score: 0, answers: {} };
+        }
+        updatedGame.teams = teams;
+      }
       break;
     }
   }

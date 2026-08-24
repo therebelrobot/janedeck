@@ -1,8 +1,17 @@
 // src/client/stores/hostStore.ts — Zustand: host-only state
 // Manages host authentication, answer review pipeline, and host-specific messages.
 import { create } from "zustand";
-import type { AnswerReview } from "@/shared/types";
+import type { AnswerReview, TeamAnswerReview } from "@/shared/types";
 import type { ServerMessage } from "@/shared/messages";
+
+/** One question's batch of team answer reviews, from ROUND_ANSWERS_FOR_REVIEW */
+export interface RoundQuestionReview {
+  questionId: string;
+  questionText: string;
+  correctAnswer: string;
+  acceptableAnswers: string[];
+  teamAnswers: TeamAnswerReview[];
+}
 
 interface HostStoreState {
   /** Auth token from login — R9.5: session-scoped */
@@ -23,6 +32,8 @@ interface HostStoreState {
   } | null;
   /** Game code after creation */
   gameCode: string | null;
+  /** Team Play only: batch answer review data for the whole round */
+  roundAnswersForReview: RoundQuestionReview[] | null;
 
   // Actions
   setToken: (token: string | null) => void;
@@ -45,6 +56,7 @@ const initialState = {
   totalPlayers: 0,
   currentQuestionFull: null as HostStoreState["currentQuestionFull"],
   gameCode: null as string | null,
+  roundAnswersForReview: null as RoundQuestionReview[] | null,
 };
 
 export const useHostStore = create<HostStoreState>((set) => ({
@@ -121,6 +133,15 @@ export const useHostStore = create<HostStoreState>((set) => ({
           answeredCount: message.payload.answeredCount,
           totalPlayers: message.payload.totalPlayers,
         });
+        break;
+
+      case "ROUND_SHOW_FULL":
+        // Reset round-answering tracking for the new round
+        set({ roundAnswersForReview: null });
+        break;
+
+      case "ROUND_ANSWERS_FOR_REVIEW":
+        set({ roundAnswersForReview: message.payload.questions });
         break;
 
       default:

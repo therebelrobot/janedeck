@@ -5,7 +5,7 @@ import React, { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { colors, radii, spacing } from "../../../styles/theme";
 import { staggerItem } from "../../../animations/presets";
-import { DEFAULT_POINT_VALUE, DEFAULT_TIME_LIMIT } from "@/shared/constants";
+import { DEFAULT_POINT_VALUE, DEFAULT_TIME_LIMIT, DEFAULT_ROUND_TIME_LIMIT } from "@/shared/constants";
 import { QuestionEditor, type QuestionEditorData } from "./QuestionEditor";
 
 /** Data shape for a round in the editor */
@@ -13,6 +13,8 @@ export interface RoundEditorData {
   title: string;
   pointValue: number;
   questions: QuestionEditorData[];
+  /** Team Play only: total answering time in seconds for the whole round */
+  roundTimeLimit?: number;
 }
 
 interface RoundEditorProps {
@@ -32,6 +34,8 @@ interface RoundEditorProps {
   onMoveDown: (index: number) => void;
   /** Default time limit from game settings */
   defaultTimeLimit: number;
+  /** Whether Team Play is enabled — shows the round-level time limit field */
+  teamMode?: boolean;
 }
 
 /**
@@ -47,6 +51,7 @@ export function RoundEditor({
   onMoveUp,
   onMoveDown,
   defaultTimeLimit,
+  teamMode = false,
 }: RoundEditorProps): React.ReactElement {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const roundId = `round-${index}`;
@@ -263,6 +268,44 @@ export function RoundEditor({
               >
                 {round.questions.length} question{round.questions.length !== 1 ? "s" : ""}
               </span>
+
+              {/* Round time limit — Team Play only. Governs the whole round's
+                  answering window instead of per-question timers. */}
+              {teamMode && (
+                <div style={{ maxWidth: 280 }}>
+                  <label
+                    htmlFor={`${roundId}-round-time-limit`}
+                    style={{ fontSize: "var(--text-sm)" }}
+                  >
+                    Round time limit (seconds)
+                  </label>
+                  <input
+                    id={`${roundId}-round-time-limit`}
+                    type="number"
+                    min={30}
+                    max={3600}
+                    value={round.roundTimeLimit ?? DEFAULT_ROUND_TIME_LIMIT}
+                    onChange={(e) =>
+                      handleFieldChange(
+                        "roundTimeLimit",
+                        Math.max(30, Math.min(3600, parseInt(e.target.value, 10) || DEFAULT_ROUND_TIME_LIMIT)),
+                      )
+                    }
+                    style={{ minHeight: 40 }}
+                  />
+                  <p
+                    style={{
+                      fontSize: "var(--text-xs)",
+                      color: colors.textSecondary,
+                      margin: `${spacing[1]} 0 0`,
+                    }}
+                  >
+                    Teams have this long to answer all {round.questions.length} question
+                    {round.questions.length !== 1 ? "s" : ""} in the round. Per-question time
+                    limits below are unused in Team Play.
+                  </p>
+                </div>
+              )}
 
               {/* Question list */}
               <div

@@ -6,7 +6,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import type { ServerMessage } from "@/shared/messages";
-import type { GameState, ScoreEntry } from "@/shared/types";
+import type { GameState, ScoreEntry, TeamScoreEntry, TeamScoreChange, PublicTeam } from "@/shared/types";
 import { DEFAULT_BONUS_POINTS } from "@/shared/constants";
 import { STATE_LABELS } from "@/shared/gameStates";
 import { useAuth } from "../../hooks/useAuth";
@@ -23,11 +23,16 @@ import { LogoutButton } from "../../components/LogoutButton";
 import { SoundToggle } from "../../components/SoundToggle";
 import { Timer } from "../../components/Timer";
 import { Leaderboard } from "../../components/Leaderboard";
+import { TeamLeaderboard } from "../../components/TeamLeaderboard";
+import { TeamMemberAvatars } from "../../components/TeamMemberAvatars";
 import { Confetti } from "../../components/Confetti";
 import { PlayerList, type PlayerListEntry } from "./components/PlayerList";
 import { GameControls } from "./components/GameControls";
 import { AnswerReviewPanel } from "./AnswerReviewPanel";
+import { RoundAnsweringHostView } from "./RoundAnsweringHostView";
+import { RoundAnswerReviewPanel } from "./RoundAnswerReviewPanel";
 import { BingoHostDashboard, BingoControls, type BingoActivityEntry } from "./BingoHostDashboard";
+
 
 const WIN_PATTERN_LABELS: Record<string, string> = {
   line: "a line",
@@ -72,6 +77,7 @@ export function HostDashboard(): React.ReactElement {
   const [gameOverData, setGameOverData] = useState<{
     winner: { displayName: string; score: number } | null;
     finalLeaderboard: ScoreEntry[];
+    teamLeaderboard?: TeamScoreEntry[];
   } | null>(null);
   const [showConfetti, setShowConfetti] = useState(false);
   const [bingoActivity, setBingoActivity] = useState<BingoActivityEntry[]>([]);
@@ -163,10 +169,15 @@ export function HostDashboard(): React.ReactElement {
               displayName: message.payload.roundMVP.displayName,
               roundScore: message.payload.roundMVP.roundScore,
             });
+          } else if (message.payload.roundMVPTeam) {
+            setRoundMVP({
+              displayName: message.payload.roundMVPTeam.teamName,
+              roundScore: message.payload.roundMVPTeam.roundScore,
+            });
           }
           break;
 
-        case "GAME_OVER":
+        case "GAME_OVER": {
           setGameOverData({
             winner: message.payload.winner
               ? {
@@ -175,10 +186,12 @@ export function HostDashboard(): React.ReactElement {
                 }
               : null,
             finalLeaderboard: message.payload.finalLeaderboard,
+            teamLeaderboard: message.payload.teamLeaderboard,
           });
           setShowConfetti(true);
           setTimeout(() => setShowConfetti(false), 4000);
           break;
+        }
 
         case "GAME_STATE_CHANGED":
           // Clear answer notifications on state change
@@ -301,22 +314,43 @@ export function HostDashboard(): React.ReactElement {
   );
 
   // Derived state
-  const { gameState, currentQuestion, timerSeconds, timerTotal, leaderboard, scoreChanges, roundIndex, totalRounds } =
-    gameStore;
-  const { answersForReview, answeredCount, totalPlayers, currentQuestionFull } =
+  const {
+    gameState,
+    currentQuestion,
+    timerSeconds,
+    timerTotal,
+    leaderboard,
+    scoreChanges,
+    roundIndex,
+    totalRounds,
+    teamPlayEnabled,
+    teams,
+    teamLeaderboard,
+    teamScoreChanges,
+    roundTitle,
+    roundQuestions,
+    teamAnswerProgress,
+  } = gameStore;
+  const { answersForReview, answeredCount, totalPlayers, currentQuestionFull, roundAnswersForReview } =
     hostStore;
 
-  const hasMoreQuestions = currentQuestion
-    ? currentQuestion.questionNumber < currentQuestion.totalQuestions
-    : false;
+  const hasMoreQuestions = teamPlayEnabled
+    ? false
+    : currentQuestion
+      ? currentQuestion.questionNumber < currentQuestion.totalQuestions
+      : false;
 
   const hasMoreRounds = totalRounds > 0
     ? roundIndex < totalRounds - 1
     : gameState !== "GAME_OVER";
 
-  const allAnswersReviewed = answersForReview.length > 0
-    ? answersForReview.every((a) => a.suggestedStatus !== "needs_review" || answeredCount === 0)
-    : true;
+  const allAnswersReviewed = teamPlayEnabled
+    ? (roundAnswersForReview ?? []).every((q) =>
+        q.teamAnswers.every((a) => a.suggestedStatus !== "needs_review"),
+      )
+    : answersForReview.length > 0
+      ? answersForReview.every((a) => a.suggestedStatus !== "needs_review" || answeredCount === 0)
+      : true;
 
   return (
     <motion.div
@@ -364,6 +398,8 @@ export function HostDashboard(): React.ReactElement {
               gameCode={gameCode || ""}
               players={players}
               onKick={handleKickPlayer}
+              teamPlayEnabled={teamPlayEnabled}
+              teams={teams}
             />
           )}
 
@@ -377,28 +413,48 @@ export function HostDashboard(): React.ReactElement {
 
           {/* QUESTION_DISPLAY / ANSWERING */}
           {(gameState === "QUESTION_DISPLAY" || gameState === "ANSWERING") && (
-            <QuestionView
-              currentQuestion={currentQuestion}
-              correctAnswer={currentQuestionFull?.correctAnswer || ""}
-              acceptableAnswers={currentQuestionFull?.acceptableAnswers || []}
-              timerSeconds={timerSeconds}
-              timerTotal={timerTotal}
-              answeredCount={answeredCount}
-              totalPlayers={totalPlayers || players.filter((p) => p.isConnected).length}
-              notifications={answerNotifications}
-              isAnswering={gameState === "ANSWERING"}
-            />
+            teamPlayEnabled ? (
+              <RoundAnsweringHostView
+                roundTitle={roundTitle ?? `Round ${roundIndex + 1}`}
+                roundIndex={roundIndex}
+                totalQuestions={roundQuestions?.length ?? 0}
+                timerSeconds={timerSeconds}
+                timerTotal={timerTotal}
+                teamProgress={teamAnswerProgress}
+                teamCount={teams.length}
+              />
+            ) : (
+              <QuestionView
+                currentQuestion={currentQuestion}
+                correctAnswer={currentQuestionFull?.correctAnswer || ""}
+                acceptableAnswers={currentQuestionFull?.acceptableAnswers || []}
+                timerSeconds={timerSeconds}
+                timerTotal={timerTotal}
+                answeredCount={answeredCount}
+                totalPlayers={totalPlayers || players.filter((p) => p.isConnected).length}
+                notifications={answerNotifications}
+                isAnswering={gameState === "ANSWERING"}
+              />
+            )
           )}
 
           {/* REVIEWING */}
           {gameState === "REVIEWING" && (
-            <AnswerReviewPanel
-              answers={answersForReview}
-              correctAnswer={currentQuestionFull?.correctAnswer || ""}
-              acceptableAnswers={currentQuestionFull?.acceptableAnswers || []}
-              defaultBonus={DEFAULT_BONUS_POINTS}
-              send={send}
-            />
+            teamPlayEnabled ? (
+              <RoundAnswerReviewPanel
+                questions={roundAnswersForReview ?? []}
+                defaultBonus={DEFAULT_BONUS_POINTS}
+                send={send}
+              />
+            ) : (
+              <AnswerReviewPanel
+                answers={answersForReview}
+                correctAnswer={currentQuestionFull?.correctAnswer || ""}
+                acceptableAnswers={currentQuestionFull?.acceptableAnswers || []}
+                defaultBonus={DEFAULT_BONUS_POINTS}
+                send={send}
+              />
+            )
           )}
 
           {/* SCORE_REVEAL */}
@@ -406,6 +462,8 @@ export function HostDashboard(): React.ReactElement {
             <ScoreRevealView
               leaderboard={leaderboard}
               scoreChanges={scoreChanges}
+              teamLeaderboard={teamPlayEnabled ? teamLeaderboard : undefined}
+              teamScoreChanges={teamPlayEnabled ? teamScoreChanges : undefined}
             />
           )}
 
@@ -413,6 +471,7 @@ export function HostDashboard(): React.ReactElement {
           {gameState === "ROUND_RESULTS" && (
             <RoundResultsView
               leaderboard={leaderboard}
+              teamLeaderboard={teamPlayEnabled ? teamLeaderboard : undefined}
               roundMVP={roundMVP}
               roundIndex={gameStore.roundIndex}
             />
@@ -423,6 +482,7 @@ export function HostDashboard(): React.ReactElement {
             <GameOverView
               gameOverData={gameOverData}
               leaderboard={leaderboard}
+              teamLeaderboard={teamPlayEnabled ? (gameOverData?.teamLeaderboard ?? teamLeaderboard) : undefined}
             />
           )}
             </>
@@ -452,6 +512,7 @@ export function HostDashboard(): React.ReactElement {
             hasMoreQuestions={hasMoreQuestions}
             hasMoreRounds={hasMoreRounds}
             send={send}
+            teamMode={teamPlayEnabled}
           />
         )}
       </div>
@@ -554,10 +615,14 @@ function LobbyView({
   gameCode,
   players,
   onKick,
+  teamPlayEnabled,
+  teams,
 }: {
   gameCode: string;
   players: PlayerListEntry[];
   onKick: (id: string) => void;
+  teamPlayEnabled: boolean;
+  teams: PublicTeam[];
 }): React.ReactElement {
   return (
     <>
@@ -611,6 +676,65 @@ function LobbyView({
           kickEnabled
         />
       </div>
+
+      {/* Team roster — Team Play only */}
+      {teamPlayEnabled && (
+        <div
+          style={{
+            backgroundColor: colors.bgCard,
+            borderRadius: radii.xl,
+            padding: spacing[6],
+            border: `1px solid ${colors.border}`,
+          }}
+        >
+          <h3
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "var(--text-lg)",
+              fontWeight: 700,
+              margin: `0 0 ${spacing[3]}`,
+            }}
+          >
+            Teams
+            <span
+              style={{
+                marginInlineStart: spacing[2],
+                color: colors.primary,
+                fontSize: "var(--text-base)",
+              }}
+            >
+              ({teams.length})
+            </span>
+          </h3>
+
+          {teams.length === 0 ? (
+            <p style={{ color: colors.textSecondary, margin: 0 }}>
+              Waiting for players to choose teams...
+            </p>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: spacing[2] }}>
+              {teams.map((team) => (
+                <div
+                  key={team.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: spacing[3],
+                    padding: `${spacing[2]} ${spacing[3]}`,
+                    borderRadius: radii.md,
+                    backgroundColor: colors.bgElevated,
+                    border: `1px solid ${colors.border}`,
+                  }}
+                >
+                  <span style={{ fontWeight: 600 }}>{team.name}</span>
+                  <TeamMemberAvatars members={team.members} size="sm" />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </>
   );
 }
@@ -852,9 +976,13 @@ function QuestionView({
 function ScoreRevealView({
   leaderboard,
   scoreChanges,
+  teamLeaderboard,
+  teamScoreChanges,
 }: {
   leaderboard: ScoreEntry[];
   scoreChanges: ReturnType<typeof useGameStore.getState>["scoreChanges"];
+  teamLeaderboard?: TeamScoreEntry[];
+  teamScoreChanges?: TeamScoreChange[];
 }): React.ReactElement {
   return (
     <div
@@ -874,13 +1002,13 @@ function ScoreRevealView({
           color: colors.accentPurple,
         }}
       >
-        📊 Score Update
+        📊 {teamLeaderboard ? "Team Scores" : "Score Update"}
       </h2>
-      <Leaderboard
-        entries={leaderboard}
-        showChanges
-        scoreChanges={scoreChanges}
-      />
+      {teamLeaderboard ? (
+        <TeamLeaderboard entries={teamLeaderboard} showChanges scoreChanges={teamScoreChanges} />
+      ) : (
+        <Leaderboard entries={leaderboard} showChanges scoreChanges={scoreChanges} />
+      )}
     </div>
   );
 }
@@ -888,10 +1016,12 @@ function ScoreRevealView({
 /** Round results view */
 function RoundResultsView({
   leaderboard,
+  teamLeaderboard,
   roundMVP,
   roundIndex,
 }: {
   leaderboard: ScoreEntry[];
+  teamLeaderboard?: TeamScoreEntry[];
   roundMVP: { displayName: string; roundScore: number } | null;
   roundIndex: number;
 }): React.ReactElement {
@@ -949,7 +1079,11 @@ function RoundResultsView({
         </motion.div>
       )}
 
-      <Leaderboard entries={leaderboard} />
+      {teamLeaderboard ? (
+        <TeamLeaderboard entries={teamLeaderboard} />
+      ) : (
+        <Leaderboard entries={leaderboard} />
+      )}
     </div>
   );
 }
@@ -958,14 +1092,18 @@ function RoundResultsView({
 function GameOverView({
   gameOverData,
   leaderboard,
+  teamLeaderboard,
 }: {
   gameOverData: {
     winner: { displayName: string; score: number } | null;
     finalLeaderboard: ScoreEntry[];
+    teamLeaderboard?: TeamScoreEntry[];
   } | null;
   leaderboard: ScoreEntry[];
+  teamLeaderboard?: TeamScoreEntry[];
 }): React.ReactElement {
   const displayLeaderboard = gameOverData?.finalLeaderboard || leaderboard;
+  const displayTeamLeaderboard = teamLeaderboard;
   const winner = gameOverData?.winner;
 
   const handleExportResults = useCallback(() => {
@@ -1037,7 +1175,11 @@ function GameOverView({
         </motion.div>
       )}
 
-      <Leaderboard entries={displayLeaderboard} maxDisplay={20} />
+      {displayTeamLeaderboard ? (
+        <TeamLeaderboard entries={displayTeamLeaderboard} maxDisplay={20} />
+      ) : (
+        <Leaderboard entries={displayLeaderboard} maxDisplay={20} />
+      )}
 
       {/* Export results CSV — R5.2: SC 2.5.8 ≥ 44px touch target */}
       {displayLeaderboard.length > 0 && (

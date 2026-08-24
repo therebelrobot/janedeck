@@ -7,13 +7,15 @@ import { useParams } from "react-router-dom";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import QRCode from "react-qr-code";
 import type { ServerMessage } from "@/shared/messages";
-import type { ScoreEntry, ScoreChange, BingoWinner } from "@/shared/types";
+import type { ScoreEntry, ScoreChange, BingoWinner, TeamScoreEntry, PublicTeam } from "@/shared/types";
 import { usePartySocket } from "../../hooks/usePartySocket";
 import { useGameStore } from "../../stores/gameStore";
 import { useAuth } from "../../hooks/useAuth";
 import { stateColors } from "../../animations/variants";
 import { colors, spacing, radii } from "../../styles/theme";
 import { Confetti } from "../../components/Confetti";
+import { Timer } from "../../components/Timer";
+import { TeamMemberAvatars } from "../../components/TeamMemberAvatars";
 import { LobbyScreen } from "./LobbyScreen";
 import { PresentationQuestionScreen } from "./QuestionScreen";
 import { ScoreRevealScreen } from "./ScoreRevealScreen";
@@ -59,6 +61,7 @@ export function PresentationView(): React.ReactElement {
   const [gameOverData, setGameOverData] = useState<{
     winner: { playerId: string; displayName: string; score: number } | null;
     finalLeaderboard: ScoreEntry[];
+    teamLeaderboard?: TeamScoreEntry[];
   } | null>(null);
   const [roundTitle, setRoundTitle] = useState("Round 1");
   const [bingoActivity, setBingoActivity] = useState<BingoActivityEntry[]>([]);
@@ -128,6 +131,11 @@ export function PresentationView(): React.ReactElement {
               displayName: message.payload.roundMVP.displayName,
               roundScore: message.payload.roundMVP.roundScore,
             });
+          } else if (message.payload.roundMVPTeam) {
+            setRoundMVP({
+              displayName: message.payload.roundMVPTeam.teamName,
+              roundScore: message.payload.roundMVPTeam.roundScore,
+            });
           }
           break;
 
@@ -135,6 +143,7 @@ export function PresentationView(): React.ReactElement {
           setGameOverData({
             winner: message.payload.winner,
             finalLeaderboard: message.payload.finalLeaderboard,
+            teamLeaderboard: message.payload.teamLeaderboard,
           });
           break;
 
@@ -213,6 +222,13 @@ export function PresentationView(): React.ReactElement {
     playerCount,
     roundIndex,
     bingoWinners,
+    teamPlayEnabled,
+    teams,
+    teamLeaderboard,
+    teamScoreChanges,
+    teamAnswerProgress,
+    roundTitle: teamRoundTitle,
+    roundQuestions,
   } = gameStore;
 
   // Background color based on game state
@@ -302,6 +318,8 @@ export function PresentationView(): React.ReactElement {
               gameCode={gameCode || ""}
               players={players}
               playerCount={playerCount}
+              teamPlayEnabled={teamPlayEnabled}
+              teams={teams}
             />
           )}
 
@@ -310,11 +328,26 @@ export function PresentationView(): React.ReactElement {
             <RoundIntroScreen
               roundIndex={roundIndex}
               currentQuestion={currentQuestion}
+              teamPlayEnabled={teamPlayEnabled}
+              teamCount={teams.length}
             />
           )}
 
-          {/* QUESTION_DISPLAY / ANSWERING */}
-          {(gameState === "QUESTION_DISPLAY" || gameState === "ANSWERING") &&
+          {/* ANSWERING — Team Play: whole round, no single "current question" */}
+          {teamPlayEnabled && gameState === "ANSWERING" && (
+            <TeamAnsweringScreen
+              roundTitle={teamRoundTitle ?? `Round ${roundIndex + 1}`}
+              totalQuestions={roundQuestions?.length ?? 0}
+              timerSeconds={timerSeconds}
+              timerTotal={timerTotal}
+              teams={teams}
+              teamProgress={teamAnswerProgress}
+            />
+          )}
+
+          {/* QUESTION_DISPLAY / ANSWERING — individual play */}
+          {!teamPlayEnabled &&
+            (gameState === "QUESTION_DISPLAY" || gameState === "ANSWERING") &&
             currentQuestion && (
               <PresentationQuestionScreen
                 questionText={currentQuestion.text}
@@ -340,6 +373,8 @@ export function PresentationView(): React.ReactElement {
             <ScoreRevealScreen
               leaderboard={leaderboard}
               scoreChanges={scoreChanges}
+              teamLeaderboard={teamPlayEnabled ? teamLeaderboard : undefined}
+              teamScoreChanges={teamPlayEnabled ? teamScoreChanges : undefined}
             />
           )}
 
@@ -348,6 +383,8 @@ export function PresentationView(): React.ReactElement {
             <ScoreRevealScreen
               leaderboard={leaderboard}
               scoreChanges={scoreChanges}
+              teamLeaderboard={teamPlayEnabled ? teamLeaderboard : undefined}
+              teamScoreChanges={teamPlayEnabled ? teamScoreChanges : undefined}
               roundIndex={roundIndex}
               isRoundResults
               roundMVP={roundMVP}
@@ -359,6 +396,9 @@ export function PresentationView(): React.ReactElement {
             <GameOverScreen
               leaderboard={gameOverData?.finalLeaderboard || leaderboard}
               winner={gameOverData?.winner || null}
+              teamLeaderboard={
+                teamPlayEnabled ? (gameOverData?.teamLeaderboard ?? teamLeaderboard) : undefined
+              }
             />
           )}
 
@@ -386,9 +426,13 @@ export function PresentationView(): React.ReactElement {
 function RoundIntroScreen({
   roundIndex,
   currentQuestion,
+  teamPlayEnabled,
+  teamCount,
 }: {
   roundIndex: number;
   currentQuestion: ReturnType<typeof useGameStore.getState>["currentQuestion"];
+  teamPlayEnabled: boolean;
+  teamCount: number;
 }): React.ReactElement {
   const prefersReducedMotion = useReducedMotion();
 
@@ -422,7 +466,7 @@ function RoundIntroScreen({
       >
         Round {roundIndex + 1}
       </motion.h2>
-      {currentQuestion && (
+      {currentQuestion && !teamPlayEnabled && (
         <motion.p
           initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 20 }}
           animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
@@ -443,6 +487,139 @@ function RoundIntroScreen({
           {" · "}
           {currentQuestion.pointValue} points each
         </motion.p>
+      )}
+      {teamPlayEnabled && (
+        <motion.p
+          initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 20 }}
+          animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+          transition={
+            prefersReducedMotion
+              ? { duration: 0.01 }
+              : { delay: 0.3, type: "spring", stiffness: 200, damping: 20 }
+          }
+          style={{
+            fontFamily: "var(--font-display)",
+            fontSize: "clamp(1.25rem, 3vw, 2rem)",
+            color: colors.textSecondary,
+            margin: 0,
+          }}
+        >
+          {teamCount} {teamCount === 1 ? "team" : "teams"} competing
+        </motion.p>
+      )}
+    </div>
+  );
+}
+
+/** Team Play ambient screen during ANSWERING — the whole room is heads-down
+ * filling out their round, so there's no single "current question" to show.
+ * Teams and their live progress are the content here instead. */
+function TeamAnsweringScreen({
+  roundTitle,
+  totalQuestions,
+  timerSeconds,
+  timerTotal,
+  teams,
+  teamProgress,
+}: {
+  roundTitle: string;
+  totalQuestions: number;
+  timerSeconds: number | null;
+  timerTotal: number | null;
+  teams: PublicTeam[];
+  teamProgress: Record<string, { teamName: string; answeredCount: number; totalQuestions: number }>;
+}): React.ReactElement {
+  const sortedTeams = [...teams].sort((a, b) => a.name.localeCompare(b.name));
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        gap: spacing[6],
+        width: "100%",
+        maxWidth: "min(1000px, 90vw)",
+        padding: `${spacing[6]} 0`,
+      }}
+    >
+      <div style={{ textAlign: "center" }}>
+        <p
+          style={{
+            fontFamily: "var(--font-display)",
+            fontSize: "clamp(1.1rem, 2.5vw, 1.75rem)",
+            color: colors.textSecondary,
+            margin: 0,
+            textTransform: "uppercase",
+            letterSpacing: "0.1em",
+          }}
+        >
+          {roundTitle}
+        </p>
+        <p
+          style={{
+            fontFamily: "var(--font-display)",
+            fontSize: "clamp(1.5rem, 4vw, 2.5rem)",
+            fontWeight: 700,
+            color: colors.text,
+            margin: `${spacing[2]} 0 0`,
+          }}
+        >
+          Teams are answering {totalQuestions} question{totalQuestions !== 1 ? "s" : ""}...
+        </p>
+      </div>
+
+      {timerSeconds !== null && timerTotal !== null && (
+        <Timer secondsRemaining={timerSeconds} totalSeconds={timerTotal} size="lg" />
+      )}
+
+      {/* Live per-team progress */}
+      {sortedTeams.length > 0 && (
+        <div
+          style={{
+            width: "100%",
+            display: "grid",
+            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+            gap: spacing[3],
+          }}
+        >
+          {sortedTeams.map((team) => {
+            const progress = teamProgress[team.id];
+            const answered = progress?.answeredCount ?? 0;
+            const total = progress?.totalQuestions ?? totalQuestions;
+            const done = total > 0 && answered >= total;
+
+            return (
+              <div
+                key={team.id}
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: spacing[2],
+                  padding: spacing[4],
+                  backgroundColor: done ? `${colors.correct}15` : colors.bgCard,
+                  borderRadius: radii.lg,
+                  border: `1px solid ${done ? colors.correct : colors.border}`,
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: spacing[2] }}>
+                  <span style={{ fontFamily: "var(--font-display)", fontWeight: 700 }}>{team.name}</span>
+                  <span
+                    style={{
+                      fontFamily: "var(--font-display)",
+                      fontWeight: 700,
+                      color: done ? colors.correct : colors.primaryLight,
+                      fontSize: "var(--text-sm)",
+                    }}
+                  >
+                    {answered}/{total}
+                  </span>
+                </div>
+                <TeamMemberAvatars members={team.members} size="sm" />
+              </div>
+            );
+          })}
+        </div>
       )}
     </div>
   );

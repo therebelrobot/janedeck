@@ -38,6 +38,8 @@ interface PlayerStoreState {
   joinRejected: boolean;
   /** Join rejection reason */
   joinRejectionReason: string | null;
+  /** Team Play only: the player's current team ID, once chosen */
+  teamId: string | null;
 
   // Actions
   setPlayerId: (id: string) => void;
@@ -47,6 +49,7 @@ interface PlayerStoreState {
   setRank: (rank: number) => void;
   setHasSubmitted: (submitted: boolean) => void;
   setLastAnswerResult: (result: AnswerResult | null) => void;
+  setTeamId: (teamId: string | null) => void;
 
   /** Process player-specific server messages */
   handlePlayerMessage: (message: ServerMessage) => void;
@@ -67,6 +70,7 @@ const initialState = {
   kickReason: null as string | null,
   joinRejected: false,
   joinRejectionReason: null as string | null,
+  teamId: null as string | null,
 };
 
 export const usePlayerStore = create<PlayerStoreState>((set) => ({
@@ -79,6 +83,7 @@ export const usePlayerStore = create<PlayerStoreState>((set) => ({
   setRank: (rank) => set({ rank }),
   setHasSubmitted: (hasSubmitted) => set({ hasSubmitted }),
   setLastAnswerResult: (lastAnswerResult) => set({ lastAnswerResult }),
+  setTeamId: (teamId) => set({ teamId }),
 
   handlePlayerMessage: (message: ServerMessage) => {
     switch (message.type) {

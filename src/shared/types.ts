@@ -60,6 +60,8 @@ export interface TriviaGame extends BaseGame {
   timerStartedAt: number | null;
   /** Duration in seconds of the current timer (null if no timer active) */
   timerDuration: number | null;
+  /** Teams keyed by team ID — always present, empty for non-team games */
+  teams: Record<string, Team>;
 }
 
 export interface BingoGame extends BaseGame {
@@ -89,6 +91,10 @@ export interface GameSettings {
   defaultTimeLimit: number;
   /** After review, show correct answer to players */
   showAnswersToPlayers: boolean;
+  /** Whether Team Play is enabled — players group into teams and submit one shared answer per round */
+  teamPlayEnabled: boolean;
+  /** Maximum players per team, when Team Play is enabled (default: 4) */
+  maxTeamSize: number;
 }
 
 // === Round ===
@@ -102,6 +108,8 @@ export interface Round {
   questions: Question[];
   /** Current round state */
   state: RoundState;
+  /** Team Play only: total answering time in seconds for the whole round */
+  roundTimeLimit?: number;
 }
 
 export type RoundState = "pending" | "active" | "completed";
@@ -147,6 +155,8 @@ export interface Player {
   answers: Record<string, Answer>;
   /** DiceBear seed — determines both the style (bottts vs funEmoji) and the avatar shape */
   avatarSeed: string;
+  /** Team Play only: the team this player belongs to */
+  teamId?: string;
 }
 
 // === Answer ===
@@ -186,6 +196,99 @@ export interface AnswerReview {
   /** Suggested classification based on fuzzy thresholds */
   suggestedStatus: "correct" | "incorrect" | "needs_review";
   submittedAt: number;
+}
+
+// === Team Play ===
+/** A team of up to `settings.maxTeamSize` players sharing one answer per question */
+export interface Team {
+  id: string;
+  /** Team name, chosen by the first player to create it */
+  name: string;
+  /** Player IDs belonging to this team */
+  memberIds: string[];
+  /** Cumulative team score */
+  score: number;
+  /** Shared draft/submitted answers keyed by question ID */
+  answers: Record<string, TeamAnswer>;
+  /** Unix timestamp ms when the team was created */
+  createdAt: number;
+}
+
+/** A team's shared answer to one question — editable by any member until the round closes */
+export interface TeamAnswer {
+  id: string;
+  /** ID of the question this answer is for */
+  questionId: string;
+  /** ID of the team this answer belongs to */
+  teamId: string;
+  /** The team's current shared answer text */
+  text: string;
+  /** Unix timestamp ms of the most recent edit */
+  submittedAt: number;
+  /** Player ID of the teammate who most recently edited this answer */
+  submittedBy: string;
+  /** Fuse.js fuzzy match score (0.0 = perfect match, 1.0 = no match). null if not yet scored. */
+  fuzzyScore: number | null;
+  /** Current review status */
+  status: AnswerStatus;
+  /** Total points awarded (base + bonus) */
+  pointsAwarded: number;
+  /** Extra points awarded by host */
+  bonusPoints: number;
+  /** Host-added note for funny/creative answers */
+  hostNote: string | null;
+}
+
+/** A team member's public display info — used anywhere a team's roster is shown */
+export interface TeamMemberInfo {
+  id: string;
+  displayName: string;
+  avatarSeed?: string;
+}
+
+/** Team roster broadcast to all clients — never includes answers */
+export interface PublicTeam {
+  id: string;
+  name: string;
+  members: TeamMemberInfo[];
+  score: number;
+}
+
+/** Team answer review data sent to host during round review */
+export interface TeamAnswerReview {
+  answerId: string;
+  teamId: string;
+  teamName: string;
+  text: string;
+  /** 0.0 to 1.0 match score against correctAnswer */
+  fuzzyScore: number;
+  /** Which correct/acceptable answer it matched against */
+  fuzzyMatchedAgainst: string;
+  /** Suggested classification based on fuzzy thresholds */
+  suggestedStatus: "correct" | "incorrect" | "needs_review";
+  submittedAt: number;
+  /** Display name of the teammate who most recently edited this answer */
+  submittedBy: string;
+}
+
+/** Team leaderboard entry (for team-mode leaderboard display) */
+export interface TeamScoreEntry {
+  teamId: string;
+  teamName: string;
+  score: number;
+  rank: number;
+  members: TeamMemberInfo[];
+}
+
+/** Team score change (for animated team score reveals) */
+export interface TeamScoreChange {
+  teamId: string;
+  teamName: string;
+  previousScore: number;
+  newScore: number;
+  pointsEarned: number;
+  previousRank: number;
+  newRank: number;
 }
 
 // === Bingo ===

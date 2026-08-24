@@ -6,7 +6,7 @@ import {
   FUZZY_AUTO_ACCEPT,
   FUZZY_NEEDS_REVIEW,
 } from "@/shared/constants";
-import type { Answer, AnswerReview, Question, Player } from "@/shared/types";
+import type { Answer, AnswerReview, Question, Player, Team, TeamAnswer, TeamAnswerReview } from "@/shared/types";
 
 /** Fuse.js configuration for answer matching */
 const FUSE_OPTIONS: IFuseOptions<string> = {
@@ -168,6 +168,53 @@ export function batchMatch(
       fuzzyMatchedAgainst: result.matchedAgainst,
       suggestedStatus,
       submittedAt: answer.submittedAt,
+    };
+  });
+}
+
+/**
+ * Batch match all team answers for a question — Team Play equivalent of batchMatch.
+ * Returns TeamAnswerReview objects for the host's round review panel.
+ */
+export function batchMatchTeams(
+  answers: TeamAnswer[],
+  question: Question,
+  teams: Record<string, Team>,
+  players: Record<string, Player>,
+): TeamAnswerReview[] {
+  return answers.map((answer) => {
+    const result = matchAnswer(
+      answer.text,
+      question.correctAnswer,
+      question.acceptableAnswers,
+    );
+
+    const team = teams[answer.teamId];
+    const editor = players[answer.submittedBy];
+
+    let suggestedStatus: TeamAnswerReview["suggestedStatus"];
+    switch (result.classification) {
+      case "auto-accept":
+        suggestedStatus = "correct";
+        break;
+      case "needs-review":
+        suggestedStatus = "needs_review";
+        break;
+      case "auto-reject":
+        suggestedStatus = "incorrect";
+        break;
+    }
+
+    return {
+      answerId: answer.id,
+      teamId: answer.teamId,
+      teamName: team?.name ?? "Unknown Team",
+      text: answer.text,
+      fuzzyScore: result.score,
+      fuzzyMatchedAgainst: result.matchedAgainst,
+      suggestedStatus,
+      submittedAt: answer.submittedAt,
+      submittedBy: editor?.displayName ?? "Unknown",
     };
   });
 }

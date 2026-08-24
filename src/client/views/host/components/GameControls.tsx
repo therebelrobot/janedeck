@@ -21,6 +21,8 @@ interface GameControlsProps {
   hasMoreRounds: boolean;
   /** Send a message via WebSocket */
   send: (message: ClientMessage) => void;
+  /** Team Play: swaps the ROUND_INTRO/ANSWERING button labels to round-scoped wording */
+  teamMode?: boolean;
 }
 
 /**
@@ -35,6 +37,7 @@ export function GameControls({
   hasMoreQuestions,
   hasMoreRounds,
   send,
+  teamMode = false,
 }: GameControlsProps): React.ReactElement {
   const [confirmEndGame, setConfirmEndGame] = useState(false);
 
@@ -99,7 +102,7 @@ export function GameControls({
         };
       case "ROUND_INTRO":
         return {
-          text: "❓ Start First Question",
+          text: teamMode ? "❓ Start Round" : "❓ Start First Question",
           disabled: false,
           disabledReason: "",
           shortcut: "Space",
@@ -107,7 +110,7 @@ export function GameControls({
         };
       case "ANSWERING":
         return {
-          text: "⏹ Close Answers",
+          text: teamMode ? "⏹ Close Round" : "⏹ Close Answers",
           disabled: false,
           disabledReason: "",
           shortcut: "Space",

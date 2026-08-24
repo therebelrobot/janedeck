@@ -42,11 +42,13 @@ export const AnswerStatusSchema = z.enum([
 // ─── Shared Data Schemas ──────────────────────────────────────────────────────
 
 export const GameSettingsSchema = z.object({
-  maxPlayers: z.number().int().min(1).max(50),
+  maxPlayers: z.number().int().min(1).max(100),
   allowAudience: z.boolean(),
   audienceBonusPoints: z.number().int().min(0),
   defaultTimeLimit: z.number().int().min(5).max(300),
   showAnswersToPlayers: z.boolean(),
+  teamPlayEnabled: z.boolean(),
+  maxTeamSize: z.number().int().min(2).max(10),
 });
 
 export const ScoreEntrySchema = z.object({
@@ -75,6 +77,51 @@ export const AnswerReviewSchema = z.object({
   fuzzyMatchedAgainst: z.string(),
   suggestedStatus: z.enum(["correct", "incorrect", "needs_review"]),
   submittedAt: z.number(),
+});
+
+// ─── Team Play Schemas ─────────────────────────────────────────────────────────
+
+export const TeamMemberInfoSchema = z.object({
+  id: z.string(),
+  displayName: z.string(),
+  avatarSeed: z.string().optional(),
+});
+
+export const PublicTeamSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  members: z.array(TeamMemberInfoSchema),
+  score: z.number(),
+});
+
+export const TeamAnswerReviewSchema = z.object({
+  answerId: z.string(),
+  teamId: z.string(),
+  teamName: z.string(),
+  text: z.string(),
+  fuzzyScore: z.number(),
+  fuzzyMatchedAgainst: z.string(),
+  suggestedStatus: z.enum(["correct", "incorrect", "needs_review"]),
+  submittedAt: z.number(),
+  submittedBy: z.string(),
+});
+
+export const TeamScoreEntrySchema = z.object({
+  teamId: z.string(),
+  teamName: z.string(),
+  score: z.number(),
+  rank: z.number().int(),
+  members: z.array(TeamMemberInfoSchema),
+});
+
+export const TeamScoreChangeSchema = z.object({
+  teamId: z.string(),
+  teamName: z.string(),
+  previousScore: z.number(),
+  newScore: z.number(),
+  pointsEarned: z.number(),
+  previousRank: z.number().int(),
+  newRank: z.number().int(),
 });
 
 export const BingoCardModeSchema = z.enum(["numbered", "phrasePool"]);
@@ -145,6 +192,7 @@ export const HostCreateGameSchema = z.object({
     rounds: z.array(
       z.object({
         title: z.string().min(1),
+        roundTimeLimit: z.number().int().min(5).max(3600).optional(),
         questions: z.array(
           z.object({
             text: z.string().min(1),
@@ -272,6 +320,21 @@ export const PlayerBuzzerSchema = z.object({
   }),
 });
 
+export const PlayerSetTeamSchema = z.object({
+  type: z.literal("PLAYER_SET_TEAM"),
+  payload: z.object({
+    teamName: z.string().min(1).max(64),
+  }),
+});
+
+export const TeamAnswerSubmitSchema = z.object({
+  type: z.literal("TEAM_ANSWER_SUBMIT"),
+  payload: z.object({
+    questionId: z.string(),
+    text: z.string(),
+  }),
+});
+
 export const AudienceJoinSchema = z.object({
   type: z.literal("AUDIENCE_JOIN"),
   payload: z.object({
@@ -359,6 +422,8 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   PlayerRejoinSchema,
   PlayerSubmitAnswerSchema,
   PlayerBuzzerSchema,
+  PlayerSetTeamSchema,
+  TeamAnswerSubmitSchema,
   AudienceJoinSchema,
   AudienceVoteSchema,
   PresentationConnectSchema,
@@ -380,6 +445,8 @@ export const GameStateChangedSchema = z.object({
     state: GameStateSchema,
     roundIndex: z.number().int().optional(),
     questionIndex: z.number().int().optional(),
+    totalRounds: z.number().int().optional(),
+    teamPlayEnabled: z.boolean().optional(),
   }),
   timestamp: z.number(),
 });
@@ -438,6 +505,15 @@ export const RoundResultsSchema = z.object({
         roundScore: z.number(),
       })
       .nullable(),
+    teamLeaderboard: z.array(TeamScoreEntrySchema).optional(),
+    roundMVPTeam: z
+      .object({
+        teamId: z.string(),
+        teamName: z.string(),
+        roundScore: z.number(),
+      })
+      .nullable()
+      .optional(),
   }),
   timestamp: z.number(),
 });
@@ -454,6 +530,7 @@ export const GameOverSchema = z.object({
       })
       .nullable(),
     stats: GameStatsSchema,
+    teamLeaderboard: z.array(TeamScoreEntrySchema).optional(),
   }),
   timestamp: z.number(),
 });
@@ -572,6 +649,113 @@ export const ErrorSchema = z.object({
   timestamp: z.number(),
 });
 
+// ─── Team Play Schemas (Server → Client) ──────────────────────────────────────
+
+export const TeamUpdatedSchema = z.object({
+  type: z.literal("TEAM_UPDATED"),
+  payload: z.object({
+    teams: z.array(PublicTeamSchema),
+  }),
+  timestamp: z.number(),
+});
+
+export const TeamAnswersSnapshotSchema = z.object({
+  type: z.literal("TEAM_ANSWERS_SNAPSHOT"),
+  payload: z.object({
+    answers: z.array(
+      z.object({
+        questionId: z.string(),
+        text: z.string(),
+        submittedBy: z.string(),
+        submittedByName: z.string(),
+      }),
+    ),
+  }),
+  timestamp: z.number(),
+});
+
+export const TeamAnswerUpdatedSchema = z.object({
+  type: z.literal("TEAM_ANSWER_UPDATED"),
+  payload: z.object({
+    questionId: z.string(),
+    text: z.string(),
+    submittedBy: z.string(),
+    submittedByName: z.string(),
+  }),
+  timestamp: z.number(),
+});
+
+export const TeamAnswerProgressSchema = z.object({
+  type: z.literal("TEAM_ANSWER_PROGRESS"),
+  payload: z.object({
+    teamId: z.string(),
+    teamName: z.string(),
+    answeredCount: z.number().int(),
+    totalQuestions: z.number().int(),
+  }),
+  timestamp: z.number(),
+});
+
+const RoundQuestionPublicSchema = z.object({
+  questionId: z.string(),
+  text: z.string(),
+  type: QuestionTypeSchema,
+  choices: z.array(z.string()).optional(),
+  pointValue: z.number().int(),
+});
+
+export const RoundShowSchema = z.object({
+  type: z.literal("ROUND_SHOW"),
+  payload: z.object({
+    roundIndex: z.number().int(),
+    roundTitle: z.string(),
+    questions: z.array(RoundQuestionPublicSchema),
+    timeLimit: z.number().int(),
+  }),
+  timestamp: z.number(),
+});
+
+export const RoundShowFullSchema = z.object({
+  type: z.literal("ROUND_SHOW_FULL"),
+  payload: z.object({
+    roundIndex: z.number().int(),
+    roundTitle: z.string(),
+    questions: z.array(
+      RoundQuestionPublicSchema.extend({
+        correctAnswer: z.string(),
+        acceptableAnswers: z.array(z.string()),
+      }),
+    ),
+    timeLimit: z.number().int(),
+  }),
+  timestamp: z.number(),
+});
+
+export const RoundAnswersForReviewSchema = z.object({
+  type: z.literal("ROUND_ANSWERS_FOR_REVIEW"),
+  payload: z.object({
+    questions: z.array(
+      z.object({
+        questionId: z.string(),
+        questionText: z.string(),
+        correctAnswer: z.string(),
+        acceptableAnswers: z.array(z.string()),
+        teamAnswers: z.array(TeamAnswerReviewSchema),
+      }),
+    ),
+  }),
+  timestamp: z.number(),
+});
+
+export const TeamScoresUpdatedSchema = z.object({
+  type: z.literal("TEAM_SCORES_UPDATED"),
+  payload: z.object({
+    leaderboard: z.array(TeamScoreEntrySchema),
+    changes: z.array(TeamScoreChangeSchema),
+  }),
+  timestamp: z.number(),
+});
+
 // ─── Bingo Message Schemas (Server → Client) ──────────────────────────────────
 
 export const BingoCardAssignedSchema = z.object({
@@ -647,6 +831,14 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   YourScoreSchema,
   KickedSchema,
   ErrorSchema,
+  TeamUpdatedSchema,
+  TeamAnswersSnapshotSchema,
+  TeamAnswerUpdatedSchema,
+  TeamAnswerProgressSchema,
+  RoundShowSchema,
+  RoundShowFullSchema,
+  RoundAnswersForReviewSchema,
+  TeamScoresUpdatedSchema,
   BingoCardAssignedSchema,
   BingoSquareMarkedSchema,
   BingoSquareUnmarkedSchema,

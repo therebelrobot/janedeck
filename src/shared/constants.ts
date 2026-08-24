@@ -9,7 +9,10 @@ export const GAME_CODE_LENGTH = 6;
 export const GAME_CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
 /** Maximum number of players per game */
-export const MAX_PLAYERS = 50;
+export const MAX_PLAYERS = 100;
+
+/** Default maximum players per team, when Team Play is enabled */
+export const DEFAULT_MAX_TEAM_SIZE = 4;
 
 /** Maximum number of audience members per game */
 export const MAX_AUDIENCE = 200;
@@ -54,7 +57,12 @@ export const DEFAULT_GAME_SETTINGS = {
   audienceBonusPoints: 1,
   defaultTimeLimit: DEFAULT_TIME_LIMIT,
   showAnswersToPlayers: true,
+  teamPlayEnabled: false,
+  maxTeamSize: DEFAULT_MAX_TEAM_SIZE,
 } as const;
+
+/** Default round time limit in seconds, when Team Play is enabled */
+export const DEFAULT_ROUND_TIME_LIMIT = 300;
 
 /** Default bingo settings */
 export const DEFAULT_BINGO_SETTINGS = {
