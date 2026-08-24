@@ -10,6 +10,8 @@ interface GameStoreState {
   gameState: GameState;
   /** Current round index */
   roundIndex: number;
+  /** Total number of rounds in this game (trivia only) */
+  totalRounds: number;
   /** Current question index */
   questionIndex: number;
   /** Current leaderboard */
@@ -65,6 +67,7 @@ interface GameStoreState {
 const initialState = {
   gameState: "LOBBY" as GameState,
   roundIndex: 0,
+  totalRounds: 0,
   questionIndex: 0,
   leaderboard: [] as ScoreEntry[],
   scoreChanges: [] as ScoreChange[],
@@ -101,6 +104,9 @@ export const useGameStore = create<GameStoreState>((set) => ({
           gameType: message.payload.gameType,
           ...(message.payload.roundIndex !== undefined && {
             roundIndex: message.payload.roundIndex,
+          }),
+          ...(message.payload.totalRounds !== undefined && {
+            totalRounds: message.payload.totalRounds,
           }),
           ...(message.payload.questionIndex !== undefined && {
             questionIndex: message.payload.questionIndex,

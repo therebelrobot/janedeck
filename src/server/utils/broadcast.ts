@@ -121,6 +121,7 @@ export function broadcastStateChange(
         ? {
             roundIndex: game.currentRoundIndex,
             questionIndex: game.currentQuestionIndex,
+            totalRounds: game.rounds.length,
           }
         : {}),
     },

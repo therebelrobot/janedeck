@@ -301,7 +301,7 @@ export function HostDashboard(): React.ReactElement {
   );
 
   // Derived state
-  const { gameState, currentQuestion, timerSeconds, timerTotal, leaderboard, scoreChanges } =
+  const { gameState, currentQuestion, timerSeconds, timerTotal, leaderboard, scoreChanges, roundIndex, totalRounds } =
     gameStore;
   const { answersForReview, answeredCount, totalPlayers, currentQuestionFull } =
     hostStore;
@@ -310,9 +310,9 @@ export function HostDashboard(): React.ReactElement {
     ? currentQuestion.questionNumber < currentQuestion.totalQuestions
     : false;
 
-  // We can't know total rounds from gameStore directly, so assume more rounds available
-  // unless we're in ROUND_RESULTS and game server says otherwise
-  const hasMoreRounds = gameState !== "GAME_OVER";
+  const hasMoreRounds = totalRounds > 0
+    ? roundIndex < totalRounds - 1
+    : gameState !== "GAME_OVER";
 
   const allAnswersReviewed = answersForReview.length > 0
     ? answersForReview.every((a) => a.suggestedStatus !== "needs_review" || answeredCount === 0)

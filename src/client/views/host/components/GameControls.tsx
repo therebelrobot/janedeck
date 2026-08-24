@@ -53,14 +53,10 @@ export function GameControls({
         send({ type: "HOST_REVEAL_SCORES", payload: {} });
         break;
       case "SCORE_REVEAL":
-        if (hasMoreQuestions) {
-          send({ type: "HOST_NEXT_QUESTION", payload: {} });
-        } else if (hasMoreRounds) {
-          send({ type: "HOST_NEXT_ROUND", payload: {} });
-        } else {
-          // Game is complete — trigger game over via next round (server handles)
-          send({ type: "HOST_NEXT_ROUND", payload: {} });
-        }
+        // HOST_NEXT_QUESTION also handles "no more questions" by advancing
+        // the server to ROUND_RESULTS, so it's correct whether or not more
+        // questions/rounds remain.
+        send({ type: "HOST_NEXT_QUESTION", payload: {} });
         break;
       case "ROUND_RESULTS":
         if (hasMoreRounds) {

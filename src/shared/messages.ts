@@ -255,6 +255,7 @@ export interface GameStateChangedMessage {
     state: GameState;
     roundIndex?: number;
     questionIndex?: number;
+    totalRounds?: number;
   };
   timestamp: number;
 }
