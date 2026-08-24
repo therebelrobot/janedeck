@@ -2,11 +2,17 @@
 // R5.3: Semantic HTML. R5.6: Proper labels.
 import React, { useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useAuth } from "../../hooks/useAuth";
 import { LogoutButton } from "../../components/LogoutButton";
 import { colors, radii, spacing, shadows } from "../../styles/theme";
-import { pageTransition, staggerContainer, staggerItem } from "../../animations/presets";
+import {
+  pageTransition,
+  staggerContainer,
+  staggerItem,
+  reduceVariants,
+  INSTANT_TRANSITION,
+} from "../../animations/presets";
 
 interface GameTypeOption {
   type: "trivia" | "bingo";
@@ -37,6 +43,7 @@ const GAME_TYPE_OPTIONS: GameTypeOption[] = [
 export function GameTypeSelector(): React.ReactElement {
   const navigate = useNavigate();
   const { isAuthenticated } = useAuth();
+  const prefersReducedMotion = useReducedMotion();
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -48,6 +55,7 @@ export function GameTypeSelector(): React.ReactElement {
     <motion.div
       className="view view--host"
       {...pageTransition}
+      transition={prefersReducedMotion ? INSTANT_TRANSITION : pageTransition.transition}
       style={{
         gap: spacing[6],
         alignItems: "center",
@@ -78,7 +86,7 @@ export function GameTypeSelector(): React.ReactElement {
       </div>
 
       <motion.div
-        variants={staggerContainer}
+        variants={prefersReducedMotion ? reduceVariants(staggerContainer) : staggerContainer}
         initial="hidden"
         animate="show"
         style={{
@@ -94,7 +102,7 @@ export function GameTypeSelector(): React.ReactElement {
           <motion.button
             key={option.type}
             type="button"
-            variants={staggerItem}
+            variants={prefersReducedMotion ? reduceVariants(staggerItem) : staggerItem}
             onClick={() => navigate(`/host/create/${option.type}`)}
             className="btn-ghost"
             style={{

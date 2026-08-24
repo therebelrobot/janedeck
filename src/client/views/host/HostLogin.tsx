@@ -4,10 +4,10 @@
 // R5.3: Semantic HTML. R7.4: No blame language in errors.
 import React, { useState, useCallback, useRef, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { useAuth } from "../../hooks/useAuth";
 import { colors, radii, spacing, shadows } from "../../styles/theme";
-import { pageTransition, slideFromBottom, shake } from "../../animations/presets";
+import { pageTransition, slideFromBottom, shake, INSTANT_TRANSITION } from "../../animations/presets";
 
 /**
  * HomeView — Landing page at "/" with links to each role.
@@ -87,6 +87,7 @@ export function HomeView(): React.ReactElement {
 export function HostLogin(): React.ReactElement {
   const navigate = useNavigate();
   const { isAuthenticated, login } = useAuth();
+  const prefersReducedMotion = useReducedMotion();
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -137,6 +138,7 @@ export function HostLogin(): React.ReactElement {
     <motion.div
       className="view"
       {...pageTransition}
+      transition={prefersReducedMotion ? INSTANT_TRANSITION : pageTransition.transition}
       style={{
         justifyContent: "center",
         alignItems: "center",
@@ -164,6 +166,7 @@ export function HostLogin(): React.ReactElement {
       {/* Login card */}
       <motion.div
         {...slideFromBottom}
+        transition={prefersReducedMotion ? INSTANT_TRANSITION : slideFromBottom.transition}
         style={{
           backgroundColor: colors.bgCard,
           borderRadius: radii.xl,

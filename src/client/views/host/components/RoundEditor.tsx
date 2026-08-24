@@ -2,9 +2,9 @@
 // R5.2: SC 2.5.7 — drag-to-reorder has single-pointer alternative (up/down buttons).
 // R5.3: Semantic HTML. R5.6: Proper labels.
 import React, { useState, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { colors, radii, spacing } from "../../../styles/theme";
-import { staggerItem } from "../../../animations/presets";
+import { staggerItem, reduceVariants } from "../../../animations/presets";
 import { DEFAULT_POINT_VALUE, DEFAULT_TIME_LIMIT, DEFAULT_ROUND_TIME_LIMIT } from "@/shared/constants";
 import { QuestionEditor, type QuestionEditorData } from "./QuestionEditor";
 
@@ -53,6 +53,7 @@ export function RoundEditor({
   defaultTimeLimit,
   teamMode = false,
 }: RoundEditorProps): React.ReactElement {
+  const prefersReducedMotion = useReducedMotion();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const roundId = `round-${index}`;
 
@@ -92,7 +93,7 @@ export function RoundEditor({
 
   return (
     <motion.div
-      variants={staggerItem}
+      variants={prefersReducedMotion ? reduceVariants(staggerItem) : staggerItem}
       layout
       style={{
         backgroundColor: colors.bgCard,

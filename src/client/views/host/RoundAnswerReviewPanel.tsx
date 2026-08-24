@@ -4,13 +4,13 @@
 // per-question flow, reusing AnswerCard via a TeamAnswerReview -> AnswerReview
 // field mapping (teamId -> playerId, teamName -> displayName).
 import React, { useState, useCallback, useMemo } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import type { AnswerReview, TeamAnswerReview } from "@/shared/types";
 import type { ClientMessage } from "@/shared/messages";
 import type { RoundQuestionReview } from "../../stores/hostStore";
 import { FUZZY_AUTO_ACCEPT, FUZZY_NEEDS_REVIEW } from "@/shared/constants";
 import { colors, radii, spacing, shadows } from "../../styles/theme";
-import { staggerContainer, staggerItem } from "../../animations/presets";
+import { staggerContainer, staggerItem, reduceVariants } from "../../animations/presets";
 import { AnswerCard, type ReviewStatus } from "./components/AnswerCard";
 
 interface RoundAnswerReviewPanelProps {
@@ -218,6 +218,7 @@ function QuestionSection({
   onReject,
   onBonusChange,
 }: QuestionSectionProps): React.ReactElement {
+  const prefersReducedMotion = useReducedMotion();
   const groups = useMemo(() => {
     const autoAccepted: TeamAnswerReview[] = [];
     const needsReview: TeamAnswerReview[] = [];
@@ -278,13 +279,16 @@ function QuestionSection({
         </p>
       ) : (
         <motion.div
-          variants={staggerContainer}
+          variants={prefersReducedMotion ? reduceVariants(staggerContainer) : staggerContainer}
           initial="hidden"
           animate="show"
           style={{ display: "flex", flexDirection: "column", gap: spacing[3] }}
         >
           {[...groups.autoAccepted, ...groups.needsReview, ...groups.autoRejected].map((answer) => (
-            <motion.div key={answer.answerId} variants={staggerItem}>
+            <motion.div
+              key={answer.answerId}
+              variants={prefersReducedMotion ? reduceVariants(staggerItem) : staggerItem}
+            >
               <AnswerCard
                 answer={toAnswerReview(answer)}
                 reviewStatus={reviewStatuses[answer.answerId] || "pending"}

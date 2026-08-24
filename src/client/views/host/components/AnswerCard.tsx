@@ -2,11 +2,11 @@
 // R5.2: Large touch targets (≥ 44px). R5.3: Semantic HTML with <button>.
 // R1.4: displayName is the chosen name. R7.4: No blame language.
 import React, { useState } from "react";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import type { AnswerReview } from "@/shared/types";
 import { PlayerAvatar } from "../../../components/PlayerAvatar";
 import { colors, radii, spacing } from "../../../styles/theme";
-import { staggerItem } from "../../../animations/presets";
+import { staggerItem, reduceVariants } from "../../../animations/presets";
 
 /** Status of an answer in the review process */
 export type ReviewStatus = "pending" | "accepted" | "rejected";
@@ -50,6 +50,7 @@ export function AnswerCard({
   onBonusChange,
   defaultBonus,
 }: AnswerCardProps): React.ReactElement {
+  const prefersReducedMotion = useReducedMotion();
   const [localBonus, setLocalBonus] = useState(bonusPoints);
   const scoreColor = getScoreColor(answer.fuzzyScore);
 
@@ -81,7 +82,7 @@ export function AnswerCard({
 
   return (
     <motion.div
-      variants={staggerItem}
+      variants={prefersReducedMotion ? reduceVariants(staggerItem) : staggerItem}
       layout
       style={{
         backgroundColor: statusBg || colors.bgCard,

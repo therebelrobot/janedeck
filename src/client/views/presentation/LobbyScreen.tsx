@@ -8,7 +8,7 @@ import { GameCodeDisplay } from "./components/GameCodeDisplay";
 import { PlayerJoinFeed } from "./components/PlayerJoinFeed";
 import { TeamMemberAvatars } from "../../components/TeamMemberAvatars";
 import { colors, spacing, radii } from "../../styles/theme";
-import { pulse, staggerContainer, staggerItem } from "../../animations/presets";
+import { pulse, staggerContainer, staggerItem, reduceVariants } from "../../animations/presets";
 
 interface LobbyScreenProps {
   /** The game code */
@@ -155,7 +155,7 @@ function TeamFormationGrid({
 
   return (
     <motion.div
-      variants={staggerContainer}
+      variants={prefersReducedMotion ? reduceVariants(staggerContainer) : staggerContainer}
       initial="hidden"
       animate="show"
       style={{
@@ -172,7 +172,7 @@ function TeamFormationGrid({
         {teams.map((team) => (
           <motion.div
             key={team.id}
-            variants={staggerItem}
+            variants={prefersReducedMotion ? reduceVariants(staggerItem) : staggerItem}
             layout={!prefersReducedMotion}
             style={{
               display: "flex",

@@ -2,7 +2,7 @@
 // R5.3: Semantic HTML. R5.6: Proper labels, aria-describedby.
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { motion } from "framer-motion";
+import { motion, useReducedMotion } from "framer-motion";
 import { customAlphabet } from "nanoid";
 import { useAuth } from "../../hooks/useAuth";
 import { useHostStore } from "../../stores/hostStore";
@@ -16,7 +16,7 @@ import {
   GAME_CODE_LENGTH,
 } from "@/shared/constants";
 import { colors, radii, spacing, shadows } from "../../styles/theme";
-import { pageTransition } from "../../animations/presets";
+import { pageTransition, INSTANT_TRANSITION } from "../../animations/presets";
 import {
   bingoSettingsAndPhrasesToCSV,
   csvToBingoSettingsAndPhrases,
@@ -68,6 +68,7 @@ export function BingoGameCreator(): React.ReactElement {
   const navigate = useNavigate();
   const { isAuthenticated, token, logout } = useAuth();
   const hostStore = useHostStore();
+  const prefersReducedMotion = useReducedMotion();
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -369,6 +370,7 @@ export function BingoGameCreator(): React.ReactElement {
     <motion.div
       className="view view--host"
       {...pageTransition}
+      transition={prefersReducedMotion ? INSTANT_TRANSITION : pageTransition.transition}
       style={{
         gap: spacing[6],
         paddingBottom: spacing[16],

@@ -4,7 +4,7 @@
 // R1.4: displayName is the chosen name. R7.4: No blame language.
 import React, { useCallback, useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import type { ServerMessage } from "@/shared/messages";
 import type { GameState, ScoreEntry, TeamScoreEntry, TeamScoreChange, PublicTeam } from "@/shared/types";
 import { DEFAULT_BONUS_POINTS } from "@/shared/constants";
@@ -17,7 +17,12 @@ import { useNotificationStore } from "../../stores/notificationStore";
 import { playMarkSound, playWinSound } from "../../utils/soundEffects";
 import { colors, radii, spacing, shadows } from "../../styles/theme";
 import { leaderboardToCSV, downloadCSV } from "../../utils/csv";
-import { pageTransition, slideFromBottom, fadeInOut } from "../../animations/presets";
+import {
+  pageTransition,
+  slideFromBottom,
+  fadeInOut,
+  INSTANT_TRANSITION,
+} from "../../animations/presets";
 import { StatusBadge } from "../../components/StatusBadge";
 import { LogoutButton } from "../../components/LogoutButton";
 import { SoundToggle } from "../../components/SoundToggle";
@@ -56,6 +61,7 @@ export function HostDashboard(): React.ReactElement {
   const { gameCode } = useParams<{ gameCode: string }>();
   const navigate = useNavigate();
   const { isAuthenticated, token, logout } = useAuth();
+  const prefersReducedMotion = useReducedMotion();
 
   // Stores
   const gameStore = useGameStore();
@@ -356,6 +362,7 @@ export function HostDashboard(): React.ReactElement {
     <motion.div
       className="view view--host"
       {...pageTransition}
+      transition={prefersReducedMotion ? INSTANT_TRANSITION : pageTransition.transition}
       style={{ gap: spacing[4], paddingBottom: spacing[16] }}
     >
       {/* Confetti for game over */}
@@ -374,6 +381,7 @@ export function HostDashboard(): React.ReactElement {
         <motion.div
           key={gameState}
           {...fadeInOut}
+          transition={prefersReducedMotion ? INSTANT_TRANSITION : fadeInOut.transition}
           style={{
             width: "100%",
             display: "flex",
@@ -624,11 +632,13 @@ function LobbyView({
   teamPlayEnabled: boolean;
   teams: PublicTeam[];
 }): React.ReactElement {
+  const prefersReducedMotion = useReducedMotion();
   return (
     <>
       {/* Large game code display */}
       <motion.div
         {...slideFromBottom}
+        transition={prefersReducedMotion ? INSTANT_TRANSITION : slideFromBottom.transition}
         className="game-code-display"
         style={{
           backgroundColor: colors.bgCard,
@@ -747,9 +757,11 @@ function RoundIntroView({
   roundIndex: number;
   currentQuestion: ReturnType<typeof useGameStore.getState>["currentQuestion"];
 }): React.ReactElement {
+  const prefersReducedMotion = useReducedMotion();
   return (
     <motion.div
       {...slideFromBottom}
+      transition={prefersReducedMotion ? INSTANT_TRANSITION : slideFromBottom.transition}
       style={{
         textAlign: "center",
         padding: spacing[8],

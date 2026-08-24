@@ -8,7 +8,7 @@ import { useNavigate } from "react-router-dom";
 import { motion, useReducedMotion } from "framer-motion";
 import { GAME_CODE_LENGTH } from "@/shared/constants";
 import { colors, spacing, radii, shadows } from "../styles/theme";
-import { pageTransition, slideFromBottom } from "../animations/presets";
+import { pageTransition, slideFromBottom, INSTANT_TRANSITION } from "../animations/presets";
 
 /**
  * HomeView — the main landing page at "/".
@@ -69,6 +69,7 @@ export function HomeView(): React.ReactElement {
     <motion.div
       className="view"
       {...pageTransition}
+      transition={prefersReducedMotion ? INSTANT_TRANSITION : pageTransition.transition}
       style={{
         justifyContent: "center",
         alignItems: "center",
@@ -135,6 +136,7 @@ export function HomeView(): React.ReactElement {
       {/* Join Game Card */}
       <motion.div
         {...slideFromBottom}
+        transition={prefersReducedMotion ? INSTANT_TRANSITION : slideFromBottom.transition}
         style={{
           backgroundColor: colors.bgCard,
           borderRadius: radii.xl,

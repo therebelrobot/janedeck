@@ -19,6 +19,70 @@ Players join from their phones, the host controls (or, for Bingo, simply starts/
 - **Animated** transitions, score reveals, and celebrations (Framer Motion)
 - **Accessible** — WCAG 2.2 AA compliant (semantic HTML, keyboard navigation, screen reader support, reduced motion)
 
+## Screenshots
+
+Each game mode has its own host (desktop), player (phone), and presentation (desktop, for the shared screen) views. A full set of every screen and state is in [`docs/screenshots/`](docs/screenshots/), organized by mode — regenerate it anytime with `npm run capture:screenshots`.
+
+### Trivia — Individual Play
+
+<table>
+<tr>
+<td align="center"><b>Host</b></td>
+<td align="center"><b>Player</b></td>
+<td align="center"><b>Presentation</b></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/trivia-individual/host-answering.png" width="280"></td>
+<td><img src="docs/screenshots/trivia-individual/player-answering.png" width="150"></td>
+<td><img src="docs/screenshots/trivia-individual/presentation-answering.png" width="280"></td>
+</tr>
+</table>
+
+### Trivia — Team Play
+
+<table>
+<tr>
+<td align="center"><b>Host</b></td>
+<td align="center"><b>Player</b></td>
+<td align="center"><b>Presentation</b></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/trivia-team/host-answering.png" width="280"></td>
+<td><img src="docs/screenshots/trivia-team/player-answering.png" width="150"></td>
+<td><img src="docs/screenshots/trivia-team/presentation-answering.png" width="280"></td>
+</tr>
+</table>
+
+### Bingo — Numbered Cards
+
+<table>
+<tr>
+<td align="center"><b>Host</b></td>
+<td align="center"><b>Player</b></td>
+<td align="center"><b>Presentation</b></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/bingo/host-playing-with-winner.png" width="280"></td>
+<td><img src="docs/screenshots/bingo/player-card-win.png" width="150"></td>
+<td><img src="docs/screenshots/bingo/presentation-playing.png" width="280"></td>
+</tr>
+</table>
+
+### Bingo — Custom Phrase Pool
+
+<table>
+<tr>
+<td align="center"><b>Host</b></td>
+<td align="center"><b>Player</b></td>
+<td align="center"><b>Presentation</b></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/bingo-phrases/host-create.png" width="280"></td>
+<td><img src="docs/screenshots/bingo-phrases/player-card.png" width="150"></td>
+<td><img src="docs/screenshots/bingo-phrases/presentation-playing.png" width="280"></td>
+</tr>
+</table>
+
 ## Quick Start
 
 ### Prerequisites
@@ -188,6 +252,9 @@ npm run build
 
 # Deploy to Cloudflare Workers
 npm run deploy
+
+# Re-capture every README screenshot with Playwright (needs `npm run dev` running in another terminal)
+npm run capture:screenshots
 ```
 
 ## Deploying to Your Own Cloudflare Account

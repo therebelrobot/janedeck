@@ -3,7 +3,7 @@
 // R5.2: SC 2.5.7 — reorder has single-pointer alternative.
 import React, { useState, useCallback, useEffect, useRef } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { customAlphabet } from "nanoid";
 import { useAuth } from "../../hooks/useAuth";
 import { useHostStore } from "../../stores/hostStore";
@@ -19,7 +19,13 @@ import {
   GAME_CODE_LENGTH,
 } from "@/shared/constants";
 import { colors, radii, spacing, shadows } from "../../styles/theme";
-import { pageTransition, staggerContainer, staggerItem } from "../../animations/presets";
+import {
+  pageTransition,
+  staggerContainer,
+  staggerItem,
+  reduceVariants,
+  INSTANT_TRANSITION,
+} from "../../animations/presets";
 import { LogoutButton } from "../../components/LogoutButton";
 import { RoundEditor, type RoundEditorData } from "./components/RoundEditor";
 import type { QuestionEditorData } from "./components/QuestionEditor";
@@ -104,6 +110,7 @@ export function GameCreator(): React.ReactElement {
   const navigate = useNavigate();
   const { isAuthenticated, token, logout } = useAuth();
   const hostStore = useHostStore();
+  const prefersReducedMotion = useReducedMotion();
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -510,6 +517,7 @@ export function GameCreator(): React.ReactElement {
     <motion.div
       className="view view--host"
       {...pageTransition}
+      transition={prefersReducedMotion ? INSTANT_TRANSITION : pageTransition.transition}
       style={{
         gap: spacing[6],
         paddingBottom: spacing[16],
@@ -929,7 +937,7 @@ export function GameCreator(): React.ReactElement {
         </h2>
 
         <motion.div
-          variants={staggerContainer}
+          variants={prefersReducedMotion ? reduceVariants(staggerContainer) : staggerContainer}
           initial="hidden"
           animate="show"
           style={{ display: "flex", flexDirection: "column", gap: spacing[4] }}
@@ -957,7 +965,7 @@ export function GameCreator(): React.ReactElement {
           type="button"
           onClick={handleAddRound}
           className="btn-ghost"
-          variants={staggerItem}
+          variants={prefersReducedMotion ? reduceVariants(staggerItem) : staggerItem}
           style={{
             width: "100%",
             borderStyle: "dashed",

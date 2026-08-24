@@ -1,8 +1,27 @@
 // src/client/animations/presets.ts — Reusable Framer Motion animation configs
 // R5.5: All animations respect prefers-reduced-motion via ReducedMotion wrapper.
-// When reduced motion is preferred, MotionConfig reduces all animations automatically.
+// MotionConfig only auto-skips *positional* values (x/y/scale/rotate/etc) when
+// reduced motion is preferred — opacity keeps animating at full duration. Presets
+// that fade opacity need callers to pass useReducedMotion() through explicitly;
+// see INSTANT_TRANSITION and reduceVariants() below.
 
 import type { Variants, Transition } from "framer-motion";
+
+/** Effectively-instant transition, swapped in for opacity fades under reduced motion */
+export const INSTANT_TRANSITION: Transition = { duration: 0.01 };
+
+/** Returns a copy of a Variants object with every state's transition zeroed out */
+export function reduceVariants(variants: Variants): Variants {
+  const reduced: Variants = {};
+  for (const key in variants) {
+    const target = variants[key];
+    reduced[key] =
+      target && typeof target === "object" && !Array.isArray(target)
+        ? { ...target, transition: INSTANT_TRANSITION }
+        : target;
+  }
+  return reduced;
+}
 
 // ─── Transitions ──────────────────────────────────────────────────────────────
 

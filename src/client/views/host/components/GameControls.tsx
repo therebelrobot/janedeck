@@ -2,11 +2,11 @@
 // R5.3: Semantic <button> elements. R5.2: Large touch targets.
 // R5.9: Keyboard shortcuts for common actions.
 import React, { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import type { GameState } from "@/shared/types";
 import type { ClientMessage } from "@/shared/messages";
 import { colors, radii, spacing } from "../../../styles/theme";
-import { scalePop } from "../../../animations/presets";
+import { scalePop, INSTANT_TRANSITION } from "../../../animations/presets";
 
 interface GameControlsProps {
   /** Current game state */
@@ -39,6 +39,7 @@ export function GameControls({
   send,
   teamMode = false,
 }: GameControlsProps): React.ReactElement {
+  const prefersReducedMotion = useReducedMotion();
   const [confirmEndGame, setConfirmEndGame] = useState(false);
 
   const handlePrimaryAction = () => {
@@ -62,11 +63,10 @@ export function GameControls({
         send({ type: "HOST_NEXT_QUESTION", payload: {} });
         break;
       case "ROUND_RESULTS":
-        if (hasMoreRounds) {
-          send({ type: "HOST_NEXT_ROUND", payload: {} });
-        } else {
-          send({ type: "HOST_NEXT_ROUND", payload: {} });
-        }
+        // HOST_NEXT_ROUND also handles "no more rounds" by advancing the
+        // server to GAME_OVER, so it's correct whether or not more rounds
+        // remain.
+        send({ type: "HOST_NEXT_ROUND", payload: {} });
         break;
       case "GAME_OVER":
         send({ type: "HOST_RESET_GAME", payload: {} });
@@ -134,21 +134,16 @@ export function GameControls({
             style: { backgroundColor: colors.primary },
           };
         }
-        if (hasMoreRounds) {
-          return {
-            text: "🏁 End Round",
-            disabled: false,
-            disabledReason: "",
-            shortcut: "Space",
-            style: { backgroundColor: colors.accentOrange },
-          };
-        }
+        // Its action always sends HOST_NEXT_QUESTION, which the server routes
+        // to ROUND_RESULTS regardless of hasMoreRounds — so this always reads
+        // "End Round", never "End Game". The last round's actual end-game
+        // moment is one screen later, on ROUND_RESULTS.
         return {
-          text: "🏆 End Game",
+          text: "🏁 End Round",
           disabled: false,
           disabledReason: "",
           shortcut: "Space",
-          style: { backgroundColor: colors.secondary },
+          style: { backgroundColor: colors.accentOrange },
         };
       case "ROUND_RESULTS":
         if (hasMoreRounds) {
@@ -203,7 +198,11 @@ export function GameControls({
     >
       {/* Primary action */}
       <AnimatePresence mode="wait">
-        <motion.div key={`primary-${gameState}`} {...scalePop}>
+        <motion.div
+          key={`primary-${gameState}`}
+          {...scalePop}
+          transition={prefersReducedMotion ? INSTANT_TRANSITION : scalePop.transition}
+        >
           <button
             type="button"
             onClick={handlePrimaryAction}

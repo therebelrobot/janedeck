@@ -285,6 +285,13 @@ export interface GameStateChangedMessage {
     totalRounds?: number;
     /** Trivia only: whether Team Play is enabled for this game */
     teamPlayEnabled?: boolean;
+    /**
+     * Current connected player count — included so a client that connects
+     * after players have already joined (a late-opened presentation/audience
+     * screen, or an initial host connect) isn't stuck showing 0 until the
+     * next live PLAYER_JOINED/PLAYER_LEFT broadcast.
+     */
+    playerCount?: number;
   };
   timestamp: number;
 }

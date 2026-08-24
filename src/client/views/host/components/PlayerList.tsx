@@ -2,10 +2,10 @@
 // R1.4: displayName is the chosen name. R5.3: Semantic <ul>.
 // R5.2: Touch targets ≥ 44px for kick buttons.
 import React, { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { PlayerAvatar } from "../../../components/PlayerAvatar";
 import { colors, radii, spacing } from "../../../styles/theme";
-import { staggerContainer, staggerItem } from "../../../animations/presets";
+import { staggerContainer, staggerItem, reduceVariants } from "../../../animations/presets";
 
 /** Player data for list display */
 export interface PlayerListEntry {
@@ -37,6 +37,7 @@ export function PlayerList({
   onKick,
   kickEnabled = true,
 }: PlayerListProps): React.ReactElement {
+  const prefersReducedMotion = useReducedMotion();
   const [sortBy, setSortBy] = useState<SortMode>("joined");
   const [confirmKickId, setConfirmKickId] = useState<string | null>(null);
 
@@ -143,7 +144,7 @@ export function PlayerList({
         </p>
       ) : (
         <motion.ul
-          variants={staggerContainer}
+          variants={prefersReducedMotion ? reduceVariants(staggerContainer) : staggerContainer}
           initial="hidden"
           animate="show"
           style={{
@@ -160,7 +161,7 @@ export function PlayerList({
             {sortedPlayers.map((player) => (
               <motion.li
                 key={player.id}
-                variants={staggerItem}
+                variants={prefersReducedMotion ? reduceVariants(staggerItem) : staggerItem}
                 layout
                 exit={{ opacity: 0, x: -30 }}
                 style={{

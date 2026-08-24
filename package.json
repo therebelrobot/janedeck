@@ -17,7 +17,8 @@
     "release:major": "npm version major -m \"chore: release v%s\" && git push && git push --tags",
     "release:tags": "git tag --sort=-v:refname | grep '^v'",
     "wrangler:login": "wrangler login",
-    "wrangler:logout": "wrangler logout"
+    "wrangler:logout": "wrangler logout",
+    "capture:screenshots": "node scripts/capture-screenshots.mjs"
   },
   "keywords": [
     "partyserver",
@@ -49,6 +50,7 @@
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
+    "playwright": "^1.62.1",
     "typescript": "^6.0.3",
     "vite": "^8.1.0"
   }

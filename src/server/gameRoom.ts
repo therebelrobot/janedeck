@@ -7,6 +7,7 @@ import { nanoid } from "nanoid";
 import type {
   ConnectionState,
   Game,
+  TriviaGame,
   Player,
   Answer,
   ScoreEntry,
@@ -121,12 +122,17 @@ export class GameRoom extends Server<Env> {
 
     // Send current game state to the connecting client
     if (this.game) {
+      const playerCount = Object.values(this.game.players).filter(
+        (p) => p.role === "player",
+      ).length;
+
       // Send state change so client knows current state
       sendToConnection(conn, {
         type: "GAME_STATE_CHANGED",
         payload: {
           gameType: this.game.type,
           state: this.game.state,
+          playerCount,
           ...(this.game.type === "trivia"
             ? {
                 roundIndex: this.game.currentRoundIndex,
@@ -138,6 +144,19 @@ export class GameRoom extends Server<Env> {
         },
         timestamp: Date.now(),
       });
+
+      // Team Play: a client connecting after teams have already formed
+      // (e.g. the presentation screen opened after players joined) would
+      // otherwise show no teams until the next TEAM_UPDATED broadcast.
+      if (this.game.type === "trivia" && this.game.settings.teamPlayEnabled) {
+        sendToConnection(conn, {
+          type: "TEAM_UPDATED",
+          payload: {
+            teams: Object.values(this.game.teams).map((t) => toPublicTeam(this.game as TriviaGame, t)),
+          },
+          timestamp: Date.now(),
+        });
+      }
 
       // If in a question-related state, send question info
       if (
@@ -1443,6 +1462,7 @@ export class GameRoom extends Server<Env> {
       payload: {
         gameType: this.game.type,
         state: this.game.state,
+        playerCount: Object.values(this.game.players).filter((p) => p.role === "player").length,
         ...(this.game.type === "trivia"
           ? {
               roundIndex: this.game.currentRoundIndex,
@@ -1454,6 +1474,18 @@ export class GameRoom extends Server<Env> {
       },
       timestamp: Date.now(),
     });
+
+    // Team Play: refresh team rosters in case one changed while this player
+    // was disconnected.
+    if (this.game.type === "trivia" && this.game.settings.teamPlayEnabled) {
+      sendToConnection(sender, {
+        type: "TEAM_UPDATED",
+        payload: {
+          teams: Object.values(this.game.teams).map((t) => toPublicTeam(this.game as TriviaGame, t)),
+        },
+        timestamp: Date.now(),
+      });
+    }
 
     // Team Play: resend the reconnecting player's team draft answers if
     // they're mid-round, since onConnect fired before we knew their identity.

@@ -3,14 +3,15 @@
 // device regardless of which view/route is active — the presentation screen
 // may not be watched, so this can't be presentation-only.
 import React from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { useNotificationStore } from "../stores/notificationStore";
 import { colors, radii, spacing, shadows, zIndex } from "../styles/theme";
-import { popIn } from "../animations/presets";
+import { popIn, INSTANT_TRANSITION } from "../animations/presets";
 
 export function ToastStack(): React.ReactElement | null {
   const queue = useNotificationStore((s) => s.queue);
   const dismiss = useNotificationStore((s) => s.dismiss);
+  const prefersReducedMotion = useReducedMotion();
 
   if (queue.length === 0) return null;
 
@@ -37,6 +38,7 @@ export function ToastStack(): React.ReactElement | null {
             key={toast.id}
             layout
             {...popIn}
+            transition={prefersReducedMotion ? INSTANT_TRANSITION : popIn.transition}
             exit={{ scale: 0.9, opacity: 0 }}
             onClick={() => dismiss(toast.id)}
             style={{

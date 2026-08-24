@@ -2,12 +2,12 @@
 // R5.3: Semantic HTML. R5.6: aria-live regions for dynamic updates.
 // R1.4: displayName is the chosen name. R7.4: No blame language.
 import React, { useState, useCallback, useMemo } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import type { AnswerReview } from "@/shared/types";
 import type { ClientMessage } from "@/shared/messages";
 import { FUZZY_AUTO_ACCEPT, FUZZY_NEEDS_REVIEW } from "@/shared/constants";
 import { colors, radii, spacing, shadows } from "../../styles/theme";
-import { staggerContainer, staggerItem } from "../../animations/presets";
+import { staggerContainer, staggerItem, reduceVariants } from "../../animations/presets";
 import { AnswerCard, type ReviewStatus } from "./components/AnswerCard";
 
 interface AnswerReviewPanelProps {
@@ -406,6 +406,7 @@ function AnswerSection({
   onReject,
   onBonusChange,
 }: AnswerSectionProps): React.ReactElement {
+  const prefersReducedMotion = useReducedMotion();
   return (
     <section>
       <div
@@ -433,7 +434,7 @@ function AnswerSection({
       </div>
 
       <motion.div
-        variants={staggerContainer}
+        variants={prefersReducedMotion ? reduceVariants(staggerContainer) : staggerContainer}
         initial="hidden"
         animate="show"
         style={{

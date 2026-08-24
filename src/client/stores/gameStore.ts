@@ -165,6 +165,9 @@ export const useGameStore = create<GameStoreState>((set) => ({
           ...(message.payload.teamPlayEnabled !== undefined && {
             teamPlayEnabled: message.payload.teamPlayEnabled,
           }),
+          ...(message.payload.playerCount !== undefined && {
+            playerCount: message.payload.playerCount,
+          }),
         });
         // Reset timer on state changes away from ANSWERING
         if (message.payload.state !== "ANSWERING") {
