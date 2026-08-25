@@ -1,9 +1,9 @@
 // scripts/capture-screenshots.mjs — README screenshot capture
 //
 // Drives a live JaneDeck dev server with Playwright and captures every major
-// screen for all three roles (host, player, presentation) across all three
-// game modes (trivia individual, trivia team, bingo), writing PNGs into
-// docs/screenshots/<mode>/<role>-<state>.png.
+// screen for all four roles (host, player, presentation, audience) across
+// all four game modes (trivia individual, trivia team, bingo numbered,
+// bingo phrase pool), writing PNGs into docs/screenshots/<mode>/<role>-<state>.png.
 //
 // Usage:
 //   npm run dev                    # in one terminal, leave running
@@ -166,6 +166,7 @@ async function runTriviaFlow({ teamMode }) {
     await host.check("#team-play-enabled");
   }
   await host.click('button:has-text("Quick Start")');
+  await host.check("#allow-audience"); // so the audience role can join below
   await host.waitForTimeout(300);
   await shot(host, mode, "host-create-filled");
 
@@ -221,6 +222,18 @@ async function runTriviaFlow({ teamMode }) {
   await presentation.waitForTimeout(1000);
   await shot(presentation, mode, "presentation-lobby");
 
+  // ---------- Audience ----------
+  const audience = await newPage(context, PHONE_VIEWPORT);
+  await audience.goto(BASE + "/audience/" + gameCode);
+  await audience.waitForSelector("#audience-name");
+  await shot(audience, mode, "audience-join");
+  await fillRetry(audience, "#audience-name", "Casey");
+  await clickRetry(audience, "Watch Game");
+  await step("audience lobby wait", () =>
+    audience.waitForSelector("text=Waiting for the game to start", { timeout: 10000 }),
+  );
+  await shot(audience, mode, "audience-lobby");
+
   // ---------- Host lobby (now shows player/team) ----------
   await host.bringToFront();
   await host.waitForTimeout(500);
@@ -233,6 +246,9 @@ async function runTriviaFlow({ teamMode }) {
   await presentation.bringToFront();
   await presentation.waitForTimeout(500);
   await shot(presentation, mode, "presentation-round-intro");
+  await audience.bringToFront();
+  await audience.waitForTimeout(300);
+  await shot(audience, mode, "audience-round-intro");
   await player.bringToFront();
   await player.waitForTimeout(500);
   await shot(player, mode, "player-round-intro");
@@ -253,6 +269,9 @@ async function runTriviaFlow({ teamMode }) {
         await presentation.bringToFront();
         await presentation.waitForTimeout(500);
         await shot(presentation, mode, "presentation-answering");
+        await audience.bringToFront();
+        await audience.waitForTimeout(300);
+        await shot(audience, mode, "audience-answering");
         await player.bringToFront();
         await player.waitForTimeout(500);
         await shot(player, mode, "player-answering");
@@ -274,6 +293,9 @@ async function runTriviaFlow({ teamMode }) {
         await presentation.bringToFront();
         await presentation.waitForTimeout(500);
         await shot(presentation, mode, "presentation-reviewing");
+        await audience.bringToFront();
+        await audience.waitForTimeout(300);
+        await shot(audience, mode, "audience-reviewing");
         await player.bringToFront();
         await player.waitForTimeout(500);
         await shot(player, mode, "player-reviewing");
@@ -289,6 +311,9 @@ async function runTriviaFlow({ teamMode }) {
         await presentation.bringToFront();
         await presentation.waitForTimeout(500);
         await shot(presentation, mode, "presentation-score-reveal");
+        await audience.bringToFront();
+        await audience.waitForTimeout(300);
+        await shot(audience, mode, "audience-score-reveal");
         await player.bringToFront();
         await player.waitForTimeout(500);
         await shot(player, mode, "player-score-reveal");
@@ -306,6 +331,9 @@ async function runTriviaFlow({ teamMode }) {
         await presentation.bringToFront();
         await presentation.waitForTimeout(500);
         await shot(presentation, mode, "presentation-round-results");
+        await audience.bringToFront();
+        await audience.waitForTimeout(300);
+        await shot(audience, mode, "audience-round-results");
         await player.bringToFront();
         await player.waitForTimeout(500);
         await shot(player, mode, "player-round-results");
@@ -319,6 +347,9 @@ async function runTriviaFlow({ teamMode }) {
         await presentation.bringToFront();
         await presentation.waitForTimeout(500);
         await shot(presentation, mode, "presentation-game-over");
+        await audience.bringToFront();
+        await audience.waitForTimeout(300);
+        await shot(audience, mode, "audience-game-over");
         await player.bringToFront();
         await player.waitForTimeout(500);
         await shot(player, mode, "player-game-over");
@@ -344,6 +375,9 @@ async function runTriviaFlow({ teamMode }) {
           await presentation.bringToFront();
           await presentation.waitForTimeout(300);
           await shot(presentation, mode, "presentation-question-display");
+          await audience.bringToFront();
+          await audience.waitForTimeout(300);
+          await shot(audience, mode, "audience-question-display");
           await player.bringToFront();
           await player.waitForTimeout(300);
           await shot(player, mode, "player-question-display");
@@ -356,6 +390,9 @@ async function runTriviaFlow({ teamMode }) {
           await presentation.bringToFront();
           await presentation.waitForTimeout(400);
           await shot(presentation, mode, "presentation-answering");
+          await audience.bringToFront();
+          await audience.waitForTimeout(300);
+          await shot(audience, mode, "audience-answering");
         }
 
         await player.bringToFront();
@@ -378,6 +415,9 @@ async function runTriviaFlow({ teamMode }) {
           await presentation.bringToFront();
           await presentation.waitForTimeout(400);
           await shot(presentation, mode, "presentation-reviewing");
+          await audience.bringToFront();
+          await audience.waitForTimeout(300);
+          await shot(audience, mode, "audience-reviewing");
           await player.bringToFront();
           await player.waitForTimeout(400);
           await shot(player, mode, "player-reviewing");
@@ -393,6 +433,9 @@ async function runTriviaFlow({ teamMode }) {
           await presentation.bringToFront();
           await presentation.waitForTimeout(400);
           await shot(presentation, mode, "presentation-score-reveal");
+          await audience.bringToFront();
+          await audience.waitForTimeout(300);
+          await shot(audience, mode, "audience-score-reveal");
           await player.bringToFront();
           await player.waitForTimeout(400);
           await shot(player, mode, "player-score-reveal");
@@ -411,6 +454,9 @@ async function runTriviaFlow({ teamMode }) {
         await presentation.bringToFront();
         await presentation.waitForTimeout(400);
         await shot(presentation, mode, "presentation-round-results");
+        await audience.bringToFront();
+        await audience.waitForTimeout(300);
+        await shot(audience, mode, "audience-round-results");
         await player.bringToFront();
         await player.waitForTimeout(400);
         await shot(player, mode, "player-round-results");
@@ -424,6 +470,9 @@ async function runTriviaFlow({ teamMode }) {
         await presentation.bringToFront();
         await presentation.waitForTimeout(400);
         await shot(presentation, mode, "presentation-game-over");
+        await audience.bringToFront();
+        await audience.waitForTimeout(300);
+        await shot(audience, mode, "audience-game-over");
         await player.bringToFront();
         await player.waitForTimeout(400);
         await shot(player, mode, "player-game-over");
@@ -510,6 +559,17 @@ async function runBingoFlow({ mode, cardMode, playerName }) {
   await presentation.waitForTimeout(1000);
   await shot(presentation, mode, "presentation-lobby");
 
+  const audience = await newPage(context, PHONE_VIEWPORT);
+  await audience.goto(BASE + "/audience/" + gameCode);
+  await audience.waitForSelector("#audience-name");
+  await shot(audience, mode, "audience-join");
+  await fillRetry(audience, "#audience-name", "Casey");
+  await clickRetry(audience, "Watch Game");
+  await step("audience lobby wait", () =>
+    audience.waitForSelector("text=Waiting for the game to start", { timeout: 10000 }),
+  );
+  await shot(audience, mode, "audience-lobby");
+
   await host.bringToFront();
   await host.waitForTimeout(500);
   await shot(host, mode, "host-lobby");
@@ -521,6 +581,9 @@ async function runBingoFlow({ mode, cardMode, playerName }) {
   await presentation.bringToFront();
   await presentation.waitForTimeout(500);
   await shot(presentation, mode, "presentation-playing");
+  await audience.bringToFront();
+  await audience.waitForTimeout(300);
+  await shot(audience, mode, "audience-playing");
 
   await player.bringToFront();
   await step("player card wait", () =>
@@ -560,6 +623,9 @@ async function runBingoFlow({ mode, cardMode, playerName }) {
   await presentation.bringToFront();
   await presentation.waitForTimeout(500);
   await shot(presentation, mode, "presentation-ended");
+  await audience.bringToFront();
+  await audience.waitForTimeout(300);
+  await shot(audience, mode, "audience-ended");
   await player.bringToFront();
   await player.waitForTimeout(500);
   await shot(player, mode, "player-ended");

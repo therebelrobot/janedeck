@@ -21,7 +21,7 @@ Players join from their phones, the host controls (or, for Bingo, simply starts/
 
 ## Screenshots
 
-Each game mode has its own host (desktop), player (phone), and presentation (desktop, for the shared screen) views. A full set of every screen and state is in [`docs/screenshots/`](docs/screenshots/), organized by mode — regenerate it anytime with `npm run capture:screenshots`.
+Each game mode has its own host (desktop), player (phone), presentation (desktop, for the shared screen), and audience (phone, spectator mode) views. A full set of every screen and state is in [`docs/screenshots/`](docs/screenshots/), organized by mode — regenerate it anytime with `npm run capture:screenshots`.
 
 ### Trivia — Individual Play
 
@@ -30,11 +30,13 @@ Each game mode has its own host (desktop), player (phone), and presentation (des
 <td align="center"><b>Host</b></td>
 <td align="center"><b>Player</b></td>
 <td align="center"><b>Presentation</b></td>
+<td align="center"><b>Audience</b></td>
 </tr>
 <tr>
 <td><img src="docs/screenshots/trivia-individual/host-answering.png" width="280"></td>
 <td><img src="docs/screenshots/trivia-individual/player-answering.png" width="150"></td>
 <td><img src="docs/screenshots/trivia-individual/presentation-answering.png" width="280"></td>
+<td><img src="docs/screenshots/trivia-individual/audience-answering.png" width="150"></td>
 </tr>
 </table>
 
@@ -45,11 +47,13 @@ Each game mode has its own host (desktop), player (phone), and presentation (des
 <td align="center"><b>Host</b></td>
 <td align="center"><b>Player</b></td>
 <td align="center"><b>Presentation</b></td>
+<td align="center"><b>Audience</b></td>
 </tr>
 <tr>
 <td><img src="docs/screenshots/trivia-team/host-answering.png" width="280"></td>
 <td><img src="docs/screenshots/trivia-team/player-answering.png" width="150"></td>
 <td><img src="docs/screenshots/trivia-team/presentation-answering.png" width="280"></td>
+<td><img src="docs/screenshots/trivia-team/audience-answering.png" width="150"></td>
 </tr>
 </table>
 
@@ -60,11 +64,13 @@ Each game mode has its own host (desktop), player (phone), and presentation (des
 <td align="center"><b>Host</b></td>
 <td align="center"><b>Player</b></td>
 <td align="center"><b>Presentation</b></td>
+<td align="center"><b>Audience</b></td>
 </tr>
 <tr>
 <td><img src="docs/screenshots/bingo/host-playing-with-winner.png" width="280"></td>
 <td><img src="docs/screenshots/bingo/player-card-win.png" width="150"></td>
 <td><img src="docs/screenshots/bingo/presentation-playing.png" width="280"></td>
+<td><img src="docs/screenshots/bingo/audience-playing.png" width="150"></td>
 </tr>
 </table>
 
@@ -75,11 +81,13 @@ Each game mode has its own host (desktop), player (phone), and presentation (des
 <td align="center"><b>Host</b></td>
 <td align="center"><b>Player</b></td>
 <td align="center"><b>Presentation</b></td>
+<td align="center"><b>Audience</b></td>
 </tr>
 <tr>
 <td><img src="docs/screenshots/bingo-phrases/host-create.png" width="280"></td>
 <td><img src="docs/screenshots/bingo-phrases/player-card.png" width="150"></td>
 <td><img src="docs/screenshots/bingo-phrases/presentation-playing.png" width="280"></td>
+<td><img src="docs/screenshots/bingo-phrases/audience-playing.png" width="150"></td>
 </tr>
 </table>
 
