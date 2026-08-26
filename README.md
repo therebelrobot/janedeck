@@ -50,9 +50,9 @@ Each game mode has its own host (desktop), player (phone), presentation (desktop
 <td align="center"><b>Audience</b></td>
 </tr>
 <tr>
-<td><img src="docs/screenshots/trivia-team/host-answering.png" width="280"></td>
-<td><img src="docs/screenshots/trivia-team/player-answering.png" width="150"></td>
-<td><img src="docs/screenshots/trivia-team/presentation-answering.png" width="280"></td>
+<td><img src="docs/screenshots/trivia-team/host-answering-revealed.png" width="280"></td>
+<td><img src="docs/screenshots/trivia-team/player-answering-revealed.png" width="150"></td>
+<td><img src="docs/screenshots/trivia-team/presentation-answering-revealed.png" width="280"></td>
 <td><img src="docs/screenshots/trivia-team/audience-answering.png" width="150"></td>
 </tr>
 </table>

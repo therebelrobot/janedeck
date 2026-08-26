@@ -277,13 +277,36 @@ async function runTriviaFlow({ teamMode }) {
         await shot(player, mode, "player-answering");
       }
 
+      // The host reveals the round's questions one at a time; each one is
+      // answerable (and stays editable) from the moment it appears.
       for (let q = 0; q < answers.length; q++) {
+        if (q > 0) {
+          await host.bringToFront();
+          await step(`reveal team question ${q + 1}`, () =>
+            host.click(`button:has-text("Reveal Question ${q + 1}")`),
+          );
+          await host.waitForTimeout(600);
+          await player.bringToFront();
+          await player.waitForTimeout(400);
+        }
         await step(`fill team answer ${q + 1}`, async () => {
           const input = player.locator(`input[aria-label="Answer for question ${q + 1}"]`);
           await input.fill(answers[q]);
         });
       }
       await player.waitForTimeout(700); // debounce + submit
+
+      if (firstRound) {
+        // Mid-round, with a couple of questions revealed — the state the
+        // reveal-one-at-a-time flow actually spends its time in.
+        await shot(player, mode, "player-answering-revealed");
+        await presentation.bringToFront();
+        await presentation.waitForTimeout(500);
+        await shot(presentation, mode, "presentation-answering-revealed");
+        await host.bringToFront();
+        await host.waitForTimeout(400);
+        await shot(host, mode, "host-answering-revealed");
+      }
 
       await host.bringToFront();
       await step("close round", () => host.click('button:has-text("Close Round")'));

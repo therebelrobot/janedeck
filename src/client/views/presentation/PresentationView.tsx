@@ -9,7 +9,7 @@ import QRCode from "react-qr-code";
 import type { ServerMessage } from "@/shared/messages";
 import type { ScoreEntry, ScoreChange, BingoWinner, TeamScoreEntry, PublicTeam } from "@/shared/types";
 import { usePartySocket } from "../../hooks/usePartySocket";
-import { useGameStore } from "../../stores/gameStore";
+import { useGameStore, type RoundQuestion } from "../../stores/gameStore";
 import { useAuth } from "../../hooks/useAuth";
 import { stateColors } from "../../animations/variants";
 import { colors, spacing, radii } from "../../styles/theme";
@@ -229,6 +229,7 @@ export function PresentationView(): React.ReactElement {
     teamAnswerProgress,
     roundTitle: teamRoundTitle,
     roundQuestions,
+    roundTotalQuestions,
   } = gameStore;
 
   // Background color based on game state
@@ -333,11 +334,12 @@ export function PresentationView(): React.ReactElement {
             />
           )}
 
-          {/* ANSWERING — Team Play: whole round, no single "current question" */}
+          {/* ANSWERING — Team Play: the question the host just revealed */}
           {teamPlayEnabled && gameState === "ANSWERING" && (
             <TeamAnsweringScreen
               roundTitle={teamRoundTitle ?? `Round ${roundIndex + 1}`}
-              totalQuestions={roundQuestions?.length ?? 0}
+              questions={roundQuestions ?? []}
+              totalQuestions={roundTotalQuestions || (roundQuestions?.length ?? 0)}
               timerSeconds={timerSeconds}
               timerTotal={timerTotal}
               teams={teams}
@@ -511,11 +513,15 @@ function RoundIntroScreen({
   );
 }
 
-/** Team Play ambient screen during ANSWERING — the whole room is heads-down
- * filling out their round, so there's no single "current question" to show.
- * Teams and their live progress are the content here instead. */
+/**
+ * Team Play screen during ANSWERING. The host reveals the round's questions
+ * one at a time, so the newest one gets the big treatment the individual-play
+ * question screen gives its question; earlier ones stay listed underneath,
+ * since teams can still be working on them.
+ */
 function TeamAnsweringScreen({
   roundTitle,
+  questions,
   totalQuestions,
   timerSeconds,
   timerTotal,
@@ -523,13 +529,18 @@ function TeamAnsweringScreen({
   teamProgress,
 }: {
   roundTitle: string;
+  questions: RoundQuestion[];
   totalQuestions: number;
   timerSeconds: number | null;
   timerTotal: number | null;
   teams: PublicTeam[];
   teamProgress: Record<string, { teamName: string; answeredCount: number; totalQuestions: number }>;
 }): React.ReactElement {
+  const prefersReducedMotion = useReducedMotion();
   const sortedTeams = [...teams].sort((a, b) => a.name.localeCompare(b.name));
+  const currentIndex = questions.length - 1;
+  const current = questions[currentIndex];
+  const earlier = questions.slice(0, currentIndex);
 
   return (
     <div
@@ -539,38 +550,109 @@ function TeamAnsweringScreen({
         alignItems: "center",
         gap: spacing[6],
         width: "100%",
-        maxWidth: "min(1000px, 90vw)",
+        maxWidth: "min(1400px, 92vw)",
         padding: `${spacing[6]} 0`,
       }}
     >
-      <div style={{ textAlign: "center" }}>
-        <p
-          style={{
-            fontFamily: "var(--font-display)",
-            fontSize: "clamp(1.1rem, 2.5vw, 1.75rem)",
-            color: colors.textSecondary,
-            margin: 0,
-            textTransform: "uppercase",
-            letterSpacing: "0.1em",
-          }}
-        >
-          {roundTitle}
-        </p>
-        <p
-          style={{
-            fontFamily: "var(--font-display)",
-            fontSize: "clamp(1.5rem, 4vw, 2.5rem)",
-            fontWeight: 700,
-            color: colors.text,
-            margin: `${spacing[2]} 0 0`,
-          }}
-        >
-          Teams are answering {totalQuestions} question{totalQuestions !== 1 ? "s" : ""}...
-        </p>
-      </div>
+      <p
+        style={{
+          fontFamily: "var(--font-display)",
+          fontSize: "clamp(1rem, 2vw, 1.5rem)",
+          color: colors.textSecondary,
+          margin: 0,
+          textTransform: "uppercase",
+          letterSpacing: "0.1em",
+          textAlign: "center",
+        }}
+      >
+        <span style={{ color: colors.accentPurple }}>{roundTitle}</span>
+        {current && (
+          <>
+            {" · "}
+            Question {currentIndex + 1} of {totalQuestions}
+            {" · "}
+            <span style={{ color: colors.accentYellow }}>{current.pointValue} points</span>
+          </>
+        )}
+      </p>
+
+      {/* The question just revealed — the whole room is looking at this */}
+      <AnimatePresence mode="wait">
+        {current && (
+          <motion.h2
+            key={current.questionId}
+            initial={prefersReducedMotion ? { opacity: 0 } : { scale: 0.7, opacity: 0 }}
+            animate={prefersReducedMotion ? { opacity: 1 } : { scale: 1, opacity: 1 }}
+            exit={prefersReducedMotion ? { opacity: 0 } : { scale: 0.9, opacity: 0 }}
+            transition={
+              prefersReducedMotion
+                ? { duration: 0.01 }
+                : { type: "spring", stiffness: 250, damping: 18 }
+            }
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "clamp(1.75rem, 5vw, 4.5rem)",
+              fontWeight: 700,
+              color: colors.text,
+              textAlign: "center",
+              lineHeight: 1.25,
+              width: "100%",
+              margin: 0,
+              padding: `clamp(1.5rem, 3vw, 3rem) clamp(2rem, 5vw, 5rem)`,
+              backgroundColor: `${colors.bgCard}cc`,
+              borderRadius: radii.xl,
+              border: `2px solid ${colors.primary}`,
+              boxShadow: `0 0 40px rgba(59, 130, 246, 0.4), 0 0 80px rgba(59, 130, 246, 0.15)`,
+              backdropFilter: "blur(12px)",
+            }}
+          >
+            {current.text}
+          </motion.h2>
+        )}
+      </AnimatePresence>
 
       {timerSeconds !== null && timerTotal !== null && (
         <Timer secondsRemaining={timerSeconds} totalSeconds={timerTotal} size="lg" />
+      )}
+
+      {/* Questions still on the table from earlier in the round */}
+      {earlier.length > 0 && (
+        <div
+          style={{
+            width: "100%",
+            display: "flex",
+            flexDirection: "column",
+            gap: spacing[2],
+            padding: spacing[4],
+            backgroundColor: `${colors.bgCard}99`,
+            borderRadius: radii.lg,
+            border: `1px solid ${colors.border}`,
+          }}
+        >
+          <p
+            style={{
+              margin: 0,
+              fontSize: "clamp(0.75rem, 1.2vw, 1rem)",
+              color: colors.textSecondary,
+              textTransform: "uppercase",
+              letterSpacing: "0.1em",
+            }}
+          >
+            Still open
+          </p>
+          {earlier.map((q, i) => (
+            <p
+              key={q.questionId}
+              style={{
+                margin: 0,
+                fontSize: "clamp(0.9rem, 1.6vw, 1.4rem)",
+                color: colors.textSecondary,
+              }}
+            >
+              <span style={{ color: colors.primaryLight, fontWeight: 700 }}>{i + 1}.</span> {q.text}
+            </p>
+          ))}
+        </div>
       )}
 
       {/* Live per-team progress */}
@@ -586,7 +668,7 @@ function TeamAnsweringScreen({
           {sortedTeams.map((team) => {
             const progress = teamProgress[team.id];
             const answered = progress?.answeredCount ?? 0;
-            const total = progress?.totalQuestions ?? totalQuestions;
+            const total = progress?.totalQuestions ?? questions.length;
             const done = total > 0 && answered >= total;
 
             return (

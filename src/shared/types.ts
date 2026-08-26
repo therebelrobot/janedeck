@@ -50,7 +50,14 @@ export interface TriviaGame extends BaseGame {
   state: TriviaGameState;
   /** Index into rounds[] */
   currentRoundIndex: number;
-  /** Index into current round's questions[] */
+  /**
+   * Index into current round's questions[].
+   *
+   * Individual play: the question currently being displayed/answered.
+   * Team Play: the reveal pointer — questions 0..currentQuestionIndex are the
+   * ones the host has revealed so far this round. All of them stay editable
+   * until the round closes; the last one is the newly revealed focus.
+   */
   currentQuestionIndex: number;
   /** Ordered list of rounds */
   rounds: Round[];

@@ -91,6 +91,15 @@ export interface HostNextQuestionMessage {
   payload: Record<string, never>;
 }
 
+/**
+ * Team Play only: reveal the next question of the round that's already being
+ * answered. Previously revealed questions stay open for editing.
+ */
+export interface HostRevealNextQuestionMessage {
+  type: "HOST_REVEAL_NEXT_QUESTION";
+  payload: Record<string, never>;
+}
+
 export interface HostNextRoundMessage {
   type: "HOST_NEXT_ROUND";
   payload: Record<string, never>;
@@ -250,6 +259,7 @@ export type ClientMessage =
   | HostBulkJudgeMessage
   | HostRevealScoresMessage
   | HostNextQuestionMessage
+  | HostRevealNextQuestionMessage
   | HostNextRoundMessage
   | HostResetGameMessage
   | HostEndGameMessage
@@ -553,19 +563,21 @@ export interface TeamAnswerProgressMessage {
   timestamp: number;
 }
 
-/** Batch question display for Team Play — the whole round's questions at once */
+/**
+ * Round-opening question display for Team Play. `questions` carries only the
+ * questions revealed so far (the first one at round start, or the full
+ * revealed prefix for a client connecting mid-round) — never the whole round,
+ * so unrevealed question text never reaches a client early.
+ */
 export interface RoundShowMessage {
   type: "ROUND_SHOW";
   payload: {
     roundIndex: number;
     roundTitle: string;
-    questions: Array<{
-      questionId: string;
-      text: string;
-      type: "text" | "multiple-choice" | "true-false";
-      choices?: string[];
-      pointValue: number;
-    }>;
+    /** Revealed questions only, in round order */
+    questions: RoundQuestionPublic[];
+    /** How many questions the round holds in total, revealed or not */
+    totalQuestions: number;
     timeLimit: number;
   };
   timestamp: number;
@@ -577,16 +589,56 @@ export interface RoundShowFullMessage {
   payload: {
     roundIndex: number;
     roundTitle: string;
-    questions: Array<{
-      questionId: string;
-      text: string;
-      type: "text" | "multiple-choice" | "true-false";
-      choices?: string[];
-      pointValue: number;
-      correctAnswer: string;
-      acceptableAnswers: string[];
-    }>;
+    /** Revealed questions only, in round order */
+    questions: RoundQuestionFull[];
+    /** How many questions the round holds in total, revealed or not */
+    totalQuestions: number;
     timeLimit: number;
+  };
+  timestamp: number;
+}
+
+/** One question of a Team Play round, as shown to players/presentation/audience */
+export interface RoundQuestionPublic {
+  questionId: string;
+  text: string;
+  type: "text" | "multiple-choice" | "true-false";
+  choices?: string[];
+  pointValue: number;
+}
+
+/** Host-only version, with the answers the host reads out */
+export interface RoundQuestionFull extends RoundQuestionPublic {
+  correctAnswer: string;
+  acceptableAnswers: string[];
+}
+
+/**
+ * Team Play: the host revealed one more question of the round in progress.
+ * Clients append it to what they already have — earlier questions stay
+ * answerable, this one takes the focus.
+ */
+export interface RoundQuestionRevealedMessage {
+  type: "ROUND_QUESTION_REVEALED";
+  payload: {
+    roundIndex: number;
+    /** 0-based position of this question within the round */
+    questionIndex: number;
+    totalQuestions: number;
+    question: RoundQuestionPublic;
+  };
+  timestamp: number;
+}
+
+/** Host-only full version of ROUND_QUESTION_REVEALED, with correct answers */
+export interface RoundQuestionRevealedFullMessage {
+  type: "ROUND_QUESTION_REVEALED_FULL";
+  payload: {
+    roundIndex: number;
+    /** 0-based position of this question within the round */
+    questionIndex: number;
+    totalQuestions: number;
+    question: RoundQuestionFull;
   };
   timestamp: number;
 }
@@ -701,6 +753,8 @@ export type ServerMessage =
   | TeamAnswerProgressMessage
   | RoundShowMessage
   | RoundShowFullMessage
+  | RoundQuestionRevealedMessage
+  | RoundQuestionRevealedFullMessage
   | RoundAnswersForReviewMessage
   | TeamScoresUpdatedMessage
   | BingoCardAssignedMessage

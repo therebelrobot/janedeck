@@ -259,6 +259,11 @@ export const HostNextQuestionSchema = z.object({
   payload: EmptyPayload,
 });
 
+export const HostRevealNextQuestionSchema = z.object({
+  type: z.literal("HOST_REVEAL_NEXT_QUESTION"),
+  payload: EmptyPayload,
+});
+
 export const HostNextRoundSchema = z.object({
   type: z.literal("HOST_NEXT_ROUND"),
   payload: EmptyPayload,
@@ -413,6 +418,7 @@ export const ClientMessageSchema = z.discriminatedUnion("type", [
   HostBulkJudgeSchema,
   HostRevealScoresSchema,
   HostNextQuestionSchema,
+  HostRevealNextQuestionSchema,
   HostNextRoundSchema,
   HostResetGameSchema,
   HostEndGameSchema,
@@ -704,12 +710,18 @@ const RoundQuestionPublicSchema = z.object({
   pointValue: z.number().int(),
 });
 
+const RoundQuestionFullSchema = RoundQuestionPublicSchema.extend({
+  correctAnswer: z.string(),
+  acceptableAnswers: z.array(z.string()),
+});
+
 export const RoundShowSchema = z.object({
   type: z.literal("ROUND_SHOW"),
   payload: z.object({
     roundIndex: z.number().int(),
     roundTitle: z.string(),
     questions: z.array(RoundQuestionPublicSchema),
+    totalQuestions: z.number().int(),
     timeLimit: z.number().int(),
   }),
   timestamp: z.number(),
@@ -720,13 +732,31 @@ export const RoundShowFullSchema = z.object({
   payload: z.object({
     roundIndex: z.number().int(),
     roundTitle: z.string(),
-    questions: z.array(
-      RoundQuestionPublicSchema.extend({
-        correctAnswer: z.string(),
-        acceptableAnswers: z.array(z.string()),
-      }),
-    ),
+    questions: z.array(RoundQuestionFullSchema),
+    totalQuestions: z.number().int(),
     timeLimit: z.number().int(),
+  }),
+  timestamp: z.number(),
+});
+
+export const RoundQuestionRevealedSchema = z.object({
+  type: z.literal("ROUND_QUESTION_REVEALED"),
+  payload: z.object({
+    roundIndex: z.number().int(),
+    questionIndex: z.number().int(),
+    totalQuestions: z.number().int(),
+    question: RoundQuestionPublicSchema,
+  }),
+  timestamp: z.number(),
+});
+
+export const RoundQuestionRevealedFullSchema = z.object({
+  type: z.literal("ROUND_QUESTION_REVEALED_FULL"),
+  payload: z.object({
+    roundIndex: z.number().int(),
+    questionIndex: z.number().int(),
+    totalQuestions: z.number().int(),
+    question: RoundQuestionFullSchema,
   }),
   timestamp: z.number(),
 });
@@ -837,6 +867,8 @@ export const ServerMessageSchema = z.discriminatedUnion("type", [
   TeamAnswerProgressSchema,
   RoundShowSchema,
   RoundShowFullSchema,
+  RoundQuestionRevealedSchema,
+  RoundQuestionRevealedFullSchema,
   RoundAnswersForReviewSchema,
   TeamScoresUpdatedSchema,
   BingoCardAssignedSchema,

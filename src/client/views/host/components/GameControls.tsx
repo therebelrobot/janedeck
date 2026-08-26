@@ -23,6 +23,10 @@ interface GameControlsProps {
   send: (message: ClientMessage) => void;
   /** Team Play: swaps the ROUND_INTRO/ANSWERING button labels to round-scoped wording */
   teamMode?: boolean;
+  /** Team Play: how many of the round's questions have been revealed so far */
+  teamRevealedCount?: number;
+  /** Team Play: how many questions the round holds in total */
+  teamTotalQuestions?: number;
 }
 
 /**
@@ -38,9 +42,17 @@ export function GameControls({
   hasMoreRounds,
   send,
   teamMode = false,
+  teamRevealedCount = 0,
+  teamTotalQuestions = 0,
 }: GameControlsProps): React.ReactElement {
   const prefersReducedMotion = useReducedMotion();
   const [confirmEndGame, setConfirmEndGame] = useState(false);
+
+  // Team Play reveals the round's questions one at a time inside a single
+  // ANSWERING phase — while any are still held back, advancing means
+  // revealing the next one rather than closing the round.
+  const hasUnrevealedQuestions =
+    teamMode && teamRevealedCount > 0 && teamRevealedCount < teamTotalQuestions;
 
   const handlePrimaryAction = () => {
     switch (gameState) {
@@ -51,7 +63,11 @@ export function GameControls({
         send({ type: "HOST_START_QUESTION", payload: {} });
         break;
       case "ANSWERING":
-        send({ type: "HOST_CLOSE_ANSWERS", payload: {} });
+        if (hasUnrevealedQuestions) {
+          send({ type: "HOST_REVEAL_NEXT_QUESTION", payload: {} });
+        } else {
+          send({ type: "HOST_CLOSE_ANSWERS", payload: {} });
+        }
         break;
       case "REVIEWING":
         send({ type: "HOST_REVEAL_SCORES", payload: {} });
@@ -109,6 +125,15 @@ export function GameControls({
           style: { backgroundColor: colors.primary },
         };
       case "ANSWERING":
+        if (hasUnrevealedQuestions) {
+          return {
+            text: `➡️ Reveal Question ${teamRevealedCount + 1} of ${teamTotalQuestions}`,
+            disabled: false,
+            disabledReason: "",
+            shortcut: "Space",
+            style: { backgroundColor: colors.primary },
+          };
+        }
         return {
           text: teamMode ? "⏹ Close Round" : "⏹ Close Answers",
           disabled: false,
@@ -251,6 +276,25 @@ export function GameControls({
         >
           {primary.disabledReason}
         </p>
+      )}
+
+      {/* Team Play: close the round without revealing what's left */}
+      {hasUnrevealedQuestions && gameState === "ANSWERING" && (
+        <div style={{ display: "flex", justifyContent: "center" }}>
+          <button
+            type="button"
+            onClick={() => send({ type: "HOST_CLOSE_ANSWERS", payload: {} })}
+            className="btn-sm btn-ghost"
+            style={{
+              color: colors.accentOrange,
+              fontSize: "var(--text-sm)",
+              minHeight: 36,
+            }}
+            aria-label="Close the round without revealing the remaining questions"
+          >
+            ⏹ Close Round Now
+          </button>
+        </div>
       )}
 
       {/* Secondary actions */}

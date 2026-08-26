@@ -379,6 +379,7 @@ export function PlayerView(): React.ReactElement {
     teams,
     roundTitle,
     roundQuestions,
+    roundTotalQuestions,
     roundAnswerDrafts,
   } = gameStore;
 
@@ -603,6 +604,7 @@ export function PlayerView(): React.ReactElement {
             <RoundAnsweringScreen
               roundTitle={roundTitle ?? `Round ${gameStore.roundIndex + 1}`}
               questions={roundQuestions}
+              totalQuestions={roundTotalQuestions || roundQuestions.length}
               drafts={roundAnswerDrafts}
               timerSeconds={timerSeconds}
               timerTotal={timerTotal}

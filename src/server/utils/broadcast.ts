@@ -6,13 +6,18 @@ import type {
   ConnectionState,
   PlayerRole,
   Game,
+  Question,
   ScoreEntry,
   TriviaGame,
   PublicTeam,
   Team,
   TeamScoreEntry,
 } from "@/shared/types";
-import type { ServerMessage } from "@/shared/messages";
+import type {
+  RoundQuestionFull,
+  RoundQuestionPublic,
+  ServerMessage,
+} from "@/shared/messages";
 
 /** Interface for the subset of Server methods needed by broadcast helpers */
 interface BroadcastContext {
@@ -261,57 +266,124 @@ export function broadcastQuestion(
 }
 
 /**
- * Send the current round's full question list to the appropriate roles — Team
- * Play equivalent of broadcastQuestion, sent once per round instead of once
- * per question. Host gets correct answers, everyone else gets public fields.
+ * Team Play: how many of the current round's questions the host has revealed
+ * so far. `currentQuestionIndex` doubles as the reveal pointer in this mode,
+ * so questions 0..currentQuestionIndex are the visible ones.
  */
-export function broadcastRoundQuestions(
-  server: BroadcastContext,
-  game: TriviaGame,
-): void {
+export function revealedQuestionCount(game: TriviaGame): number {
   const round = game.rounds[game.currentRoundIndex];
-  if (!round) return;
+  if (!round) return 0;
+  return Math.min(game.currentQuestionIndex + 1, round.questions.length);
+}
+
+function toPublicRoundQuestion(question: Question): RoundQuestionPublic {
+  return {
+    questionId: question.id,
+    text: question.text,
+    type: question.type,
+    choices: question.choices,
+    pointValue: question.pointValue,
+  };
+}
+
+function toFullRoundQuestion(question: Question): RoundQuestionFull {
+  return {
+    ...toPublicRoundQuestion(question),
+    correctAnswer: question.correctAnswer,
+    acceptableAnswers: question.acceptableAnswers ?? [],
+  };
+}
+
+/**
+ * Build the ROUND_SHOW / ROUND_SHOW_FULL pair for the current round, carrying
+ * only the questions revealed so far. Returns null when there's no round.
+ * Shared by the round-start broadcast and the mid-round connect snapshot.
+ */
+export function buildRoundShowMessages(
+  game: TriviaGame,
+): { publicMsg: ServerMessage; hostMsg: ServerMessage } | null {
+  const round = game.rounds[game.currentRoundIndex];
+  if (!round) return null;
 
   const now = Date.now();
   const timeLimit =
     round.roundTimeLimit ??
     round.questions.reduce((sum, q) => sum + q.timeLimit, 0);
+  const revealed = round.questions.slice(0, revealedQuestionCount(game));
 
-  const publicQuestions = round.questions.map((q) => ({
-    questionId: q.id,
-    text: q.text,
-    type: q.type,
-    choices: q.choices,
-    pointValue: q.pointValue,
-  }));
+  return {
+    publicMsg: {
+      type: "ROUND_SHOW",
+      payload: {
+        roundIndex: game.currentRoundIndex,
+        roundTitle: round.title,
+        questions: revealed.map(toPublicRoundQuestion),
+        totalQuestions: round.questions.length,
+        timeLimit,
+      },
+      timestamp: now,
+    },
+    hostMsg: {
+      type: "ROUND_SHOW_FULL",
+      payload: {
+        roundIndex: game.currentRoundIndex,
+        roundTitle: round.title,
+        questions: revealed.map(toFullRoundQuestion),
+        totalQuestions: round.questions.length,
+        timeLimit,
+      },
+      timestamp: now,
+    },
+  };
+}
+
+/**
+ * Send the current round's revealed questions to the appropriate roles — Team
+ * Play equivalent of broadcastQuestion, sent when the round opens. Host gets
+ * correct answers, everyone else gets public fields.
+ */
+export function broadcastRoundQuestions(
+  server: BroadcastContext,
+  game: TriviaGame,
+): void {
+  const messages = buildRoundShowMessages(game);
+  if (!messages) return;
+
+  broadcastToRole(server, "host", messages.hostMsg);
+  broadcastToRole(server, "presentation", messages.publicMsg);
+  broadcastToRole(server, "player", messages.publicMsg);
+  broadcastToRole(server, "audience", messages.publicMsg);
+}
+
+/**
+ * Team Play: announce the question the host just revealed. Clients append it
+ * to the questions they already have rather than replacing them, so earlier
+ * answers stay editable.
+ */
+export function broadcastRevealedQuestion(
+  server: BroadcastContext,
+  game: TriviaGame,
+): void {
+  const round = game.rounds[game.currentRoundIndex];
+  const question = round?.questions[game.currentQuestionIndex];
+  if (!round || !question) return;
+
+  const now = Date.now();
+  const base = {
+    roundIndex: game.currentRoundIndex,
+    questionIndex: game.currentQuestionIndex,
+    totalQuestions: round.questions.length,
+  };
 
   const publicMsg: ServerMessage = {
-    type: "ROUND_SHOW",
-    payload: {
-      roundIndex: game.currentRoundIndex,
-      roundTitle: round.title,
-      questions: publicQuestions,
-      timeLimit,
-    },
+    type: "ROUND_QUESTION_REVEALED",
+    payload: { ...base, question: toPublicRoundQuestion(question) },
     timestamp: now,
   };
 
   const hostMsg: ServerMessage = {
-    type: "ROUND_SHOW_FULL",
-    payload: {
-      roundIndex: game.currentRoundIndex,
-      roundTitle: round.title,
-      questions: round.questions.map((q) => ({
-        questionId: q.id,
-        text: q.text,
-        type: q.type,
-        choices: q.choices,
-        pointValue: q.pointValue,
-        correctAnswer: q.correctAnswer,
-        acceptableAnswers: q.acceptableAnswers ?? [],
-      })),
-      timeLimit,
-    },
+    type: "ROUND_QUESTION_REVEALED_FULL",
+    payload: { ...base, question: toFullRoundQuestion(question) },
     timestamp: now,
   };
 

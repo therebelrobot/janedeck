@@ -480,6 +480,7 @@ interface ServerMessage {
 | `HOST_BULK_JUDGE` | `{ judgments: Array<{ answerId, status }> }` | Accept/reject multiple fuzzy-matched answers at once |
 | `HOST_REVEAL_SCORES` | `{}` | Transition to score reveal |
 | `HOST_NEXT_QUESTION` | `{}` | Advance to next question or round results |
+| `HOST_REVEAL_NEXT_QUESTION` | `{}` | Team Play: reveal one more question of the open round (earlier ones stay editable) |
 | `HOST_NEXT_ROUND` | `{}` | Advance to next round or game over |
 | `HOST_RESET_GAME` | `{}` | Reset game back to lobby |
 | `HOST_KICK_PLAYER` | `{ playerId }` | Remove a player from the game |

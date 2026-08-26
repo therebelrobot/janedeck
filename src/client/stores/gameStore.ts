@@ -15,6 +15,19 @@ import type {
 import type { ServerMessage } from "@/shared/messages";
 import { usePlayerStore } from "./playerStore";
 
+/** One question of a Team Play round as the client holds it */
+export interface RoundQuestion {
+  questionId: string;
+  text: string;
+  type: "text" | "multiple-choice" | "true-false";
+  choices?: string[];
+  pointValue: number;
+  /** Host only */
+  correctAnswer?: string;
+  /** Host only */
+  acceptableAnswers?: string[];
+}
+
 /** Per-team round-answering progress, from TEAM_ANSWER_PROGRESS — shared by host and presentation */
 export interface TeamAnswerProgressEntry {
   teamName: string;
@@ -75,14 +88,15 @@ interface GameStoreState {
   teamScoreChanges: TeamScoreChange[];
   /** Team Play: the current round's title, from ROUND_SHOW/ROUND_SHOW_FULL */
   roundTitle: string | null;
-  /** Team Play: the current round's full question list (ANSWERING shows all at once) */
-  roundQuestions: {
-    questionId: string;
-    text: string;
-    type: "text" | "multiple-choice" | "true-false";
-    choices?: string[];
-    pointValue: number;
-  }[] | null;
+  /**
+   * Team Play: the round's questions revealed so far, in round order. Grows by
+   * one each time the host reveals — the last entry is the current focus, and
+   * every earlier one stays answerable. `correctAnswer`/`acceptableAnswers`
+   * are only populated for the host (ROUND_SHOW_FULL).
+   */
+  roundQuestions: RoundQuestion[] | null;
+  /** Team Play: how many questions the round holds in total, revealed or not */
+  roundTotalQuestions: number;
   /** Team Play: the team's current shared draft answers, keyed by question ID */
   roundAnswerDrafts: Record<string, { text: string; submittedBy: string }>;
   /** Team Play: per-team round-answering progress, keyed by team ID */
@@ -128,7 +142,8 @@ const initialState = {
   teamLeaderboard: [] as TeamScoreEntry[],
   teamScoreChanges: [] as TeamScoreChange[],
   roundTitle: null as string | null,
-  roundQuestions: null as GameStoreState["roundQuestions"],
+  roundQuestions: null as RoundQuestion[] | null,
+  roundTotalQuestions: 0,
   roundAnswerDrafts: {} as Record<string, { text: string; submittedBy: string }>,
   teamAnswerProgress: {} as Record<string, TeamAnswerProgressEntry>,
 };
@@ -181,6 +196,7 @@ export const useGameStore = create<GameStoreState>((set) => ({
             timerTotal: null,
             roundTitle: null,
             roundQuestions: null,
+            roundTotalQuestions: 0,
             roundAnswerDrafts: {},
           });
         }
@@ -188,13 +204,33 @@ export const useGameStore = create<GameStoreState>((set) => ({
 
       case "ROUND_SHOW":
       case "ROUND_SHOW_FULL":
+        // Sent when a round opens, and again to any client that connects
+        // mid-round — either way it's the authoritative revealed-so-far list.
         set({
           roundTitle: message.payload.roundTitle,
           roundQuestions: message.payload.questions,
+          roundTotalQuestions: message.payload.totalQuestions,
           timerTotal: message.payload.timeLimit,
           timerSeconds: message.payload.timeLimit,
           roundAnswerDrafts: {},
           teamAnswerProgress: {},
+        });
+        break;
+
+      case "ROUND_QUESTION_REVEALED":
+      case "ROUND_QUESTION_REVEALED_FULL":
+        // Append rather than replace: earlier questions stay answerable, and
+        // the running round timer must not be touched.
+        set((state) => {
+          const revealed = message.payload.question;
+          const existing = state.roundQuestions ?? [];
+          if (existing.some((q) => q.questionId === revealed.questionId)) {
+            return { roundTotalQuestions: message.payload.totalQuestions };
+          }
+          return {
+            roundQuestions: [...existing, revealed],
+            roundTotalQuestions: message.payload.totalQuestions,
+          };
         });
         break;
 

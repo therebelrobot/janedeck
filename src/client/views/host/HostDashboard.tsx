@@ -335,11 +335,15 @@ export function HostDashboard(): React.ReactElement {
     teamScoreChanges,
     roundTitle,
     roundQuestions,
+    roundTotalQuestions,
     teamAnswerProgress,
   } = gameStore;
   const { answersForReview, answeredCount, totalPlayers, currentQuestionFull, roundAnswersForReview } =
     hostStore;
 
+  // Team Play has no per-question SCORE_REVEAL step to advance to — the whole
+  // round is scored at once. Reveal pacing within the round is a separate
+  // thing, driven by the teamRevealed/teamTotalQuestions props below.
   const hasMoreQuestions = teamPlayEnabled
     ? false
     : currentQuestion
@@ -425,7 +429,8 @@ export function HostDashboard(): React.ReactElement {
               <RoundAnsweringHostView
                 roundTitle={roundTitle ?? `Round ${roundIndex + 1}`}
                 roundIndex={roundIndex}
-                totalQuestions={roundQuestions?.length ?? 0}
+                questions={roundQuestions ?? []}
+                totalQuestions={roundTotalQuestions || (roundQuestions?.length ?? 0)}
                 timerSeconds={timerSeconds}
                 timerTotal={timerTotal}
                 teamProgress={teamAnswerProgress}
@@ -521,6 +526,8 @@ export function HostDashboard(): React.ReactElement {
             hasMoreRounds={hasMoreRounds}
             send={send}
             teamMode={teamPlayEnabled}
+            teamRevealedCount={roundQuestions?.length ?? 0}
+            teamTotalQuestions={roundTotalQuestions}
           />
         )}
       </div>

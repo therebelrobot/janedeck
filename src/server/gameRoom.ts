@@ -56,6 +56,9 @@ import {
   broadcastStateChange,
   broadcastQuestion,
   broadcastRoundQuestions,
+  broadcastRevealedQuestion,
+  buildRoundShowMessages,
+  revealedQuestionCount,
   broadcastTeams,
   toPublicTeam,
 } from "@/server/utils/broadcast";
@@ -168,49 +171,20 @@ export class GameRoom extends Server<Env> {
         const round = this.game.rounds[this.game.currentRoundIndex];
 
         if (this.game.settings.teamPlayEnabled) {
-          // Team Play: send the whole round's questions at once (no
-          // QUESTION_DISPLAY state exists in this mode)
+          // Team Play: catch the late-comer up with every question revealed so
+          // far this round (no QUESTION_DISPLAY state exists in this mode).
           if (round && (this.game.state === "ANSWERING" || this.game.state === "REVIEWING")) {
-            const timeLimit =
-              round.roundTimeLimit ??
-              round.questions.reduce((sum, q) => sum + q.timeLimit, 0);
-
-            if (role === "host") {
-              sendToConnection(conn, {
-                type: "ROUND_SHOW_FULL",
-                payload: {
-                  roundIndex: this.game.currentRoundIndex,
-                  roundTitle: round.title,
-                  questions: round.questions.map((q) => ({
-                    questionId: q.id,
-                    text: q.text,
-                    type: q.type,
-                    choices: q.choices,
-                    pointValue: q.pointValue,
-                    correctAnswer: q.correctAnswer,
-                    acceptableAnswers: q.acceptableAnswers ?? [],
-                  })),
-                  timeLimit,
-                },
-                timestamp: Date.now(),
-              });
-            } else {
-              sendToConnection(conn, {
-                type: "ROUND_SHOW",
-                payload: {
-                  roundIndex: this.game.currentRoundIndex,
-                  roundTitle: round.title,
-                  questions: round.questions.map((q) => ({
-                    questionId: q.id,
-                    text: q.text,
-                    type: q.type,
-                    choices: q.choices,
-                    pointValue: q.pointValue,
-                  })),
-                  timeLimit,
-                },
-                timestamp: Date.now(),
-              });
+            const messages = buildRoundShowMessages(this.game);
+            if (messages) {
+              sendToConnection(conn, role === "host" ? messages.hostMsg : messages.publicMsg);
+            }
+            // ROUND_SHOW clears the client's progress table, so a host or
+            // presentation screen opened mid-round would sit at 0/N for every
+            // team until someone happened to type again.
+            if (role === "host" || role === "presentation") {
+              for (const progressMsg of this.buildTeamAnswerProgress()) {
+                sendToConnection(conn, progressMsg);
+              }
             }
           }
         } else {
@@ -333,6 +307,11 @@ export class GameRoom extends Server<Env> {
       case "HOST_NEXT_QUESTION":
         if (state.role !== "host") return;
         await this.handleNextQuestion(sender);
+        break;
+
+      case "HOST_REVEAL_NEXT_QUESTION":
+        if (state.role !== "host") return;
+        await this.handleRevealNextQuestion(sender);
         break;
 
       case "HOST_NEXT_ROUND":
@@ -656,8 +635,10 @@ export class GameRoom extends Server<Env> {
     }
 
     if (this.game.settings.teamPlayEnabled) {
-      // Team Play: skip QUESTION_DISPLAY entirely — the whole round's
-      // questions show at once and answering is timed at the round level.
+      // Team Play: skip QUESTION_DISPLAY entirely — the round opens with only
+      // its first question revealed, the host reveals the rest one at a time,
+      // and answering is timed at the round level.
+      this.game.currentQuestionIndex = 0;
       await this.transitionTo("ANSWERING");
       broadcastStateChange(this, this.game);
       broadcastRoundQuestions(this, this.game);
@@ -681,6 +662,94 @@ export class GameRoom extends Server<Env> {
 
     // Set alarm for auto-transition to ANSWERING after display delay
     await this.ctx.storage.setAlarm(Date.now() + QUESTION_DISPLAY_DELAY);
+  }
+
+  /**
+   * Team Play: reveal the next question of the round already in progress.
+   * Everything revealed before it stays answerable — this only moves the
+   * focus forward and unlocks one more question for submission.
+   */
+  private async handleRevealNextQuestion(
+    sender: Connection<ConnectionState>,
+  ): Promise<void> {
+    if (!this.game || this.game.type !== "trivia") return;
+
+    if (!this.game.settings.teamPlayEnabled) {
+      this.sendError(
+        sender,
+        "INVALID_STATE",
+        "Questions are revealed one per round phase in individual play",
+      );
+      return;
+    }
+
+    if (this.game.state !== "ANSWERING") {
+      this.sendError(
+        sender,
+        "INVALID_STATE",
+        "Questions can only be revealed while the round is open",
+      );
+      return;
+    }
+
+    const round = this.game.rounds[this.game.currentRoundIndex];
+    if (!round) return;
+
+    if (this.game.currentQuestionIndex >= round.questions.length - 1) {
+      this.sendError(
+        sender,
+        "NO_MORE_QUESTIONS",
+        "Every question in this round has already been revealed",
+      );
+      return;
+    }
+
+    this.game.currentQuestionIndex += 1;
+    await this.persistGame();
+
+    broadcastStateChange(this, this.game);
+    broadcastRevealedQuestion(this, this.game);
+
+    // Per-team progress is expressed out of the revealed count, so the
+    // denominator every team is measured against just moved.
+    this.broadcastTeamAnswerProgress();
+  }
+
+  /**
+   * One TEAM_ANSWER_PROGRESS message per answering team, counted against the
+   * questions revealed so far. Teams that haven't answered anything yet are
+   * left out, so the host's "N teams answering" count keeps meaning what it
+   * says.
+   */
+  private buildTeamAnswerProgress(): ServerMessage[] {
+    if (!this.game || this.game.type !== "trivia") return [];
+
+    const totalQuestions = revealedQuestionCount(this.game);
+    const round = this.game.rounds[this.game.currentRoundIndex];
+    if (!round) return [];
+
+    const revealed = round.questions.slice(0, totalQuestions);
+
+    return Object.values(this.game.teams)
+      .filter((team) => Object.keys(team.answers).length > 0)
+      .map((team) => ({
+        type: "TEAM_ANSWER_PROGRESS",
+        payload: {
+          teamId: team.id,
+          teamName: team.name,
+          answeredCount: revealed.filter((q) => !!team.answers[q.id]).length,
+          totalQuestions,
+        },
+        timestamp: Date.now(),
+      }));
+  }
+
+  /** Push current per-team progress to the host and presentation screens. */
+  private broadcastTeamAnswerProgress(): void {
+    for (const progressMsg of this.buildTeamAnswerProgress()) {
+      broadcastToRole(this, "host", progressMsg);
+      broadcastToRole(this, "presentation", progressMsg);
+    }
   }
 
   private async handleCloseAnswers(
@@ -1688,8 +1757,15 @@ export class GameRoom extends Server<Env> {
     if (!team) return;
 
     const round = this.game.rounds[this.game.currentRoundIndex];
-    const question = round?.questions.find((q) => q.id === msg.payload.questionId);
-    if (!question) return;
+    if (!round) return;
+
+    // Only questions the host has already revealed can be answered — a client
+    // can't get ahead by guessing at a question ID it hasn't been sent.
+    const questionIndex = round.questions.findIndex(
+      (q) => q.id === msg.payload.questionId,
+    );
+    if (questionIndex < 0 || questionIndex >= revealedQuestionCount(this.game)) return;
+    const question = round.questions[questionIndex];
 
     const existing = team.answers[question.id];
     const answer: TeamAnswer = {
@@ -1721,15 +1797,17 @@ export class GameRoom extends Server<Env> {
       timestamp: Date.now(),
     });
 
-    // Notify the host and presentation screen of round-answering progress
-    const answeredCount = round.questions.filter((q) => !!team.answers[q.id]).length;
+    // Notify the host and presentation screen of round-answering progress.
+    // Counted against the questions revealed so far, not the whole round, so
+    // "3/3" means "caught up" rather than "three of a hidden five".
+    const revealed = round.questions.slice(0, revealedQuestionCount(this.game));
     const progressMsg: ServerMessage = {
       type: "TEAM_ANSWER_PROGRESS",
       payload: {
         teamId: team.id,
         teamName: team.name,
-        answeredCount,
-        totalQuestions: round.questions.length,
+        answeredCount: revealed.filter((q) => !!team.answers[q.id]).length,
+        totalQuestions: revealed.length,
       },
       timestamp: Date.now(),
     };
@@ -1979,7 +2057,11 @@ export class GameRoom extends Server<Env> {
     const round = game.rounds[game.currentRoundIndex];
     if (!round) return;
 
-    const questionsReview = round.questions.map((question) => {
+    // A host who closes the round early never showed the remaining questions,
+    // so they don't belong in review — they'd only be rows of blank answers.
+    const revealed = round.questions.slice(0, revealedQuestionCount(game));
+
+    const questionsReview = revealed.map((question) => {
       const teamAnswers: TeamAnswer[] = [];
       for (const team of Object.values(game.teams)) {
         const answer = team.answers[question.id];
