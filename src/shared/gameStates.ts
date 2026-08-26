@@ -2,7 +2,26 @@
 
 import type { BingoGameState, GameState, TriviaGameState } from "./types";
 
-/** Valid trivia state transitions: maps each state to the set of states it can transition to */
+/**
+ * Valid trivia state transitions: maps each state to the set of states it can
+ * transition to.
+ *
+ * Planned seam for audio/video question media — not wired up yet:
+ * images render alongside the question, but audio and video are meant to play
+ * to completion *before* the question text appears (see `mediaTiming()` in
+ * src/shared/media.ts). That needs one new state, MEDIA_PLAYBACK, spliced in
+ * ahead of QUESTION_DISPLAY:
+ *
+ *   ROUND_INTRO   → MEDIA_PLAYBACK | QUESTION_DISPLAY | ANSWERING
+ *   MEDIA_PLAYBACK → QUESTION_DISPLAY
+ *   SCORE_REVEAL  → MEDIA_PLAYBACK | QUESTION_DISPLAY | ROUND_RESULTS
+ *
+ * The state is entered only when the upcoming question carries media whose
+ * timing is "before-question", and left when the host advances or the clip
+ * ends. Everything below that layer — R2 storage, the upload route, range
+ * requests, the sniffer, the QuestionMedia record — is already kind-agnostic,
+ * so enabling A/V is this state plus the playback UI, nothing more.
+ */
 export const TRIVIA_STATE_TRANSITIONS: Record<TriviaGameState, TriviaGameState[]> = {
   LOBBY: ["ROUND_INTRO"],
   // ROUND_INTRO -> ANSWERING is used by Team Play, which skips QUESTION_DISPLAY

@@ -237,6 +237,7 @@ export function broadcastQuestion(
       timeLimit: question.timeLimit,
       questionNumber,
       totalQuestions,
+      media: question.media,
     },
     timestamp: now,
   };
@@ -255,6 +256,7 @@ export function broadcastQuestion(
       totalQuestions,
       correctAnswer: question.correctAnswer,
       acceptableAnswers: question.acceptableAnswers ?? [],
+      media: question.media,
     },
     timestamp: now,
   };
@@ -283,6 +285,7 @@ function toPublicRoundQuestion(question: Question): RoundQuestionPublic {
     type: question.type,
     choices: question.choices,
     pointValue: question.pointValue,
+    media: question.media,
   };
 }
 

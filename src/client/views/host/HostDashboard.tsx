@@ -31,6 +31,7 @@ import { Leaderboard } from "../../components/Leaderboard";
 import { TeamLeaderboard } from "../../components/TeamLeaderboard";
 import { TeamMemberAvatars } from "../../components/TeamMemberAvatars";
 import { Confetti } from "../../components/Confetti";
+import { QuestionMedia } from "../../components/QuestionMedia";
 import { PlayerList, type PlayerListEntry } from "./components/PlayerList";
 import { GameControls } from "./components/GameControls";
 import { AnswerReviewPanel } from "./AnswerReviewPanel";
@@ -871,6 +872,17 @@ function QuestionView({
         >
           {currentQuestion.text}
         </h2>
+
+        {/* What the room is looking at right now */}
+        {currentQuestion.media && (
+          <div style={{ marginBottom: spacing[4] }}>
+            <QuestionMedia
+              media={currentQuestion.media}
+              size="md"
+              questionNumber={currentQuestion.questionNumber}
+            />
+          </div>
+        )}
 
         {/* Host sees the correct answer */}
         <div

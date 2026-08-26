@@ -18,6 +18,7 @@
 10. [Animation Strategy](#10-animation-strategy)
 11. [Project File Structure](#11-project-file-structure)
 12. [Deployment & Scaling](#12-deployment--scaling)
+13. [Question Media](#13-question-media)
 
 ---
 
@@ -283,7 +284,25 @@ interface Question {
   timeLimit: number;             // seconds, overrides game default
   type: QuestionType;
   choices?: string[];            // for multiple-choice type
-  mediaUrl?: string;             // optional image/audio URL
+  media?: QuestionMedia;         // optional host-uploaded image (see §13)
+}
+
+// See §13 and src/shared/media.ts. Deliberately kind-first: only `image`
+// renders today, but storage, upload and serving already handle all three.
+interface QuestionMedia {
+  id: string;                    // R2 object id; the bytes live at /media/<id>
+  kind: "image" | "audio" | "video";
+  contentType?: string;          // sniffed on upload; absent for a CSV-only reference
+  size?: number;                 // bytes; absent for a CSV-only reference
+  fileName: string;
+  alt: string;                   // screen-reader description (R5.8)
+  caption?: string;              // printed on frames with a caption slot
+  frame: MediaFrame;             // none | polaroid | tv | slide | gallery | phone
+  filters: MediaFilter[];        // bw | sepia | halftone | grain | vignette | vhs | blur | pixelate
+  intensity: number;             // 0-100, read by blur/pixelate
+  width?: number;
+  height?: number;
+  duration?: number;             // audio/video only
 }
 
 // === Player ===
@@ -1151,6 +1170,74 @@ Vite is configured as the frontend build tool within PartyKit's dev server, serv
 
 ---
 
+## 13. Question Media
+
+Host-uploaded media attached to a trivia question. Images ship; audio and video are architected for but not yet presentable.
+
+### 13.1 Storage
+
+Bytes live in an R2 bucket bound as `MEDIA`, under a flat `media/<id>` key. The binding is **optional**: an instance without it runs every game type normally and reports uploads as unavailable via `GET /media/config`, which is what makes the host UI hide the image controls.
+
+Ids are 24-character nanoids. The namespace is flat rather than game-scoped because a host uploads while composing questions, before a game code exists, and because the same image is reusable across games.
+
+### 13.2 Routes
+
+Handled in `src/server/media.ts`, dispatched from the Worker's `fetch` **before** `routePartykitRequest` so `/media/*` never reaches a Durable Object.
+
+| Route | Auth | Notes |
+|---|---|---|
+| `GET /media/config` | — | Capability probe: bucket present, enabled kinds, MIME allowlist, size caps |
+| `POST /media/status` | Host token | Batch existence check for a set of ids |
+| `POST /media` | Host token | Raw body upload; returns a `QuestionMedia` record |
+| `GET`/`HEAD` `/media/:id` | — | Immutable cache, ETag revalidation, `Range` support |
+| `DELETE /media/:id` | Host token | Removes the object |
+
+Writes inherit host authentication — the same AuthGate-issued token that gates `HOST_CREATE_GAME`, validated through the same DO stub call. Reads are public because every player, presentation screen and audience phone needs the bytes and none of them hold a token; the ids are unguessable and a question's media only crosses the wire on `QUESTION_SHOW`, i.e. while that question is on screen.
+
+Range requests exist for audio/video seeking, which browsers require. Images never issue them, but wiring it now means enabling A/V changes nothing here.
+
+### 13.3 Upload validation
+
+In order: token → hard size ceiling (checked against `Content-Length` before buffering) → **container sniffing** → per-kind size cap → per-kind enablement.
+
+The client-declared `Content-Type` is never trusted. `sniffMedia()` in `src/shared/media.ts` reads the leading bytes and identifies the container; whatever it detects is what gets stored and served. This matters because uploads are served back to every player: an HTML file labelled `image/png` would otherwise be stored and rendered as a script. The declared type is consulted only to disambiguate containers that legitimately hold either audio or video (WebM, Ogg), and only between two safe values for that same container.
+
+Byte responses also carry `X-Content-Type-Options: nosniff`, `Content-Disposition: inline`, `Content-Security-Policy: default-src 'none'; sandbox`, and `Cross-Origin-Resource-Policy: same-origin`.
+
+### 13.4 Rendering
+
+One component — `src/client/components/QuestionMedia.tsx` — renders media on all five surfaces (presentation, player, audience, host dashboard, editor preview), sized by a `sm`/`md`/`lg` variant. Every visual property comes from the `QuestionMedia` record, so the editor's live preview and the projector agree by construction.
+
+Frames and filters live in `src/client/styles/media.css`. Filters resolve through three mechanisms:
+
+- **Filter chain** — colour treatments and blur, composed in `mediaStyles.ts` into a single `filter:` value passed down as `--qm-filter`.
+- **Overlay layers** — grain, vignette, scanlines and halftone dots, as blend-mode `<span>`s stacked over the image.
+- **Structural** — VHS renders two extra colour-channel copies through inline SVG `feColorMatrix` filters, screen-blended with a horizontal offset. Pixelate draws the image into a `<canvas>` at 1/N resolution and lets the browser upscale it with nearest-neighbour sampling.
+
+Pixelate is worth a note: the obvious CSS-only version (lay the `<img>` out at 1/N, `transform: scale(N)`, `image-rendering: pixelated`) does nothing in Chromium, which rasterizes transformed layers at their composited scale — no downsample ever happens. `zoom` and a background-image variant fail identically. The canvas is the only approach that actually discards pixels.
+
+Sizing is resolved on the `<figure>` itself with no percentage term (`width: min(var(--qm-max-w), calc(var(--qm-max-h) * var(--qm-ratio)))`, plus `max-width: 100%`). Callers wrap the component in flex rows and animation wrappers, and a percentage width inside a shrink-to-fit box resolves to roughly nothing.
+
+### 13.5 CSV round-trip and reference resolution
+
+A CSV carries the *reference* — nine columns covering the on/off switch, filename, R2 id, kind, frame, filters, intensity, alt text and caption — never the bytes. Every media column is optional, so sheets predating the feature import unchanged.
+
+That means a sheet can reference an object this server has never seen. `useMediaAvailability` resolves those references through `POST /media/status`, coalescing every question editor's lookup into one batched request and caching per id. A question whose image is confirmed absent shows an inline notice and keeps all its settings, so re-uploading restores the exact look; `GameCreator.validate()` blocks **Start Game** while any confirmed-missing reference remains. An unresolved lookup (no answer yet, or a failed request) is deliberately treated as "don't warn" — a network blip must not tell a host their images are gone.
+
+### 13.6 Planned: audio and video
+
+`mediaTiming(kind)` encodes the one behavioural difference: images are `with-question`, audio/video are `before-question` — the clip plays to completion, then the question appears. That requires one new trivia state, `MEDIA_PLAYBACK`, entered ahead of `QUESTION_DISPLAY` when the upcoming question carries `before-question` media:
+
+```
+ROUND_INTRO    → MEDIA_PLAYBACK | QUESTION_DISPLAY | ANSWERING
+MEDIA_PLAYBACK → QUESTION_DISPLAY
+SCORE_REVEAL   → MEDIA_PLAYBACK | QUESTION_DISPLAY | ROUND_RESULTS
+```
+
+Everything below that state — storage, upload, sniffing, range requests, the record shape, the message payloads — already handles all three kinds. Enabling A/V is that state plus playback UI and host transport controls, then adding the kind to `ENABLED_MEDIA_KINDS`. The seam is marked in `src/shared/gameStates.ts`.
+
+---
+
 ## Appendix A: Accessibility Considerations
 
 Per the inclusive software ruleset:
@@ -1176,3 +1263,4 @@ Per the inclusive software ruleset:
 - **Host actions** are verified server-side: the server checks that the connection tagged as `host` is the one sending host commands.
 - **Rate limiting**: Answer submissions are limited to one per question per player, enforced server-side.
 - **R4.4**: Not applicable (no sensitive population data), but the game code entry page uses no tracking or analytics pixels.
+- **Uploaded media** is identified by container signature, not by the client-declared `Content-Type`, and served back as the type detected — an uploaded file cannot be made to execute as a script in a viewer's browser. Uploads require a host token; reads are public but keyed by unguessable ids and only broadcast for the question currently on screen. See §13.3.

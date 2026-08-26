@@ -207,6 +207,7 @@ export class GameRoom extends Server<Env> {
                   totalQuestions,
                   correctAnswer: question.correctAnswer,
                   acceptableAnswers: question.acceptableAnswers ?? [],
+                  media: question.media,
                 },
                 timestamp: Date.now(),
               });
@@ -222,6 +223,7 @@ export class GameRoom extends Server<Env> {
                   timeLimit: question.timeLimit,
                   questionNumber,
                   totalQuestions,
+                  media: question.media,
                 },
                 timestamp: Date.now(),
               });
@@ -558,7 +560,7 @@ export class GameRoom extends Server<Env> {
         timeLimit: qInput.timeLimit,
         type: qInput.type,
         choices: qInput.choices,
-        mediaUrl: qInput.mediaUrl,
+        media: qInput.media,
       })),
     }));
 

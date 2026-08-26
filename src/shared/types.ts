@@ -1,6 +1,10 @@
 // src/shared/types.ts — Shared TypeScript interfaces for JaneDeck
 // Used by both server (PartyKit) and client (React)
 
+import type { QuestionMedia } from "./media";
+
+export type { QuestionMedia } from "./media";
+
 // === Game Type ===
 export type GameType = "trivia" | "bingo";
 
@@ -138,8 +142,12 @@ export interface Question {
   type: QuestionType;
   /** Multiple-choice options (only for "multiple-choice" type) */
   choices?: string[];
-  /** Optional media URL (image or audio) */
-  mediaUrl?: string;
+  /**
+   * Optional host-uploaded media (image today; audio/video architected for).
+   * Images render alongside the question; audio/video are meant to play
+   * before it — see `mediaTiming()` in src/shared/media.ts.
+   */
+  media?: QuestionMedia;
 }
 
 // === Player ===

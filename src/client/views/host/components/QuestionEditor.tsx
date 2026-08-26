@@ -5,6 +5,8 @@ import React from "react";
 import { motion } from "framer-motion";
 import { colors, radii, spacing } from "../../../styles/theme";
 import { DEFAULT_TIME_LIMIT } from "@/shared/constants";
+import type { QuestionMedia } from "@/shared/media";
+import { QuestionMediaEditor } from "./QuestionMediaEditor";
 
 /** Data shape for a question in the editor */
 export interface QuestionEditorData {
@@ -12,6 +14,8 @@ export interface QuestionEditorData {
   correctAnswer: string;
   acceptableAnswers: string;
   timeLimit: number;
+  /** Optional host-uploaded image shown alongside the question */
+  media?: QuestionMedia;
 }
 
 interface QuestionEditorProps {
@@ -45,6 +49,10 @@ export function QuestionEditor({
 
   const handleChange = (field: keyof QuestionEditorData, value: string | number) => {
     onChange(index, { ...question, [field]: value });
+  };
+
+  const handleMediaChange = (media: QuestionMedia | undefined) => {
+    onChange(index, { ...question, media });
   };
 
   return (
@@ -161,6 +169,13 @@ export function QuestionEditor({
           </span>
         </div>
       </div>
+
+      {/* Media — upload, frame, and filters */}
+      <QuestionMediaEditor
+        media={question.media}
+        onChange={handleMediaChange}
+        idPrefix={qId}
+      />
 
       {/* Time override */}
       <div style={{ maxWidth: 180 }}>

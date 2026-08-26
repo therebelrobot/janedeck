@@ -16,6 +16,7 @@ import { colors, spacing, radii } from "../../styles/theme";
 import { Confetti } from "../../components/Confetti";
 import { Timer } from "../../components/Timer";
 import { TeamMemberAvatars } from "../../components/TeamMemberAvatars";
+import { QuestionMedia } from "../../components/QuestionMedia";
 import { LobbyScreen } from "./LobbyScreen";
 import { PresentationQuestionScreen } from "./QuestionScreen";
 import { ScoreRevealScreen } from "./ScoreRevealScreen";
@@ -356,6 +357,7 @@ export function PresentationView(): React.ReactElement {
                 questionNumber={currentQuestion.questionNumber}
                 totalQuestions={currentQuestion.totalQuestions}
                 pointValue={currentQuestion.pointValue}
+                media={currentQuestion.media}
                 roundName={roundTitle}
                 timerSeconds={timerSeconds}
                 timerTotal={timerTotal}
@@ -579,7 +581,7 @@ function TeamAnsweringScreen({
       {/* The question just revealed — the whole room is looking at this */}
       <AnimatePresence mode="wait">
         {current && (
-          <motion.h2
+          <motion.div
             key={current.questionId}
             initial={prefersReducedMotion ? { opacity: 0 } : { scale: 0.7, opacity: 0 }}
             animate={prefersReducedMotion ? { opacity: 1 } : { scale: 1, opacity: 1 }}
@@ -590,12 +592,11 @@ function TeamAnsweringScreen({
                 : { type: "spring", stiffness: 250, damping: 18 }
             }
             style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "clamp(1.75rem, 5vw, 4.5rem)",
-              fontWeight: 700,
-              color: colors.text,
-              textAlign: "center",
-              lineHeight: 1.25,
+              display: "flex",
+              flexWrap: "wrap",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: spacing[6],
               width: "100%",
               margin: 0,
               padding: `clamp(1.5rem, 3vw, 3rem) clamp(2rem, 5vw, 5rem)`,
@@ -606,8 +607,27 @@ function TeamAnsweringScreen({
               backdropFilter: "blur(12px)",
             }}
           >
-            {current.text}
-          </motion.h2>
+            {current.media && (
+              <QuestionMedia media={current.media} size="lg" />
+            )}
+            <h2
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: current.media
+                  ? "clamp(1.4rem, 3vw, 3rem)"
+                  : "clamp(1.75rem, 5vw, 4.5rem)",
+                fontWeight: 700,
+                color: colors.text,
+                textAlign: "center",
+                lineHeight: 1.25,
+                flex: current.media ? "1 1 340px" : "1 1 100%",
+                maxWidth: current.media ? "min(620px, 90vw)" : "100%",
+                margin: 0,
+              }}
+            >
+              {current.text}
+            </h2>
+          </motion.div>
         )}
       </AnimatePresence>
 

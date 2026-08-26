@@ -14,6 +14,7 @@ Players join from their phones, the host controls (or, for Bingo, simply starts/
   - **Presentation** — screen-share view for video calls (TV/projector)
   - **Player** — mobile-first interface for answering questions or marking a bingo card (phone)
   - **Audience** — spectator mode with reactions (phone)
+- **Question images** — hosts can attach an image to any trivia question, present it in a frame (Polaroid, TV screen, 35mm slide, gallery frame, phone screen) and stack filters over it (black & white, sepia, halftone, film grain, vignette, VHS, blur, pixelate). Stored in Cloudflare R2, shown on the presentation screen and every player's phone alongside the question. Audio and video are architected for but not enabled yet — see [Question Media](#question-media).
 - **Real-time** WebSocket communication via PartyServer
 - **In-app notifications** — toasts and synthesized sound effects (mutable) for marks, wins, and other live events, so players don't need to be watching the shared presentation screen
 - **Animated** transitions, score reveals, and celebrations (Framer Motion)
@@ -21,7 +22,7 @@ Players join from their phones, the host controls (or, for Bingo, simply starts/
 
 ## Screenshots
 
-Each game mode has its own host (desktop), player (phone), presentation (desktop, for the shared screen), and audience (phone, spectator mode) views. A full set of every screen and state is in [`docs/screenshots/`](docs/screenshots/), organized by mode — regenerate it anytime with `npm run capture:screenshots`.
+Each game mode has its own host (desktop), player (phone), presentation (desktop, for the shared screen), and audience (phone, spectator mode) views. A full set of every screen and state is in [`docs/screenshots/`](docs/screenshots/), organized by mode — regenerate it anytime with `npm run capture:screenshots`. Both trivia flows are captured twice per question screen: once on a plain text question, and once on a picture question (the `-media` files).
 
 ### Trivia — Individual Play
 
@@ -37,6 +38,15 @@ Each game mode has its own host (desktop), player (phone), presentation (desktop
 <td><img src="docs/screenshots/trivia-individual/player-answering.png" width="150"></td>
 <td><img src="docs/screenshots/trivia-individual/presentation-answering.png" width="280"></td>
 <td><img src="docs/screenshots/trivia-individual/audience-answering.png" width="150"></td>
+</tr>
+<tr>
+<td colspan="4" align="center"><sub>The same moment on a <b>picture question</b> — an image the host uploaded, framed and filtered</sub></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/trivia-individual/host-answering-media.png" width="280"></td>
+<td><img src="docs/screenshots/trivia-individual/player-answering-media.png" width="150"></td>
+<td><img src="docs/screenshots/trivia-individual/presentation-answering-media.png" width="280"></td>
+<td><img src="docs/screenshots/trivia-individual/audience-answering-media.png" width="150"></td>
 </tr>
 </table>
 
@@ -54,6 +64,15 @@ Each game mode has its own host (desktop), player (phone), presentation (desktop
 <td><img src="docs/screenshots/trivia-team/player-answering-revealed.png" width="150"></td>
 <td><img src="docs/screenshots/trivia-team/presentation-answering-revealed.png" width="280"></td>
 <td><img src="docs/screenshots/trivia-team/audience-answering.png" width="150"></td>
+</tr>
+<tr>
+<td colspan="4" align="center"><sub>The moment a <b>picture question</b> is revealed mid-round</sub></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/trivia-team/host-answering-media.png" width="280"></td>
+<td><img src="docs/screenshots/trivia-team/player-answering-media.png" width="150"></td>
+<td><img src="docs/screenshots/trivia-team/presentation-answering-media.png" width="280"></td>
+<td><img src="docs/screenshots/trivia-team/audience-answering-media.png" width="150"></td>
 </tr>
 </table>
 
@@ -184,6 +203,13 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full system design.
 |---|---|---|
 | `JANEDECK_ADMIN_PASSWORD` | Yes | Password that hosts must enter to create games. Set in `.env` for local dev; configure as a secret for deployment. |
 
+### Bindings
+
+| Binding | Required | Description |
+|---|---|---|
+| `GameRoom`, `AuthGate` | Yes | Durable Object classes. Declared in `wrangler.jsonc`; created automatically on first deploy. |
+| `MEDIA` | No | R2 bucket holding host-uploaded question images. Without it, JaneDeck runs every game type normally and simply reports image uploads as unavailable. See [Question Media](#question-media). |
+
 ## Project Structure
 
 ```
@@ -193,11 +219,13 @@ src/
 │   ├── messages.ts          # WebSocket message type definitions
 │   ├── schemas.ts           # Zod schemas for runtime validation
 │   ├── gameStates.ts        # State machine transitions (trivia + bingo)
+│   ├── media.ts             # Question media: kinds, frame/filter catalog, byte sniffer
 │   └── constants.ts         # Shared constants
 ├── server/                  # PartyServer / Cloudflare Workers code
 │   ├── index.ts             # Worker entry point
 │   ├── gameRoom.ts          # Main game room Durable Object (both game types)
 │   ├── authGate.ts          # Authentication Durable Object
+│   ├── media.ts             # R2-backed upload/serve/status routes for question media
 │   ├── stateMachine.ts      # Game state transition logic (trivia + bingo)
 │   ├── timer.ts             # Alarm-based countdown timer
 │   ├── fuzzyMatcher.ts      # Fuse.js answer matching
@@ -211,12 +239,14 @@ src/
 └── client/                  # React frontend
     ├── App.tsx              # Root component with routes
     ├── main.tsx             # React entry point
-    ├── styles/              # Global CSS and theme tokens
+    ├── styles/              # Global CSS, media frames/filters, theme tokens
     ├── animations/          # Framer Motion presets, variants, reduced-motion provider
     ├── hooks/                 # Custom React hooks
     │   ├── usePartySocket.ts # WebSocket connection management
     │   ├── useGameState.ts   # Game state subscription
     │   ├── useAuth.ts        # Host authentication (login + logout)
+    │   ├── useMediaUpload.ts  # Upload question images to R2 (inherits host auth)
+    │   ├── useMediaAvailability.ts # Batched check that referenced media exists
     │   ├── useTimer.ts       # Client-side timer sync
     │   └── useAnimatedScore.ts # Score counting animation
     ├── stores/                  # Zustand state stores
@@ -225,7 +255,8 @@ src/
     │   ├── playerStore.ts       # Player-specific state
     │   └── notificationStore.ts # Toast notification queue
     ├── utils/                 # Client utilities
-    │   ├── csv.ts            # CSV import/export (questions, phrase pools, results)
+    │   ├── csv.ts            # CSV import/export (questions, media, phrase pools, results)
+    │   ├── mediaStyles.ts    # Frame/filter CSS derived from a media record
     │   └── soundEffects.ts   # Web Audio synthesized sound effects (mutable)
     ├── components/            # Reusable UI components
     │   ├── Timer.tsx          # SVG countdown ring
@@ -233,6 +264,7 @@ src/
     │   ├── Confetti.tsx       # Canvas confetti effect
     │   ├── StatusBadge.tsx    # Game state indicator
     │   ├── QuestionCard.tsx   # Question display
+    │   ├── QuestionMedia.tsx  # Framed + filtered question image (all four views)
     │   ├── PlayerAvatar.tsx   # Color-coded player icon
     │   ├── AnimatedScore.tsx  # Counting-up score display
     │   ├── LogoutButton.tsx   # Host session logout
@@ -264,6 +296,15 @@ npm run deploy
 # Re-capture every README screenshot with Playwright (needs `npm run dev` running in another terminal)
 npm run capture:screenshots
 ```
+
+The capture script drives five flows — trivia individual, trivia team, bingo numbered, bingo phrase pool, and a media catalog — writing to `docs/screenshots/<flow>/`. Both trivia flows attach an image to one question, so every question screen is captured twice: plain, and with media (`-media` suffix).
+
+The media steps need two extra things:
+
+- **An R2 bucket bound as `MEDIA`.** `npm run dev` emulates one locally, so nothing to set up.
+- **Network access to placecats.com** (falling back to placekittens.com) for the sample photo. Real photographic detail is what makes the filters legible — grain, halftone and pixelate all read as nothing on a flat synthetic image.
+
+If either is unavailable the media steps log a warning and skip; every other screenshot is still captured.
 
 ## Deploying to Your Own Cloudflare Account
 
@@ -553,6 +594,165 @@ Where game state lives depends on which compose file you used:
 | `/play/:gameCode` | PlayerView | Player mobile interface (question answering or bingo card) |
 | `/present/:gameCode` | PresentationView | Screen-share display |
 | `/audience/:gameCode` | AudienceView | Spectator mode |
+
+These are HTTP endpoints rather than views:
+
+| Path | Method | Auth | Description |
+|---|---|---|---|
+| `/media/config` | GET | — | What this server accepts: whether uploads are enabled, allowed kinds, MIME types, size caps |
+| `/media` | POST | Host token | Upload an image; returns the media record to attach to a question |
+| `/media/status` | POST | Host token | Which of a batch of media ids this server holds — used to catch CSV references it can't resolve |
+| `/media/:id` | GET / HEAD | — | Serve the bytes. Immutably cacheable, ETag-revalidated, range-capable. Public because every player needs it. |
+| `/media/:id` | DELETE | Host token | Remove an object |
+| `/parties/auth-gate/global` | POST / GET | — | Host login and token validation |
+
+## Question Media
+
+Hosts can attach an image to any trivia question. The image shows on the presentation screen next to the question and on every player's and audience member's phone, so nobody has to squint at the shared screen.
+
+### Enabling it
+
+Question media needs an R2 bucket. Without one, JaneDeck runs exactly as before and the image controls hide themselves, with a one-line explanation on the game creator page.
+
+```bash
+# Create the bucket (name must match wrangler.jsonc's r2_buckets entry)
+npx wrangler r2 bucket create janedeck-media
+```
+
+`wrangler.jsonc` already declares the binding:
+
+```jsonc
+"r2_buckets": [
+  { "binding": "MEDIA", "bucket_name": "janedeck-media" }
+]
+```
+
+For local development, `npm run dev` emulates R2 on disk under `.wrangler/` — no bucket creation and no Cloudflare account needed. The Docker setup mounts `.wrangler/`, so self-hosted instances persist uploads the same way.
+
+To turn media off entirely, delete the `r2_buckets` block.
+
+### Frames and filters
+
+Pick a **frame** — the chrome the image is presented in. Frames with a caption slot print the host's caption on the frame itself.
+
+<table>
+<tr>
+<td align="center"><b>No frame</b></td>
+<td align="center"><b>Polaroid</b><br><sub>caption slot</sub></td>
+<td align="center"><b>TV screen</b></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/media/frame-none.png" width="230"></td>
+<td><img src="docs/screenshots/media/frame-polaroid.png" width="230"></td>
+<td><img src="docs/screenshots/media/frame-tv.png" width="230"></td>
+</tr>
+<tr>
+<td align="center"><b>35mm slide</b><br><sub>caption slot</sub></td>
+<td align="center"><b>Gallery frame</b><br><sub>caption slot</sub></td>
+<td align="center"><b>Phone screen</b></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/media/frame-slide.png" width="230"></td>
+<td><img src="docs/screenshots/media/frame-gallery.png" width="230"></td>
+<td><img src="docs/screenshots/media/frame-phone.png" width="230"></td>
+</tr>
+</table>
+
+Then stack **filters** over it:
+
+<table>
+<tr>
+<td align="center"><b>Black &amp; white</b><br><sub>colour</sub></td>
+<td align="center"><b>Sepia</b><br><sub>colour</sub></td>
+<td align="center"><b>Halftone</b><br><sub>colour</sub></td>
+<td align="center"><b>Film grain</b></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/media/filter-bw.png" width="175"></td>
+<td><img src="docs/screenshots/media/filter-sepia.png" width="175"></td>
+<td><img src="docs/screenshots/media/filter-halftone.png" width="175"></td>
+<td><img src="docs/screenshots/media/filter-grain.png" width="175"></td>
+</tr>
+<tr>
+<td align="center"><b>Vignette</b></td>
+<td align="center"><b>VHS</b></td>
+<td align="center"><b>Blur</b><br><sub>obscure</sub></td>
+<td align="center"><b>Pixelate</b><br><sub>obscure</sub></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/media/filter-vignette.png" width="175"></td>
+<td><img src="docs/screenshots/media/filter-vhs.png" width="175"></td>
+<td><img src="docs/screenshots/media/filter-blur.png" width="175"></td>
+<td><img src="docs/screenshots/media/filter-pixelate.png" width="175"></td>
+</tr>
+</table>
+
+Only one filter from each **group** can be active: picking Sepia when Black & white is on swaps them, as does picking Pixelate when Blur is on. Everything ungrouped stacks freely — here's Sepia + Film grain + Vignette together:
+
+<p><img src="docs/screenshots/media/filter-stacked.png" width="300"></p>
+
+Blur and Pixelate read the strength slider, which is what makes them useful for guess-the-thing rounds.
+
+Everything is rendered from the same component on all four surfaces, so the preview in the editor is exactly what the room sees:
+
+<p><img src="docs/screenshots/media/editor.png" width="640"></p>
+
+### Alt text
+
+The editor asks for a description of every image, which is what a player using a screen reader hears. It's optional — a blank one falls back to a generic label — but the field turns amber until you fill it in. Mind that the description doesn't give the answer away.
+
+### CSV import/export
+
+Media travels through the CSV alongside every other question setting, in nine columns:
+
+| Column | Example | Notes |
+|---|---|---|
+| `Media` | `yes` | The switch. `no` imports the row without the image but keeps the settings in the file, so a picture round can be turned back on later. |
+| `Media File` | `eiffel.jpg` | Original filename — how you recognise the row in a spreadsheet |
+| `Media ID` | `38_aFdppJturby58AcE6Mlcs` | The R2 object id. This is the part that actually resolves. |
+| `Media Kind` | `image` | `image`, `audio` or `video` (only `image` renders today) |
+| `Media Frame` | `polaroid` | `none`, `polaroid`, `tv`, `slide`, `gallery`, `phone` |
+| `Media Filters` | `sepia; grain; vignette` | Semicolon-separated, same convention as `Acceptable Answers` |
+| `Media Intensity` | `65` | 0–100, used by blur/pixelate |
+| `Media Alt` | `The Eiffel Tower at night` | Screen-reader description |
+| `Media Caption` | `Paris, 1962` | Printed on frames that have a caption slot |
+
+Every media column is optional. A sheet written by hand, or one exported before this feature existed, imports exactly as it always did.
+
+**A CSV carries the reference, not the file.** The image itself lives in R2, so a sheet imported onto a server that never had the upload — a fresh instance, another host's machine — points at something that isn't there. The host pages handle that rather than letting the room find out on the projector:
+
+- The import summary says how many questions reference an image.
+- Each question whose image the server can't find shows an amber *"This image isn't on the server"* notice, keeping its frame, filters, alt text and caption so re-uploading restores the look exactly.
+- **Start Game** is blocked while any referenced image is missing, naming the round and question.
+
+<table>
+<tr>
+<td align="center"><b>The question flags it, settings intact</b></td>
+<td align="center"><b>…and the game won't start until it's fixed</b></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/media/missing-reference.png" width="380"></td>
+<td><img src="docs/screenshots/media/missing-reference-blocked.png" width="380"></td>
+</tr>
+</table>
+
+### Limits
+
+| Kind | Max size | Accepted types |
+|---|---|---|
+| Image | 10 MB | PNG, JPEG, GIF, WebP, AVIF |
+| Audio | 25 MB | *(uploads not enabled yet)* |
+| Video | 100 MB | *(uploads not enabled yet)* |
+
+Uploads inherit host authentication — the same password-issued token that gates game creation, re-validated on every upload. Reads are public, because every player's phone needs the bytes and none of them hold a token; ids are unguessable and a question's image is only broadcast while that question is on screen.
+
+The uploaded `Content-Type` header is never trusted. Files are identified by their container signature and served back as the type actually detected, so a mislabelled HTML file is rejected rather than stored and served as a script.
+
+### Audio and video
+
+Not enabled yet, but the whole path underneath is already kind-agnostic: storage, the upload route, the byte sniffer, range requests (which video seeking needs), and the `QuestionMedia` record all handle all three kinds. What's missing is the presentation half.
+
+Images sit *beside* the question; audio and video are meant to play *before* it, so players hear or watch the clip and only then see what they're being asked. That needs one new state in the trivia state machine, `MEDIA_PLAYBACK`, plus host playback controls — the seam is documented in `src/shared/gameStates.ts`. Flipping `ENABLED_MEDIA_KINDS` in `src/shared/media.ts` is what turns uploads on once that exists.
 
 ## Accessibility
 

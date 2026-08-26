@@ -19,6 +19,15 @@
       }
     ]
   },
+  // Host-uploaded question media. Optional: an instance without this bucket
+  // runs normally and simply reports uploads as unavailable.
+  //   npx wrangler r2 bucket create janedeck-media
+  "r2_buckets": [
+    {
+      "binding": "MEDIA",
+      "bucket_name": "janedeck-media"
+    }
+  ],
   "migrations": [
     {
       "tag": "v1",

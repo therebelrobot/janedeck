@@ -7,6 +7,8 @@ import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { customAlphabet } from "nanoid";
 import { useAuth } from "../../hooks/useAuth";
 import { useHostStore } from "../../stores/hostStore";
+import { useMediaUpload } from "../../hooks/useMediaUpload";
+import { knownMediaAvailability } from "../../hooks/useMediaAvailability";
 import { usePartySocket } from "../../hooks/usePartySocket";
 import type { ClientMessage, ServerMessage } from "@/shared/messages";
 import {
@@ -111,6 +113,8 @@ export function GameCreator(): React.ReactElement {
   const { isAuthenticated, token, logout } = useAuth();
   const hostStore = useHostStore();
   const prefersReducedMotion = useReducedMotion();
+  // Surfaced once here rather than repeated inside every question's editor.
+  const { config: mediaConfig } = useMediaUpload();
 
   // Redirect if not authenticated
   useEffect(() => {
@@ -344,6 +348,16 @@ export function GameCreator(): React.ReactElement {
         : `Imported ${result.rounds.length} round${result.rounds.length !== 1 ? "s" : ""} with ${totalQuestions} question${totalQuestions !== 1 ? "s" : ""}.`,
     );
 
+    const withMedia = result.rounds.reduce(
+      (sum, r) => sum + r.questions.filter((q) => q.media).length,
+      0,
+    );
+    if (withMedia > 0) {
+      allMessages.push(
+        `${withMedia} question${withMedia !== 1 ? "s" : ""} reference${withMedia === 1 ? "s" : ""} an uploaded image. A CSV carries the reference, not the file — any image this server doesn't have is flagged on its question below, ready to re-upload.`,
+      );
+    }
+
     if (result.warnings.length > 0) allMessages.push(...result.warnings);
     if (result.errors.length > 0) allMessages.push(...result.errors);
 
@@ -451,6 +465,17 @@ export function GameCreator(): React.ReactElement {
           );
           return false;
         }
+        // A CSV carries an image reference, not the image. Catch a reference
+        // this server can't resolve here, at setup, rather than letting the
+        // room discover it on the projector. "unknown" (lookup not finished,
+        // or it failed) is deliberately allowed through — this blocks on a
+        // confirmed absence only.
+        if (q.media && knownMediaAvailability(q.media.id) === "missing") {
+          setValidationError(
+            `Round ${ri + 1}, Question ${qi + 1}: the image "${q.media.fileName}" isn't on this server. Upload it again on that question, or remove the image.`,
+          );
+          return false;
+        }
       }
     }
     setValidationError(null);
@@ -504,6 +529,7 @@ export function GameCreator(): React.ReactElement {
             pointValue: r.pointValue,
             timeLimit: q.timeLimit,
             type: "text" as const,
+            media: q.media,
           })),
         })),
       },
@@ -572,6 +598,27 @@ export function GameCreator(): React.ReactElement {
           <LogoutButton />
         </div>
       </div>
+
+      {/* Media uploads need an R2 bucket bound as MEDIA. When there isn't one,
+          the per-question image controls hide themselves — say why once, here,
+          rather than leaving a silent gap on every question. */}
+      {mediaConfig && !mediaConfig.enabled && (
+        <p
+          style={{
+            width: "100%",
+            margin: 0,
+            padding: spacing[3],
+            fontSize: "var(--text-sm)",
+            color: colors.textSecondary,
+            backgroundColor: colors.bgCard,
+            border: `1px solid ${colors.border}`,
+            borderRadius: radii.lg,
+          }}
+        >
+          Image uploads are turned off on this server. To enable them, create an
+          R2 bucket and bind it as <code>MEDIA</code> — see the README.
+        </p>
+      )}
 
       {/* CSV Import/Export toolbar — R5.3: semantic <button> elements */}
       {/* R5.2: SC 2.5.8 — buttons ≥ 44px touch targets */}

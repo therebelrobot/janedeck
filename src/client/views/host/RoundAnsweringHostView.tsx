@@ -7,6 +7,7 @@ import React from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Timer } from "../../components/Timer";
 import { colors, radii, spacing, shadows } from "../../styles/theme";
+import { QuestionMedia } from "../../components/QuestionMedia";
 import { INSTANT_TRANSITION } from "../../animations/presets";
 import type { RoundQuestion, TeamAnswerProgressEntry } from "../../stores/gameStore";
 
@@ -123,6 +124,13 @@ export function RoundAnsweringHostView({
             >
               {current.text}
             </h3>
+            {current.media && (
+              <QuestionMedia
+                media={current.media}
+                size="md"
+                questionNumber={currentIndex + 1}
+              />
+            )}
             <AnswerLine question={current} />
           </motion.div>
         </AnimatePresence>

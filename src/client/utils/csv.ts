@@ -4,6 +4,14 @@
 import type { RoundEditorData } from "../views/host/components/RoundEditor";
 import type { QuestionEditorData } from "../views/host/components/QuestionEditor";
 import type { BingoSettings, BingoPhraseEntry, BingoCardMode, BingoWinPattern } from "@/shared/types";
+import type { QuestionMedia } from "@/shared/media";
+import {
+  DEFAULT_MEDIA_INTENSITY,
+  MEDIA_ID_PATTERN,
+  normalizeFilters,
+  parseFrame,
+  parseKind,
+} from "@/shared/media";
 import { DEFAULT_TIME_LIMIT, DEFAULT_POINT_VALUE } from "@/shared/constants";
 
 // ─── CSV Headers ──────────────────────────────────────────────────────────────
@@ -15,7 +23,41 @@ const CSV_HEADERS = [
   "Correct Answer",
   "Acceptable Answers",
   "Time Limit (seconds)",
+  "Media",
+  "Media File",
+  "Media ID",
+  "Media Kind",
+  "Media Frame",
+  "Media Filters",
+  "Media Intensity",
+  "Media Alt",
+  "Media Caption",
 ] as const;
+
+// ─── The media columns ────────────────────────────────────────────────────────
+//
+// A CSV carries a *reference* to an image, never the bytes — the file itself
+// lives in R2 and is addressed by "Media ID". So a round-trip through a
+// spreadsheet preserves every presentation setting a host chose, and the host
+// control pages are what confirm the referenced upload is still there (see
+// useMediaAvailability). Import a CSV onto a server that never had the upload
+// and the question keeps its framing but shows as needing the image again.
+//
+//   Media            yes / no — the switch. "no" imports the row without an
+//                    image while leaving the settings in the file, so a host
+//                    can turn a picture round back on later.
+//   Media File       original filename. Identity for a human reading the sheet.
+//   Media ID         the R2 object id. This is the part that actually resolves.
+//   Media Kind       image | audio | video (only image renders today).
+//   Media Frame      none | polaroid | tv | slide | gallery | phone
+//   Media Filters    semicolon-separated: bw; sepia; halftone; grain;
+//                    vignette; vhs; blur; pixelate
+//   Media Intensity  0-100, used by whichever of blur/pixelate is active
+//   Media Alt        screen-reader description
+//   Media Caption    text printed on frames that have a caption slot
+//
+// Every media column is optional. Deleting them all, or hand-writing a sheet
+// that never had them, imports exactly as it did before media existed.
 
 // UTF-8 BOM so Excel correctly detects encoding
 const UTF8_BOM = "\uFEFF";
@@ -108,6 +150,26 @@ function parseCSV(raw: string): string[][] {
   return rows;
 }
 
+/** Number of media columns, and a blank run for template rows */
+const MEDIA_COLUMN_COUNT = 9;
+const EMPTY_MEDIA_CELLS: string[] = Array(MEDIA_COLUMN_COUNT).fill("");
+
+/** Serialize a question's media into its nine columns, in header order */
+function mediaCells(media: QuestionMedia | undefined): string[] {
+  if (!media) return EMPTY_MEDIA_CELLS;
+  return [
+    "yes",
+    media.fileName,
+    media.id,
+    media.kind,
+    media.frame,
+    media.filters.join("; "),
+    String(media.intensity),
+    media.alt,
+    media.caption ?? "",
+  ];
+}
+
 // ─── Export Functions ─────────────────────────────────────────────────────────
 
 /**
@@ -140,6 +202,7 @@ export function gameToCSV(rounds: RoundEditorData[]): string {
           question.correctAnswer,
           acceptableAnswers,
           String(question.timeLimit),
+          ...mediaCells(question.media),
         ]),
       );
     }
@@ -165,6 +228,7 @@ export function templateCSV(): string {
       "Paris",
       "paris; París",
       "30",
+      ...EMPTY_MEDIA_CELLS,
     ]),
   );
   lines.push(
@@ -175,6 +239,7 @@ export function templateCSV(): string {
       "1969",
       "nineteen sixty-nine",
       "30",
+      ...EMPTY_MEDIA_CELLS,
     ]),
   );
 
@@ -187,6 +252,7 @@ export function templateCSV(): string {
       "Steven Spielberg",
       "spielberg; Spielberg",
       "25",
+      ...EMPTY_MEDIA_CELLS,
     ]),
   );
   lines.push(
@@ -197,6 +263,7 @@ export function templateCSV(): string {
       "Avatar",
       "avatar",
       "30",
+      ...EMPTY_MEDIA_CELLS,
     ]),
   );
 
@@ -321,6 +388,17 @@ export function csvToGame(csvContent: string): CSVImportResult {
   const timeLimitIdx = normalizedHeaders.findIndex(
     (h) => h === expectedHeaders[5],
   ); // "time limit (seconds)"
+  // Media columns are all optional — a sheet written before media existed, or
+  // by hand, simply has none of them.
+  const mediaIdx = normalizedHeaders.findIndex((h) => h === expectedHeaders[6]);
+  const mediaFileIdx = normalizedHeaders.findIndex((h) => h === expectedHeaders[7]);
+  const mediaIdIdx = normalizedHeaders.findIndex((h) => h === expectedHeaders[8]);
+  const mediaKindIdx = normalizedHeaders.findIndex((h) => h === expectedHeaders[9]);
+  const mediaFrameIdx = normalizedHeaders.findIndex((h) => h === expectedHeaders[10]);
+  const mediaFiltersIdx = normalizedHeaders.findIndex((h) => h === expectedHeaders[11]);
+  const mediaIntensityIdx = normalizedHeaders.findIndex((h) => h === expectedHeaders[12]);
+  const mediaAltIdx = normalizedHeaders.findIndex((h) => h === expectedHeaders[13]);
+  const mediaCaptionIdx = normalizedHeaders.findIndex((h) => h === expectedHeaders[14]);
 
   if (roundNameIdx === -1 || questionIdx === -1 || correctAnswerIdx === -1) {
     errors.push(
@@ -351,6 +429,17 @@ export function csvToGame(csvContent: string): CSVImportResult {
     const correctAnswer = getCell(correctAnswerIdx);
     const acceptableAnswersRaw = getCell(acceptableAnswersIdx);
     const timeLimitStr = getCell(timeLimitIdx);
+    const mediaCellValues: MediaCells = {
+      enabled: getCell(mediaIdx),
+      fileName: getCell(mediaFileIdx),
+      id: getCell(mediaIdIdx),
+      kind: getCell(mediaKindIdx),
+      frame: getCell(mediaFrameIdx),
+      filters: getCell(mediaFiltersIdx),
+      intensity: getCell(mediaIntensityIdx),
+      alt: getCell(mediaAltIdx),
+      caption: getCell(mediaCaptionIdx),
+    };
 
     // Validate required fields
     if (!roundName) {
@@ -407,12 +496,19 @@ export function csvToGame(csvContent: string): CSVImportResult {
         .join(", ")
       : "";
 
+    // Parse the media columns. A bad value costs the question its image (or one
+    // setting), never the whole import — the host is told which row and what.
+    const mediaResult = parseMediaCells(mediaCellValues, csvLineNum);
+    warnings.push(...mediaResult.warnings);
+    const media = mediaResult.media;
+
     // Build question
     const question: QuestionEditorData = {
       text: questionText,
       correctAnswer,
       acceptableAnswers,
       timeLimit,
+      media,
     };
 
     // Group into rounds
@@ -448,6 +544,116 @@ export function csvToGame(csvContent: string): CSVImportResult {
   });
 
   return { rounds, errors, warnings };
+}
+
+/** The nine media cells of one row, as raw trimmed strings */
+interface MediaCells {
+  enabled: string;
+  fileName: string;
+  id: string;
+  kind: string;
+  frame: string;
+  filters: string;
+  intensity: string;
+  alt: string;
+  caption: string;
+}
+
+/** Values in the "Media" column that mean "off" */
+const MEDIA_OFF_VALUES = new Set(["no", "n", "false", "0", "off"]);
+const MEDIA_ON_VALUES = new Set(["yes", "y", "true", "1", "on"]);
+
+/**
+ * Build a media record from one row's media columns.
+ *
+ * The bytes aren't in the CSV — only the R2 object id is — so this produces a
+ * *reference*. Whether that reference resolves on this server is a separate
+ * question, answered by the host control pages (see useMediaAvailability),
+ * which is where a host re-uploads anything the sheet points at but the
+ * server doesn't have.
+ */
+function parseMediaCells(
+  cells: MediaCells,
+  csvLineNum: number,
+): { media?: QuestionMedia; warnings: string[] } {
+  const warnings: string[] = [];
+  const flag = cells.enabled.toLowerCase();
+
+  // Explicitly switched off — keep the settings in the file, skip the image.
+  if (MEDIA_OFF_VALUES.has(flag)) return { warnings };
+
+  // Nothing to do: no id and no switch means this row simply has no media.
+  if (!cells.id) {
+    if (MEDIA_ON_VALUES.has(flag)) {
+      warnings.push(
+        `Row ${csvLineNum}: "Media" is set to "${cells.enabled}" but "Media ID" is empty, so this question was imported without an image.`,
+      );
+    }
+    return { warnings };
+  }
+
+  if (!MEDIA_ID_PATTERN.test(cells.id)) {
+    warnings.push(
+      `Row ${csvLineNum}: "Media ID" value "${cells.id}" isn't a valid media reference, so this question was imported without an image.`,
+    );
+    return { warnings };
+  }
+
+  const kind = cells.kind ? parseKind(cells.kind) : "image";
+  if (!kind) {
+    warnings.push(
+      `Row ${csvLineNum}: "Media Kind" value "${cells.kind}" isn't recognised. Using "image".`,
+    );
+  }
+
+  let frame = parseFrame(cells.frame ?? "");
+  if (cells.frame && !frame) {
+    warnings.push(
+      `Row ${csvLineNum}: "Media Frame" value "${cells.frame}" isn't recognised. Using "none".`,
+    );
+  }
+  frame = frame ?? "none";
+
+  // Semicolon-separated, matching the "Acceptable Answers" convention.
+  const requestedFilters = cells.filters
+    .split(";")
+    .map((f) => f.trim().toLowerCase())
+    .filter(Boolean);
+  const filters = normalizeFilters(requestedFilters);
+  const dropped = requestedFilters.filter(
+    (f) => !(filters as string[]).includes(f),
+  );
+  if (dropped.length > 0) {
+    warnings.push(
+      `Row ${csvLineNum}: these "Media Filters" were skipped — ${dropped.join(", ")}. Filters must be one of: bw, sepia, halftone, grain, vignette, vhs, blur, pixelate (and only one of bw/sepia/halftone, and one of blur/pixelate).`,
+    );
+  }
+
+  let intensity = DEFAULT_MEDIA_INTENSITY;
+  if (cells.intensity) {
+    const parsed = parseInt(cells.intensity, 10);
+    if (Number.isNaN(parsed) || parsed < 0 || parsed > 100) {
+      warnings.push(
+        `Row ${csvLineNum}: "Media Intensity" value "${cells.intensity}" is not a number from 0 to 100. Using ${DEFAULT_MEDIA_INTENSITY}.`,
+      );
+    } else {
+      intensity = parsed;
+    }
+  }
+
+  return {
+    media: {
+      id: cells.id,
+      kind: kind ?? "image",
+      fileName: cells.fileName || cells.id,
+      alt: cells.alt,
+      caption: cells.caption || undefined,
+      frame,
+      filters,
+      intensity,
+    },
+    warnings,
+  };
 }
 
 // ─── Results Export (for HostDashboard game-over) ─────────────────────────────

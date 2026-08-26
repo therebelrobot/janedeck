@@ -8,6 +8,8 @@ import { AnimatedScore } from "../../components/AnimatedScore";
 import { AnswerInput } from "./components/AnswerInput";
 import { MultipleChoice } from "./components/MultipleChoice";
 import { SubmittedConfirmation } from "./components/SubmittedConfirmation";
+import { QuestionMedia } from "../../components/QuestionMedia";
+import type { QuestionMedia as QuestionMediaData } from "@/shared/media";
 import { colors, spacing, radii } from "../../styles/theme";
 
 interface PlayerQuestionScreenProps {
@@ -41,6 +43,8 @@ interface PlayerQuestionScreenProps {
   onSubmitAnswer: (answer: string) => void;
   /** Whether we're in REVIEWING phase */
   isReviewing: boolean;
+  /** Optional host-uploaded image shown with the question */
+  media?: QuestionMediaData;
 }
 
 /**
@@ -63,6 +67,7 @@ export function PlayerQuestionScreen({
   isSubmitting,
   onSubmitAnswer,
   isReviewing,
+  media,
 }: PlayerQuestionScreenProps): React.ReactElement {
   const prefersReducedMotion = useReducedMotion();
 
@@ -139,6 +144,16 @@ export function PlayerQuestionScreen({
         >
           {questionText}
         </h2>
+
+        {media && (
+          <div style={{ marginTop: spacing[3], display: "flex", justifyContent: "center" }}>
+            <QuestionMedia
+              media={media}
+              size="sm"
+              questionNumber={questionNumber}
+            />
+          </div>
+        )}
       </motion.div>
 
       {/* Answer area */}

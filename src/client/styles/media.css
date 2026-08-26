@@ -1,0 +1,518 @@
+/* src/client/styles/media.css — Frames and filters for host-uploaded question media
+ *
+ * Structure (see src/client/components/QuestionMedia.tsx):
+ *
+ *   figure.qm.qm--<frame>.qm--<size>
+ *     div.qm__frame          ← the visible chrome (polaroid card, TV bezel, …)
+ *       div.qm__viewport     ← sized box holding the image + effect layers
+ *         img.qm__img        ← the image itself, carrying the CSS filter chain
+ *         img.qm__img--chan  ← VHS colour-channel copies (aria-hidden)
+ *         span.qm__fx        ← overlay layers (grain, vignette, scanlines, dots)
+ *       div.qm__caption      ← frames whose catalog entry has hasCaption
+ *     figcaption.sr-only     ← the caption again, for assistive tech
+ *
+ * Sizing rule: the viewport takes its aspect ratio from the upload, then picks
+ * the smaller of "all the width available", a per-size width cap, and the width
+ * implied by a per-size height cap. Expressing all three inside one min() keeps
+ * width and height from ever fighting over the aspect ratio.
+ */
+
+.qm {
+  --qm-ratio: 1.3333;
+  --qm-filter: none;
+  --qm-px: 1;
+  --qm-vhs-shift: 3px;
+  --qm-max-w: 100vw;
+  --qm-max-h: 40vh;
+  --qm-radius: var(--radius-lg);
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin: 0;
+
+  /* The size is resolved here on the figure, not on the viewport inside it,
+     and deliberately without a percentage: callers wrap this in flex rows and
+     animation wrappers, and a percentage width inside a shrink-to-fit box
+     resolves circularly (to roughly nothing). Both caps are absolute or
+     viewport-relative; `max-width` is what handles a narrow container, and
+     aspect-ratio derives the height from whichever width actually wins. */
+  width: min(var(--qm-max-w), calc(var(--qm-max-h) * var(--qm-ratio)));
+  max-width: 100%;
+  flex: 0 1 auto;
+}
+
+.qm__frame {
+  position: relative;
+  width: 100%;
+}
+
+.qm__viewport {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: var(--qm-ratio);
+  width: 100%;
+  border-radius: var(--qm-radius);
+  background-color: #000;
+  isolation: isolate;
+}
+
+.qm__img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  filter: var(--qm-filter);
+}
+
+/* ─── Sizes ───────────────────────────────────────────────────────────────── */
+
+/* Phone-sized surfaces: player + audience. Capped so the answer input stays
+   above the fold on a short handset. */
+.qm--sm {
+  --qm-max-w: 100vw;
+  --qm-max-h: 30vh;
+  --qm-radius: var(--radius-md);
+}
+
+/* Host dashboard and the editor preview. */
+.qm--md {
+  --qm-max-w: 340px;
+  --qm-max-h: 260px;
+}
+
+/* Presentation / shared screen — big enough to read across a room, but
+   leaving room for the question headline above it. */
+.qm--lg {
+  --qm-max-w: min(760px, 52vw);
+  --qm-max-h: 42vh;
+  --qm-radius: var(--radius-xl);
+}
+
+/* ─── Effect layers ───────────────────────────────────────────────────────── */
+
+.qm__fx {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: block;
+}
+
+/* Film grain — a tile of fractal noise, blended so it darkens and lightens
+   rather than greying the image out. */
+.qm__fx--grain {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)' opacity='0.55'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+  mix-blend-mode: overlay;
+  opacity: 0.5;
+}
+
+.qm__fx--vignette {
+  background: radial-gradient(
+    ellipse at center,
+    rgba(0, 0, 0, 0) 42%,
+    rgba(0, 0, 0, 0.35) 72%,
+    rgba(0, 0, 0, 0.78) 100%
+  );
+}
+
+.qm__fx--scanlines {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgba(0, 0, 0, 0.32) 0 1px,
+    rgba(255, 255, 255, 0.04) 1px 2px,
+    rgba(0, 0, 0, 0) 2px 4px
+  );
+  opacity: 0.85;
+}
+
+/* Halftone print dots. `color-burn` against the high-contrast greyscale set by
+   the filter chain gives the dark areas dense dots and the light areas none. */
+.qm__fx--halftone {
+  background-image: radial-gradient(
+    circle at center,
+    rgba(0, 0, 0, 0.92) 0.9px,
+    rgba(0, 0, 0, 0) 1.3px
+  );
+  background-size: 4px 4px;
+  mix-blend-mode: color-burn;
+  opacity: 0.8;
+}
+
+.qm--lg .qm__fx--halftone {
+  background-size: 6px 6px;
+}
+
+/* ─── Pixelate ────────────────────────────────────────────────────────────── */
+/*
+ * Drawn to a canvas at 1/N resolution, then upscaled by the browser with
+ * nearest-neighbour sampling.
+ *
+ * The tempting CSS-only version — lay the <img> out at 1/N and `transform:
+ * scale(N)` it back with `image-rendering: pixelated` — does nothing in
+ * Chromium: it rasterizes transformed layers at their composited scale, so the
+ * image is simply drawn at full resolution and no downsample ever happens.
+ * `zoom` and a background-image variant fail the same way. A canvas is the
+ * only approach that actually loses the pixels.
+ *
+ * The <img> stays in the DOM underneath, transparent, because it carries the
+ * alt text and is the pixel source the canvas draws from.
+ */
+
+.qm--pixelate .qm__img:not(.qm__img--chan) {
+  opacity: 0;
+}
+
+.qm--pixelate .qm__img--chan {
+  display: none;
+}
+
+.qm__pixel {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: pixelated;
+  /* Inherits the colour chain, so black & white + pixelate stacks correctly.
+     Blur can't co-occur — the catalog puts them in the same exclusive group. */
+  filter: var(--qm-filter);
+}
+
+/* ─── VHS colour-channel split ────────────────────────────────────────────── */
+
+.qm__img--chan {
+  mix-blend-mode: screen;
+}
+
+.qm--vhs .qm__img--chan-r {
+  left: calc(var(--qm-vhs-shift) * -1);
+}
+
+.qm--vhs .qm__img--chan-b {
+  left: var(--qm-vhs-shift);
+}
+
+/* ─── Frame: none ─────────────────────────────────────────────────────────── */
+
+.qm--none .qm__viewport {
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-md);
+}
+
+/* ─── Frame: polaroid ─────────────────────────────────────────────────────── */
+
+.qm--polaroid .qm__frame {
+  background: linear-gradient(160deg, #ffffff 0%, #f4f1ea 100%);
+  padding: 4% 4% 0;
+  border-radius: 3px;
+  box-shadow:
+    0 12px 28px rgba(0, 0, 0, 0.45),
+    0 2px 4px rgba(0, 0, 0, 0.3);
+  transform: rotate(-1.4deg);
+}
+
+.qm--polaroid .qm__viewport {
+  --qm-radius: 1px;
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.12);
+}
+
+.qm--polaroid .qm__caption {
+  font-family: var(--font-display);
+  color: #23201c;
+  text-align: center;
+  padding: 0.85em 0.5em 1.1em;
+  min-height: 2.6em;
+  font-size: 0.95em;
+  line-height: 1.25;
+  word-break: break-word;
+}
+
+/* The wide bottom border is what makes it read as a Polaroid, so keep it even
+   when the host wrote no caption to fill it. */
+.qm--polaroid:not(.qm--captioned) .qm__frame {
+  padding-bottom: 16%;
+}
+
+/* ─── Frame: TV screen ────────────────────────────────────────────────────── */
+
+.qm--tv .qm__frame {
+  background: linear-gradient(165deg, #4a4a52 0%, #23232a 45%, #131317 100%);
+  padding: 5% 5% 9%;
+  border-radius: 18px;
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -2px 6px rgba(0, 0, 0, 0.6);
+}
+
+.qm--tv .qm__viewport {
+  --qm-radius: 14px;
+  box-shadow:
+    inset 0 0 22px rgba(0, 0, 0, 0.85),
+    inset 0 0 3px rgba(150, 200, 255, 0.5),
+    0 0 0 3px #0a0a0c;
+}
+
+/* Glass reflection across the top-left of the screen */
+.qm--tv .qm__viewport::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    118deg,
+    rgba(255, 255, 255, 0.16) 0%,
+    rgba(255, 255, 255, 0.04) 26%,
+    rgba(255, 255, 255, 0) 48%
+  );
+}
+
+/* Power light */
+.qm--tv .qm__frame::after {
+  content: "";
+  position: absolute;
+  right: 6%;
+  bottom: 3.2%;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-accent-green);
+  box-shadow: 0 0 8px var(--color-accent-green);
+}
+
+/* ─── Frame: 35mm slide ───────────────────────────────────────────────────── */
+
+.qm--slide .qm__frame {
+  background: linear-gradient(170deg, #2b2b2e 0%, #171719 100%);
+  padding: 9% 9% 4%;
+  border-radius: 4px;
+  box-shadow:
+    0 12px 26px rgba(0, 0, 0, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+.qm--slide .qm__viewport {
+  --qm-radius: 1px;
+  box-shadow: inset 0 0 0 2px rgba(0, 0, 0, 0.8);
+}
+
+.qm--slide .qm__caption {
+  background: #f2f0e9;
+  color: #1b1a17;
+  font-family: var(--font-mono);
+  font-size: 0.7em;
+  letter-spacing: 0.02em;
+  text-align: center;
+  padding: 0.5em 0.4em;
+  margin-top: 6%;
+  border-radius: 1px;
+  word-break: break-word;
+}
+
+.qm--slide:not(.qm--captioned) .qm__frame {
+  padding-bottom: 9%;
+}
+
+/* ─── Frame: gallery ──────────────────────────────────────────────────────── */
+
+.qm--gallery .qm__frame {
+  background: linear-gradient(
+    135deg,
+    #8a6a2f 0%,
+    #d9b45e 18%,
+    #f2dd9c 32%,
+    #c99b3c 50%,
+    #6f5322 72%,
+    #d1a94c 100%
+  );
+  padding: 3.5%;
+  border-radius: 3px;
+  box-shadow:
+    0 20px 44px rgba(0, 0, 0, 0.6),
+    inset 0 0 0 1px rgba(255, 240, 200, 0.4);
+}
+
+/* The mat board between the gilt and the picture */
+.qm--gallery .qm__mat {
+  background: #efe9dc;
+  padding: 7%;
+  box-shadow: inset 0 2px 10px rgba(0, 0, 0, 0.28);
+}
+
+.qm--gallery .qm__viewport {
+  --qm-radius: 0px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
+}
+
+.qm--gallery .qm__caption {
+  background: #efe9dc;
+  color: #2c2213;
+  font-family: var(--font-body);
+  font-style: italic;
+  font-size: 0.78em;
+  text-align: center;
+  padding: 0.9em 0.6em 0.2em;
+  word-break: break-word;
+}
+
+/* ─── Frame: phone screen ─────────────────────────────────────────────────── */
+
+.qm--phone .qm__frame {
+  background: linear-gradient(160deg, #3a3a42 0%, #17171b 40%, #0c0c0f 100%);
+  padding: 3.2%;
+  border-radius: 30px;
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.55),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+.qm--phone .qm__viewport {
+  --qm-radius: 22px;
+}
+
+/* Dynamic-island style notch, floated over the top of the screen */
+.qm--phone .qm__frame::before {
+  content: "";
+  position: absolute;
+  top: 5.5%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 26%;
+  max-width: 92px;
+  height: 14px;
+  border-radius: 999px;
+  background: #0a0a0c;
+  z-index: 2;
+}
+
+/* Side button */
+.qm--phone .qm__frame::after {
+  content: "";
+  position: absolute;
+  right: -2px;
+  top: 26%;
+  width: 3px;
+  height: 12%;
+  border-radius: 2px;
+  background: #45454e;
+}
+
+/* ─── Reduced motion ──────────────────────────────────────────────────────── */
+/* The only motion here is the Polaroid's tilt, which can read as a shifted
+   baseline for anyone sensitive to it. */
+
+@media (prefers-reduced-motion: reduce) {
+  .qm--polaroid .qm__frame {
+    transform: none;
+  }
+}
+
+/* ─── Narrow screens ──────────────────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+  .qm--md {
+    --qm-max-w: 100vw;
+    --qm-max-h: 34vh;
+  }
+
+  .qm--lg {
+    --qm-max-w: 100vw;
+    --qm-max-h: 34vh;
+  }
+
+  .qm--phone .qm__frame {
+    border-radius: 24px;
+  }
+
+  .qm--phone .qm__viewport {
+    --qm-radius: 18px;
+  }
+}
+
+/* ─── Host editor: frame + filter pickers ─────────────────────────────────── */
+
+.qm-picker {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.qm-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 36px;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-border);
+  background-color: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background-color 0.15s ease;
+}
+
+.qm-chip:hover:not(:disabled) {
+  border-color: var(--color-border-light);
+  color: var(--color-text);
+}
+
+.qm-chip--on {
+  border-color: var(--color-primary);
+  background-color: rgba(59, 130, 246, 0.18);
+  color: var(--color-text);
+}
+
+/* The radio/checkbox behind each chip is visually hidden but still focusable,
+   so the focus ring has to be forwarded to the chip the host actually sees. */
+.qm-chip:focus-within {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.qm-chip:has(input:disabled) {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.qm-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: 96px;
+  padding: var(--space-4);
+  border: 2px dashed var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-bg-elevated);
+  color: var(--color-text-secondary);
+  font-size: var(--text-sm);
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.qm-dropzone:hover:not(:disabled),
+.qm-dropzone:focus-visible {
+  border-color: var(--color-primary);
+  color: var(--color-text);
+}
+
+.qm-dropzone--active {
+  border-color: var(--color-primary);
+  background-color: rgba(59, 130, 246, 0.12);
+  color: var(--color-text);
+}
+
+.qm-dropzone:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

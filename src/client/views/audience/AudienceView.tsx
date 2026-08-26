@@ -11,6 +11,7 @@ import { MAX_DISPLAY_NAME_BYTES } from "@/shared/constants";
 import { usePartySocket } from "../../hooks/usePartySocket";
 import { useGameStore } from "../../stores/gameStore";
 import { colors, spacing, radii, shadows } from "../../styles/theme";
+import { QuestionMedia } from "../../components/QuestionMedia";
 import { AudienceLeaderboard } from "./AudienceLeaderboard";
 import { VoteInput } from "./VoteInput";
 
@@ -174,7 +175,17 @@ export function AudienceView(): React.ReactElement {
   };
 
   // Derived state
-  const { gameState, gameType, currentQuestion, leaderboard, bingoWinners } = gameStore;
+  const {
+    gameState,
+    gameType,
+    currentQuestion,
+    leaderboard,
+    bingoWinners,
+    teamPlayEnabled,
+    roundQuestions,
+    roundTitle,
+    roundTotalQuestions,
+  } = gameStore;
 
   // Join screen
   if (!hasJoined) {
@@ -419,7 +430,101 @@ export function AudienceView(): React.ReactElement {
             </div>
           )}
 
-          {/* Question display (view-only) */}
+          {/* Team Play question display (view-only).
+              Team Play never sends QUESTION_SHOW — the round's questions
+              arrive via ROUND_SHOW instead — so `currentQuestion` stays null
+              for the whole round and this branch is what the audience sees. */}
+          {teamPlayEnabled &&
+            (gameState === "ANSWERING" || gameState === "REVIEWING") &&
+            roundQuestions &&
+            roundQuestions.length > 0 && (
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: spacing[3],
+                }}
+              >
+                <p
+                  style={{
+                    fontSize: "var(--text-sm)",
+                    color: colors.textSecondary,
+                    margin: 0,
+                    textAlign: "center",
+                    textTransform: "uppercase",
+                    letterSpacing: "0.05em",
+                  }}
+                >
+                  {roundTitle ?? `Round ${gameStore.roundIndex + 1}`}
+                  {" · "}
+                  {roundQuestions.length} of {roundTotalQuestions} revealed
+                </p>
+
+                {roundQuestions.map((question, index) => {
+                  // The most recently revealed question is the one the room is
+                  // looking at; earlier ones stay on screen but recede.
+                  const isCurrent = index === roundQuestions.length - 1;
+                  return (
+                    <div
+                      key={question.questionId}
+                      style={{
+                        padding: spacing[4],
+                        backgroundColor: colors.bgCard,
+                        borderRadius: radii.xl,
+                        border: `1px solid ${
+                          isCurrent ? colors.primary : `${colors.border}80`
+                        }`,
+                        opacity: isCurrent ? 1 : 0.7,
+                        textAlign: "center",
+                      }}
+                    >
+                      <p
+                        style={{
+                          fontSize: "var(--text-sm)",
+                          color: colors.textSecondary,
+                          margin: 0,
+                          marginBottom: spacing[2],
+                        }}
+                      >
+                        Q{index + 1}/{roundTotalQuestions}
+                        {" · "}
+                        {question.pointValue} pts
+                      </p>
+                      <h2
+                        style={{
+                          fontFamily: "var(--font-display)",
+                          fontSize: isCurrent ? "var(--text-xl)" : "var(--text-base)",
+                          fontWeight: 700,
+                          color: colors.text,
+                          margin: 0,
+                          lineHeight: 1.4,
+                        }}
+                      >
+                        {question.text}
+                      </h2>
+
+                      {question.media && (
+                        <div
+                          style={{
+                            marginTop: spacing[3],
+                            display: "flex",
+                            justifyContent: "center",
+                          }}
+                        >
+                          <QuestionMedia
+                            media={question.media}
+                            size="sm"
+                            questionNumber={index + 1}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+          {/* Question display (view-only) — individual play */}
           {(gameState === "QUESTION_DISPLAY" ||
             gameState === "ANSWERING" ||
             gameState === "REVIEWING") &&
@@ -456,6 +561,22 @@ export function AudienceView(): React.ReactElement {
                 >
                   {currentQuestion.text}
                 </h2>
+
+                {currentQuestion.media && (
+                  <div
+                    style={{
+                      marginTop: spacing[3],
+                      display: "flex",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <QuestionMedia
+                      media={currentQuestion.media}
+                      size="sm"
+                      questionNumber={currentQuestion.questionNumber}
+                    />
+                  </div>
+                )}
               </div>
             )}
 

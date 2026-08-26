@@ -8,6 +8,8 @@ import React, { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import { Timer } from "../../components/Timer";
 import { colors, spacing, radii, shadows } from "../../styles/theme";
+import { QuestionMedia } from "../../components/QuestionMedia";
+import type { QuestionMedia as QuestionMediaData } from "@/shared/media";
 import { INSTANT_TRANSITION } from "../../animations/presets";
 
 interface RoundQuestion {
@@ -16,6 +18,8 @@ interface RoundQuestion {
   type: "text" | "multiple-choice" | "true-false";
   choices?: string[];
   pointValue: number;
+  /** Optional host-uploaded image shown with this question */
+  media?: QuestionMediaData;
 }
 
 interface RoundAnsweringScreenProps {
@@ -262,6 +266,14 @@ function QuestionRow({
       >
         {question.text}
       </h3>
+
+      {question.media && (
+        <QuestionMedia
+          media={question.media}
+          size="sm"
+          questionNumber={index + 1}
+        />
+      )}
 
       {question.type === "text" ? (
         <input

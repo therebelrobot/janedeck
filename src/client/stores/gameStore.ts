@@ -4,6 +4,7 @@ import { create } from "zustand";
 import type {
   GameState,
   GameType,
+  QuestionMedia,
   ScoreEntry,
   ScoreChange,
   BingoSquare,
@@ -22,6 +23,8 @@ export interface RoundQuestion {
   type: "text" | "multiple-choice" | "true-false";
   choices?: string[];
   pointValue: number;
+  /** Optional host-uploaded image shown with this question */
+  media?: QuestionMedia;
   /** Host only */
   correctAnswer?: string;
   /** Host only */
@@ -62,6 +65,8 @@ interface GameStoreState {
     timeLimit: number;
     questionNumber: number;
     totalQuestions: number;
+    /** Optional host-uploaded image shown alongside the question */
+    media?: QuestionMedia;
   } | null;
   /** Timer state */
   timerSeconds: number | null;
@@ -300,6 +305,7 @@ export const useGameStore = create<GameStoreState>((set) => ({
             timeLimit: message.payload.timeLimit,
             questionNumber: message.payload.questionNumber,
             totalQuestions: message.payload.totalQuestions,
+            media: message.payload.media,
           },
           timerTotal: message.payload.timeLimit,
           timerSeconds: message.payload.timeLimit,
@@ -318,6 +324,7 @@ export const useGameStore = create<GameStoreState>((set) => ({
             timeLimit: message.payload.timeLimit,
             questionNumber: message.payload.questionNumber,
             totalQuestions: message.payload.totalQuestions,
+            media: message.payload.media,
           },
           timerTotal: message.payload.timeLimit,
           timerSeconds: message.payload.timeLimit,

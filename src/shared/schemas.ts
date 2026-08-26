@@ -1,6 +1,14 @@
 // src/shared/schemas.ts — Zod schemas for runtime validation of WebSocket messages
 
 import { z } from "zod";
+import {
+  MEDIA_FILTERS,
+  MEDIA_FRAMES,
+  MEDIA_ID_PATTERN,
+  MEDIA_KINDS,
+  MEDIA_MAX_BYTES,
+  MEDIA_MAX_TEXT_LENGTH,
+} from "./media";
 
 // ─── Shared Enums ─────────────────────────────────────────────────────────────
 
@@ -38,6 +46,39 @@ export const AnswerStatusSchema = z.enum([
   "incorrect",
   "bonus",
 ]);
+
+export const MediaKindSchema = z.enum(MEDIA_KINDS);
+export const MediaFrameSchema = z.enum(MEDIA_FRAMES);
+export const MediaFilterSchema = z.enum(MEDIA_FILTERS);
+
+/**
+ * A host-uploaded media reference attached to a question.
+ *
+ * This crosses the wire in both directions — the host sends it with
+ * HOST_CREATE_GAME and the server echoes it back on QUESTION_SHOW — so it is
+ * validated rather than trusted. The bytes themselves live in R2 and are only
+ * referenced by `id`; the upload route is what validates those.
+ */
+export const QuestionMediaSchema = z.object({
+  id: z.string().regex(MEDIA_ID_PATTERN),
+  kind: MediaKindSchema,
+  contentType: z.string().max(128).optional(),
+  size: z
+    .number()
+    .int()
+    .min(0)
+    .max(Math.max(...Object.values(MEDIA_MAX_BYTES)))
+    .optional(),
+  fileName: z.string().max(255),
+  alt: z.string().max(MEDIA_MAX_TEXT_LENGTH),
+  caption: z.string().max(MEDIA_MAX_TEXT_LENGTH).optional(),
+  frame: MediaFrameSchema,
+  filters: z.array(MediaFilterSchema).max(MEDIA_FILTERS.length),
+  intensity: z.number().int().min(0).max(100),
+  width: z.number().int().min(1).max(20000).optional(),
+  height: z.number().int().min(1).max(20000).optional(),
+  duration: z.number().min(0).max(24 * 60 * 60).optional(),
+});
 
 // ─── Shared Data Schemas ──────────────────────────────────────────────────────
 
@@ -202,7 +243,7 @@ export const HostCreateGameSchema = z.object({
             timeLimit: z.number().int().min(5).max(300),
             type: QuestionTypeSchema,
             choices: z.array(z.string()).optional(),
-            mediaUrl: z.string().url().optional(),
+            media: QuestionMediaSchema.optional(),
           }),
         ),
       }),
@@ -552,6 +593,7 @@ export const QuestionShowSchema = z.object({
     timeLimit: z.number().int(),
     questionNumber: z.number().int(),
     totalQuestions: z.number().int(),
+    media: QuestionMediaSchema.optional(),
   }),
   timestamp: z.number(),
 });
@@ -569,6 +611,7 @@ export const QuestionShowFullSchema = z.object({
     totalQuestions: z.number().int(),
     correctAnswer: z.string(),
     acceptableAnswers: z.array(z.string()),
+    media: QuestionMediaSchema.optional(),
   }),
   timestamp: z.number(),
 });
@@ -708,6 +751,7 @@ const RoundQuestionPublicSchema = z.object({
   type: QuestionTypeSchema,
   choices: z.array(z.string()).optional(),
   pointValue: z.number().int(),
+  media: QuestionMediaSchema.optional(),
 });
 
 const RoundQuestionFullSchema = RoundQuestionPublicSchema.extend({

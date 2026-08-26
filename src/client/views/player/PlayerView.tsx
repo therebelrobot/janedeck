@@ -649,6 +649,7 @@ export function PlayerView(): React.ReactElement {
                 questionNumber={currentQuestion.questionNumber}
                 totalQuestions={currentQuestion.totalQuestions}
                 pointValue={currentQuestion.pointValue}
+                media={currentQuestion.media}
                 timerSeconds={timerSeconds}
                 timerTotal={timerTotal}
                 isAnswering={gameState === "ANSWERING"}

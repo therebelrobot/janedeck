@@ -5,6 +5,16 @@
 // all four game modes (trivia individual, trivia team, bingo numbered,
 // bingo phrase pool), writing PNGs into docs/screenshots/<mode>/<role>-<state>.png.
 //
+// Both trivia flows also attach an image to one question, so every question
+// screen is captured twice: once plain and once with media (`-media` suffix).
+// A fifth flow captures the frame and filter catalog into
+// docs/screenshots/media/.
+//
+// Media capture needs two things: an R2 bucket bound as MEDIA (`npm run dev`
+// emulates one locally) and reachable placecats.com/placekittens.com for the
+// sample photo. Without either, the media steps log a warning and skip rather
+// than failing the run.
+//
 // Usage:
 //   npm run dev                    # in one terminal, leave running
 //   npm run capture:screenshots    # in another terminal
@@ -15,8 +25,9 @@
 // JANEDECK_ADMIN_PASSWORD (falls back to the value in .env).
 
 import { chromium } from "playwright";
-import { readFileSync, mkdirSync } from "node:fs";
+import { readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
+import os from "node:os";
 import path from "node:path";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -91,11 +102,167 @@ async function fillRetry(page, selector, value, { attempts = 4, timeout = 4000, 
   throw lastErr;
 }
 
+// ─── Sample question image ──────────────────────────────────────────────────
+//
+// The media flows need a real photo to upload — real photographic detail is
+// what makes the filters legible (grain, halftone and pixelate all read as
+// nothing on a flat synthetic image). These come from placecats.com, which
+// serves a named cat at any size, so a given name always yields the same
+// picture and re-runs are reproducible. placekittens.com is the fallback if
+// placecats is unreachable.
+//
+// This is the script's only network dependency beyond the dev server. If both
+// services are down, the media steps log a warning and skip, exactly as they
+// do when no R2 bucket is bound — the rest of the capture still runs.
+
+const SAMPLE_IMAGE_WIDTH = 800;
+const SAMPLE_IMAGE_HEIGHT = 533;
+
+/**
+ * Named placecats subjects, one per flow, so the docs aren't four copies of
+ * the same cat. Any name placecats.com knows works here.
+ */
+const CAT_NAMES = {
+  "trivia-individual": "neo",
+  "trivia-team": "millie",
+  media: "bella",
+};
+
+function sampleImageSources(name) {
+  return [
+    `https://placecats.com/${name}/${SAMPLE_IMAGE_WIDTH}/${SAMPLE_IMAGE_HEIGHT}`,
+    `https://placecats.com/${SAMPLE_IMAGE_WIDTH}/${SAMPLE_IMAGE_HEIGHT}`,
+    `https://placekittens.com/${SAMPLE_IMAGE_WIDTH}/${SAMPLE_IMAGE_HEIGHT}`,
+  ];
+}
+
+/** Downloaded images, cached per cat name for the life of the run. */
+const sampleImageCache = new Map();
+
+/**
+ * Download the sample photo for a flow and return its local path, or null if
+ * every source is unreachable (callers skip their media screenshots).
+ */
+async function sampleImage(mode) {
+  const name = CAT_NAMES[mode] ?? CAT_NAMES.media;
+  if (sampleImageCache.has(name)) return sampleImageCache.get(name);
+
+  const dir = path.join(os.tmpdir(), "janedeck-screenshots");
+  mkdirSync(dir, { recursive: true });
+
+  for (const url of sampleImageSources(name)) {
+    try {
+      const response = await fetch(url, { signal: AbortSignal.timeout(20000) });
+      if (!response.ok) continue;
+      const type = response.headers.get("content-type") ?? "";
+      const extension = type.includes("png") ? "png" : "jpg";
+      const file = path.join(dir, `sample-${name}.${extension}`);
+      writeFileSync(file, Buffer.from(await response.arrayBuffer()));
+      log("downloaded sample image", url);
+      sampleImageCache.set(name, file);
+      return file;
+    } catch {
+      // try the next source
+    }
+  }
+
+  log("SKIP media: could not download a sample image from placecats or placekittens");
+  sampleImageCache.set(name, null);
+  return null;
+}
+
+// ─── Attaching media to a question ──────────────────────────────────────────
+
+/** Which question of round 1 carries the image, 0-based. */
+const MEDIA_QUESTION_INDEX = 1;
+
+/**
+ * The media question's own wording. The Quick Start template's second question
+ * is about planets, and a cat photo pinned to it makes for a confusing
+ * screenshot — so attaching an image rewrites the question into a real picture
+ * round, which is what a host would actually do.
+ */
+const MEDIA_QUESTION = {
+  text: "What breed is the cat in this picture?",
+  correctAnswer: "Tabby",
+  acceptableAnswers: "tabby, tabby cat, brown tabby",
+  /** What the player types, so the round still scores as correct */
+  playerAnswer: "Tabby",
+};
+
+// Pose-neutral: each flow gets a different cat, so the description has to fit
+// all of them.
+const MEDIA_ALT = "A tabby cat looking straight at the camera";
+const MEDIA_CAPTION = "The office cat, 2026";
+
+/**
+ * Attach the sample image to one question and give it a frame + filters.
+ *
+ * Returns false (having logged why) when this server has no R2 bucket bound —
+ * the media controls hide themselves in that case, and the caller skips its
+ * media screenshots rather than failing the whole flow.
+ */
+async function attachSampleImage(
+  page,
+  mode,
+  qid,
+  { frame = "polaroid", filters = ["Sepia", "Film grain"] } = {},
+) {
+  const fileInput = page.locator(`#${qid}-media-file`);
+  if ((await fileInput.count()) === 0) {
+    log("SKIP media: no upload control on this server (is an R2 bucket bound as MEDIA?)");
+    return false;
+  }
+
+  const file = await sampleImage(mode);
+  if (!file) return false;
+
+  // Rewrite the question to match the picture before uploading it.
+  await fillRetry(page, `#${qid}-text`, MEDIA_QUESTION.text);
+  await fillRetry(page, `#${qid}-answer`, MEDIA_QUESTION.correctAnswer);
+  await fillRetry(page, `#${qid}-alts`, MEDIA_QUESTION.acceptableAnswers);
+
+  await fileInput.setInputFiles(file);
+  try {
+    await page.waitForSelector(`#${qid}-media-alt`, { timeout: 20000 });
+  } catch {
+    log("SKIP media: the upload did not complete");
+    return false;
+  }
+
+  await fillRetry(page, `#${qid}-media-alt`, MEDIA_ALT);
+  await page.locator(`input[name="${qid}-media-frame"][value="${frame}"]`).check({ force: true });
+  await page.waitForTimeout(200);
+
+  const caption = page.locator(`#${qid}-media-caption`);
+  if (await caption.count()) await caption.fill(MEDIA_CAPTION);
+
+  for (const label of filters) {
+    await step(`apply filter ${label}`, () =>
+      page.locator(`label.qm-chip:has-text("${label}")`).first().click(),
+    );
+    await page.waitForTimeout(150);
+  }
+
+  await page.waitForTimeout(300);
+  return true;
+}
+
 async function shot(page, mode, name) {
   const dir = path.join(OUT_ROOT, mode);
   mkdirSync(dir, { recursive: true });
   await page.waitForTimeout(150);
   await page.screenshot({ path: path.join(dir, `${name}.png`) });
+  log(`[${mode}]`, "captured", name);
+}
+
+/** Screenshot a single element rather than the viewport — used for the
+ *  frame/filter catalog tiles and the media editor panel. */
+async function shotElement(locator, mode, name) {
+  const dir = path.join(OUT_ROOT, mode);
+  mkdirSync(dir, { recursive: true });
+  await locator.page().waitForTimeout(150);
+  await locator.screenshot({ path: path.join(dir, `${name}.png`) });
   log(`[${mode}]`, "captured", name);
 }
 
@@ -169,6 +336,25 @@ async function runTriviaFlow({ teamMode }) {
   await host.check("#allow-audience"); // so the audience role can join below
   await host.waitForTimeout(300);
   await shot(host, mode, "host-create-filled");
+
+  // Attach an image to round 1's second question. Doing it to the *second*
+  // question rather than the first is deliberate: the first question still
+  // produces the plain text-only screenshots, so one run captures both the
+  // with-media and without-media version of every question screen.
+  const hasMedia = await attachSampleImage(host, mode, `round-0-q${MEDIA_QUESTION_INDEX}`);
+  if (hasMedia) {
+    await shot(host, mode, "host-create-media");
+    // The media editor on its own — the frame picker, filter chips, strength
+    // slider, alt text and caption fields, with the live preview.
+    await step("media editor panel", async () => {
+      const panel = host
+        .locator(`#round-0-q${MEDIA_QUESTION_INDEX}-media-file`)
+        .locator("xpath=..");
+      await panel.scrollIntoViewIfNeeded();
+      await host.waitForTimeout(250);
+      await shotElement(panel, mode, "host-create-media-editor");
+    });
+  }
 
   await host.click('button:has-text("Start Game")');
   await host.waitForURL(/\/host\/[A-Z0-9]+$/, { timeout: 20000 });
@@ -253,7 +439,14 @@ async function runTriviaFlow({ teamMode }) {
   await player.waitForTimeout(500);
   await shot(player, mode, "player-round-intro");
 
-  const roundAnswers = [ROUND1_ANSWERS, ROUND2_ANSWERS];
+  // Round 1's media question was rewritten by attachSampleImage, so the
+  // answer the player types has to change with it.
+  const round1Answers = hasMedia
+    ? ROUND1_ANSWERS.map((a, i) =>
+        i === MEDIA_QUESTION_INDEX ? MEDIA_QUESTION.playerAnswer : a,
+      )
+    : ROUND1_ANSWERS;
+  const roundAnswers = [round1Answers, ROUND2_ANSWERS];
   let firstRound = true;
 
   for (let r = 0; r < roundAnswers.length; r++) {
@@ -289,6 +482,27 @@ async function runTriviaFlow({ teamMode }) {
           await player.bringToFront();
           await player.waitForTimeout(400);
         }
+
+        // The question carrying the image, at the moment it's revealed and
+        // takes focus on the shared screen. Captured here rather than after
+        // the loop because a later reveal moves the focus off it.
+        if (hasMedia && firstRound && q === MEDIA_QUESTION_INDEX) {
+          await presentation.bringToFront();
+          await presentation.waitForTimeout(600);
+          await shot(presentation, mode, "presentation-answering-media");
+          await player.bringToFront();
+          await player.waitForTimeout(400);
+          await shot(player, mode, "player-answering-media");
+          await audience.bringToFront();
+          await audience.waitForTimeout(300);
+          await shot(audience, mode, "audience-answering-media");
+          await host.bringToFront();
+          await host.waitForTimeout(400);
+          await shot(host, mode, "host-answering-media");
+          await player.bringToFront();
+          await player.waitForTimeout(300);
+        }
+
         await step(`fill team answer ${q + 1}`, async () => {
           const input = player.locator(`input[aria-label="Answer for question ${q + 1}"]`);
           await input.fill(answers[q]);
@@ -381,6 +595,8 @@ async function runTriviaFlow({ teamMode }) {
       // Individual play: one question at a time.
       for (let q = 0; q < answers.length; q++) {
         const isFirstQuestionEver = firstRound && q === 0;
+        // Round 1's second question is the one carrying an image.
+        const isMediaQuestion = hasMedia && firstRound && q === MEDIA_QUESTION_INDEX;
 
         await host.bringToFront();
         // Every round's first question starts from ROUND_INTRO ("Start First
@@ -393,36 +609,42 @@ async function runTriviaFlow({ teamMode }) {
             : host.click('button:has-text("Next Question")'),
         );
         await host.waitForTimeout(400); // catch QUESTION_DISPLAY before the 3s auto-advance
-        if (isFirstQuestionEver) {
-          await shot(host, mode, "host-question-display");
+        // QUESTION_DISPLAY is transient — it auto-advances after 3s — so these
+        // fire immediately rather than waiting on a settled condition.
+        if (isFirstQuestionEver || isMediaQuestion) {
+          const suffix = isMediaQuestion ? "-media" : "";
+          await shot(host, mode, `host-question-display${suffix}`);
           await presentation.bringToFront();
           await presentation.waitForTimeout(300);
-          await shot(presentation, mode, "presentation-question-display");
+          await shot(presentation, mode, `presentation-question-display${suffix}`);
           await audience.bringToFront();
           await audience.waitForTimeout(300);
-          await shot(audience, mode, "audience-question-display");
+          await shot(audience, mode, `audience-question-display${suffix}`);
           await player.bringToFront();
           await player.waitForTimeout(300);
-          await shot(player, mode, "player-question-display");
+          await shot(player, mode, `player-question-display${suffix}`);
           await host.bringToFront();
         }
 
         await host.waitForTimeout(3200); // auto QUESTION_DISPLAY -> ANSWERING
-        if (isFirstQuestionEver) {
-          await shot(host, mode, "host-answering");
+        const answeringSuffix = isMediaQuestion ? "-media" : "";
+        if (isFirstQuestionEver || isMediaQuestion) {
+          await shot(host, mode, `host-answering${answeringSuffix}`);
           await presentation.bringToFront();
           await presentation.waitForTimeout(400);
-          await shot(presentation, mode, "presentation-answering");
+          await shot(presentation, mode, `presentation-answering${answeringSuffix}`);
           await audience.bringToFront();
           await audience.waitForTimeout(300);
-          await shot(audience, mode, "audience-answering");
+          await shot(audience, mode, `audience-answering${answeringSuffix}`);
         }
 
         await player.bringToFront();
         await step("player answer input wait", () =>
           player.waitForSelector("#answer-input", { timeout: 10000 }),
         );
-        if (isFirstQuestionEver) await shot(player, mode, "player-answering");
+        if (isFirstQuestionEver || isMediaQuestion) {
+          await shot(player, mode, `player-answering${answeringSuffix}`);
+        }
         await step("player submit answer", async () => {
           await player.fill("#answer-input", answers[q]);
           await player.click('button[type="submit"]');
@@ -658,6 +880,155 @@ async function runBingoFlow({ mode, cardMode, playerName }) {
   log(`=== ${mode} done ===`);
 }
 
+// ─── Media catalog ──────────────────────────────────────────────────────────
+//
+// Not a gameplay flow — a reference sheet. Uploads one photo and photographs
+// it once per frame and once per filter, plus the two host-facing states that
+// only the media feature has: the editor panel, and a question whose image the
+// server can't find.
+
+const CATALOG_FRAMES = ["none", "polaroid", "tv", "slide", "gallery", "phone"];
+
+// Chip label -> filename slug. Labels are what the host clicks; slugs match
+// the filter ids in src/shared/media.ts.
+const CATALOG_FILTERS = [
+  ["Black & white", "bw"],
+  ["Sepia", "sepia"],
+  ["Halftone", "halftone"],
+  ["Film grain", "grain"],
+  ["Vignette", "vignette"],
+  ["VHS", "vhs"],
+  ["Blur", "blur"],
+  ["Pixelate", "pixelate"],
+];
+
+async function runMediaCatalogFlow() {
+  const mode = "media";
+  log(`=== ${mode} ===`);
+  const browser = await chromium.launch();
+  try {
+    // Twice the pixel density for the catalog tiles: they're shown small in
+    // the README, and the filter textures (grain, halftone dots, scanlines)
+    // vanish at 1x. The full-page shots later get their own 1x context —
+    // at 2x they'd be ~800KB each for no benefit at the size they're shown.
+    const context = await browser.newContext({
+      reducedMotion: "reduce",
+      deviceScaleFactor: 2,
+    });
+
+    const host = await newPage(context, { width: 1280, height: 1100 });
+    await login(host);
+    await host.click('button:has-text("Trivia")');
+    await host.waitForURL("**/host/create/trivia");
+    await host.click('button:has-text("Quick Start")');
+    await host.waitForTimeout(300);
+
+    const qid = "round-0-q0";
+    const attached = await attachSampleImage(host, mode, qid, {
+      frame: "none",
+      filters: [],
+    });
+    if (!attached) {
+      log(`=== ${mode} skipped ===`);
+      return;
+    }
+
+    const figure = host.locator("figure.qm").first();
+
+    // The editor panel itself — frame picker, filter chips, alt text, caption.
+    await step("media editor panel", async () => {
+      const panel = host.locator(`#${qid}-media-file`).locator("xpath=..");
+      await panel.scrollIntoViewIfNeeded();
+      await host.waitForTimeout(250);
+      await shotElement(panel, mode, "editor");
+    });
+
+    // One tile per frame. The caption field only exists on frames that have a
+    // caption slot, so fill it whenever it appears.
+    for (const frame of CATALOG_FRAMES) {
+      await host.locator(`input[name="${qid}-media-frame"][value="${frame}"]`).check({ force: true });
+      await host.waitForTimeout(200);
+      const caption = host.locator(`#${qid}-media-caption`);
+      if (await caption.count()) {
+        await caption.fill(MEDIA_CAPTION);
+        await host.waitForTimeout(200);
+      }
+      await shotElement(figure, mode, `frame-${frame}`);
+    }
+
+    // One tile per filter, each on its own against an unframed image.
+    await host.locator(`input[name="${qid}-media-frame"][value="none"]`).check({ force: true });
+    await host.waitForTimeout(200);
+    for (const [label, slug] of CATALOG_FILTERS) {
+      const chip = host.locator(`label.qm-chip:has-text("${label}")`).first();
+      await chip.click();
+      await host.waitForTimeout(250);
+      await shotElement(figure, mode, `filter-${slug}`);
+      await chip.click(); // back off before the next one
+      await host.waitForTimeout(150);
+    }
+
+    // And one showing that they stack.
+    for (const label of ["Sepia", "Film grain", "Vignette"]) {
+      await host.locator(`label.qm-chip:has-text("${label}")`).first().click();
+      await host.waitForTimeout(150);
+    }
+    await shotElement(figure, mode, "filter-stacked");
+
+    // The reference-not-found state. A CSV carries the media id, not the
+    // bytes, so importing one onto a server that never had the upload has to
+    // fail visibly at setup rather than on the projector. Easiest way to
+    // stage it: import a sheet pointing at an id that was never uploaded.
+    await step("missing media reference", async () => {
+      const pageContext = await browser.newContext({ reducedMotion: "reduce" });
+      const importer = await newPage(pageContext, { width: 1280, height: 1100 });
+      await login(importer);
+      await importer.click('button:has-text("Trivia")');
+      await importer.waitForURL("**/host/create/trivia");
+      await importer.waitForSelector('button:has-text("Quick Start")');
+
+      importer.on("dialog", (d) => d.accept().catch(() => {}));
+      await importer
+        .locator('input[type="file"][accept*="csv"]')
+        .setInputFiles({
+          name: "questions-with-a-missing-image.csv",
+          mimeType: "text/csv",
+          buffer: Buffer.from(MISSING_MEDIA_CSV, "utf8"),
+        });
+      // The lookup that decides this is batched and debounced client-side, so
+      // give it a beat to come back before expecting the notice.
+      await importer.waitForSelector("text=This image isn't on the server", {
+        timeout: 15000,
+      });
+      await importer.locator("text=This image isn't on the server").first().scrollIntoViewIfNeeded();
+      await importer.waitForTimeout(300);
+      await shot(importer, mode, "missing-reference");
+
+      // ...and the guard that stops the game starting while it's unresolved.
+      await importer.click('button:has-text("Start Game")');
+      await importer.waitForSelector("text=/isn't on this server/", { timeout: 10000 });
+      await importer.locator("text=/isn't on this server/").first().scrollIntoViewIfNeeded();
+      await importer.waitForTimeout(300);
+      await shot(importer, mode, "missing-reference-blocked");
+      await pageContext.close();
+    });
+  } finally {
+    await browser.close();
+  }
+  log(`=== ${mode} done ===`);
+}
+
+/**
+ * A minimal import whose "Media ID" points at an object no server has. The id
+ * is well-formed (it has to pass validation to reach the not-found state) but
+ * was never uploaded.
+ */
+const MISSING_MEDIA_CSV = [
+  "Round Name,Round Points,Question,Correct Answer,Acceptable Answers,Time Limit (seconds),Media,Media File,Media ID,Media Kind,Media Frame,Media Filters,Media Intensity,Media Alt,Media Caption",
+  'Picture Round,150,Which breed is this?,Tabby,tabby,30,yes,office-cat.jpg,neverUploadedAAAAAAAAAA,image,polaroid,sepia; grain,40,A tabby cat looking at the camera,The office cat',
+  "Picture Round,150,What year was this taken?,2026,,30,,,,,,,,,",
+].join("\r\n") + "\r\n";
+
 // ─── Run all flows ──────────────────────────────────────────────────────────
 // Each flow gets its own try/catch so a failure partway through one (a
 // flaky click, a state-machine surprise) doesn't stop the others from
@@ -679,5 +1050,6 @@ await runFlow("bingo", () =>
 await runFlow("bingo-phrases", () =>
   runBingoFlow({ mode: "bingo-phrases", cardMode: "phrasePool", playerName: "Riley" }),
 );
+await runFlow("media", () => runMediaCatalogFlow());
 
 log("all done");

@@ -15,6 +15,7 @@ import type {
   ScoreEntry,
   GameStats,
   PublicTeam,
+  QuestionMedia,
   TeamAnswerReview,
   TeamScoreChange,
   TeamScoreEntry,
@@ -40,7 +41,7 @@ export interface HostCreateGameMessage {
         timeLimit: number;
         type: "text" | "multiple-choice" | "true-false";
         choices?: string[];
-        mediaUrl?: string;
+        media?: QuestionMedia;
       }>;
     }>;
   };
@@ -408,6 +409,11 @@ export interface QuestionShowMessage {
     timeLimit: number;
     questionNumber: number;
     totalQuestions: number;
+    /**
+     * Only ever sent for the question currently on screen, so an upcoming
+     * question's image can't be scraped ahead of time from the socket.
+     */
+    media?: QuestionMedia;
   };
   timestamp: number;
 }
@@ -425,6 +431,7 @@ export interface QuestionShowFullMessage {
     totalQuestions: number;
     correctAnswer: string;
     acceptableAnswers: string[];
+    media?: QuestionMedia;
   };
   timestamp: number;
 }
@@ -605,6 +612,7 @@ export interface RoundQuestionPublic {
   type: "text" | "multiple-choice" | "true-false";
   choices?: string[];
   pointValue: number;
+  media?: QuestionMedia;
 }
 
 /** Host-only version, with the answers the host reads out */
