@@ -4,8 +4,9 @@
 // R1.4: displayName is the chosen name.
 import React, { useState } from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import type { AnswerStatus, ScoreEntry } from "@/shared/types";
+import type { AnswerStatus, QuestionReveal, ScoreEntry } from "@/shared/types";
 import { AnimatedScore } from "../../components/AnimatedScore";
+import { AnswerRevealPanel } from "../../components/AnswerReveal";
 import { Confetti } from "../../components/Confetti";
 import { Leaderboard } from "../../components/Leaderboard";
 import { colors, spacing, radii } from "../../styles/theme";
@@ -33,6 +34,14 @@ interface ResultScreenProps {
   isGameOver: boolean;
   /** Winner info (for game over) */
   winner?: { playerId: string; displayName: string; score: number } | null;
+  /**
+   * The question(s) that just closed, with the answer that was wanted and what
+   * everyone said. Shown under the player's own result — knowing what it
+   * actually was is the point of getting feedback at all.
+   */
+  answerReveal?: QuestionReveal[] | null;
+  /** This player's own name, or their team's in Team Play — highlights their answers */
+  myName?: string | null;
 }
 
 /** Status display config */
@@ -82,6 +91,8 @@ export function ResultScreen({
   leaderboard,
   isGameOver,
   winner,
+  answerReveal,
+  myName,
 }: ResultScreenProps): React.ReactElement {
   const prefersReducedMotion = useReducedMotion();
   const [showConfetti, setShowConfetti] = useState(false);
@@ -361,6 +372,39 @@ export function ResultScreen({
           </div>
         )}
       </div>
+
+      {/*
+        What it actually was. Sits below the score so the numbers stay above
+        the fold on a phone, with the detail a thumb-scroll away.
+      */}
+      {answerReveal && answerReveal.length > 0 && (
+        <section
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            gap: spacing[3],
+            width: "100%",
+          }}
+        >
+          <h3
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "var(--text-lg)",
+              fontWeight: 700,
+              color: colors.correct,
+              textAlign: "center",
+              margin: 0,
+            }}
+          >
+            ✅ {answerReveal.length > 1 ? "The answers" : "The answer"}
+          </h3>
+          <AnswerRevealPanel
+            reveals={answerReveal}
+            variant="player"
+            highlightSubmitter={myName}
+          />
+        </section>
+      )}
     </div>
   );
 }

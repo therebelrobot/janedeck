@@ -7,7 +7,7 @@ Players join from their phones, the host controls (or, for Bingo, simply starts/
 ## Features
 
 - **Two game types**, picked by the host at creation time:
-  - **Trivia** — multiple rounds with customizable questions and point values, fuzzy answer matching (Fuse.js, with host override for edge cases), and bonus points for creative or funny answers
+  - **Trivia** — multiple rounds with customizable questions and point values, fuzzy answer matching (Fuse.js, with host override for edge cases), bonus points for creative or funny answers, and an [answer reveal](#trivia--answer-reveal) once each question closes showing what it was and what everyone said
   - **Bingo** — numbered or custom-phrase-pool cards, free-for-all self-marking (no host pacing), configurable win patterns (line / four corners / blackout), and cross-player glow hints when another player marks a square matching yours
 - **4 views** designed for different roles:
   - **Host** — control panel for managing the game, starting with a Trivia/Bingo type picker (desktop)
@@ -23,7 +23,7 @@ Players join from their phones, the host controls (or, for Bingo, simply starts/
 
 ## Screenshots
 
-Each game mode has its own host (desktop), player (phone), presentation (desktop, for the shared screen), and audience (phone, spectator mode) views. A full set of every screen and state is in [`docs/screenshots/`](docs/screenshots/), organized by mode — regenerate it anytime with `npm run capture:screenshots`. Both trivia flows are captured twice per question screen: once on a plain text question, and once on a picture question (the `-media` files).
+Each game mode has its own host (desktop), player (phone), presentation (desktop, for the shared screen), and audience (phone, spectator mode) views. A full set of every screen and state is in [`docs/screenshots/`](docs/screenshots/), organized by mode — regenerate it anytime with `npm run capture:screenshots`. Both trivia flows are captured twice per question screen: once on a plain text question, and once on a picture question (the `-media` files). The capture plays four people against each question with a deliberate spread of right, nearly-right and way-off answers, so the answer reveal below is real output rather than a mock-up.
 
 ### Trivia — Individual Play
 
@@ -76,6 +76,54 @@ Each game mode has its own host (desktop), player (phone), presentation (desktop
 <td><img src="docs/screenshots/trivia-team/audience-answering-media.png" width="150"></td>
 </tr>
 </table>
+
+### Trivia — Answer Reveal
+
+Once a question closes — after every question in individual play, at the end of the round in Team Play — every screen shows what the answer actually was: the one being looked for, the alternates the question was set up to accept, the near-misses the host waved through by hand, and the ones that didn't count. A wrong answer the host thought was funny enough to award bonus points for gets a ⭐ and its own color. Players see their own answers ringed and tagged.
+
+<table>
+<tr>
+<td colspan="2" align="center"><sub><b>Individual play</b> — the answer for the question just played</sub></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/trivia-individual/presentation-answer-reveal.png" width="420"></td>
+<td><img src="docs/screenshots/trivia-individual/player-answer-reveal.png" width="200"></td>
+</tr>
+<tr>
+<td align="center"><sub>Presentation</sub></td>
+<td align="center"><sub>Player</sub></td>
+</tr>
+</table>
+
+<table>
+<tr>
+<td colspan="2" align="center"><sub><b>Team Play</b> — the whole round at once, since teams are judged a round at a time</sub></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/trivia-team/presentation-answer-reveal.png" width="560"></td>
+<td><img src="docs/screenshots/trivia-team/player-answer-reveal.png" width="200"></td>
+</tr>
+<tr>
+<td align="center"><sub>Presentation</sub></td>
+<td align="center"><sub>Player</sub></td>
+</tr>
+</table>
+
+<table>
+<tr>
+<td colspan="2" align="center"><sub>In context, next to the scores</sub></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/trivia-individual/presentation-score-reveal.png" width="380"></td>
+<td><img src="docs/screenshots/trivia-team/presentation-score-reveal.png" width="380"></td>
+</tr>
+<tr>
+<td align="center"><sub>Individual play</sub></td>
+<td align="center"><sub>Team Play</sub></td>
+</tr>
+</table>
+
+Hosts who'd rather keep the answers on the shared screen only can turn off **Show answers on player phones** when creating the game — the presentation view always shows them.
 
 ### Bingo — Numbered Cards
 
@@ -146,7 +194,7 @@ The dev server starts Vite with the Cloudflare plugin, serving both the WebSocke
 5. **Host** creates the game with rounds and questions (or uses Quick Start template)
 6. **Host** advances through rounds — players answer from their phones
 7. After each question, the host reviews answers (auto-scored by fuzzy matching)
-8. Scores are revealed with animated leaderboard updates
+8. Scores are revealed with animated leaderboard updates, alongside the correct answer and everyone's guesses — after every question in individual play, at the end of the round in Team Play
 9. At the end, the winner is crowned with confetti 🎉
 
 **Bingo:**
@@ -354,13 +402,18 @@ npm run deploy
 # Re-capture every README screenshot with Playwright (needs `npm run dev` running in another terminal)
 npm run capture:screenshots
 
+# ...or just the flows you changed
+npm run capture:screenshots -- trivia-individual trivia-team
+
 # Regenerate the downloadable CSV templates in docs/templates/
 npm run templates
 ```
 
 `npm run templates` writes `docs/templates/*.csv` from the very functions the app's *Download Template* buttons call, so the files people download from GitHub can't drift from what the app produces. Run it after changing anything in `src/client/utils/csv.ts` — CI re-runs it and fails if the committed files come out different.
 
-The capture script drives five flows — trivia individual, trivia team, bingo numbered, bingo phrase pool, and a media catalog — writing to `docs/screenshots/<flow>/`. Both trivia flows attach an image to one question, so every question screen is captured twice: plain, and with media (`-media` suffix).
+The capture script drives five flows — `trivia-individual`, `trivia-team`, `bingo`, `bingo-phrases`, and `media` — writing to `docs/screenshots/<flow>/`. Name flows as arguments to re-capture only those; no arguments runs all five. Both trivia flows attach an image to one question, so every question screen is captured twice: plain, and with media (`-media` suffix).
+
+Four players answer each trivia question with a deliberate spread — one exact match, two near-misses, one way-off guess — and the host judges them one at a time rather than bulk-accepting everything. That's what fills all three groups of the answer reveal; a table where everyone answers correctly produces a reveal with nothing in it but the correct answer, which documents the feature poorly and isn't what a real trivia night looks like either.
 
 The media steps need two extra things:
 

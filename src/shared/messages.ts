@@ -16,6 +16,7 @@ import type {
   GameStats,
   PublicTeam,
   QuestionMedia,
+  QuestionReveal,
   TeamAnswerReview,
   TeamScoreChange,
   TeamScoreEntry,
@@ -436,6 +437,21 @@ export interface QuestionShowFullMessage {
   timestamp: number;
 }
 
+/**
+ * The answers being looked for, plus what everyone actually said. Broadcast on
+ * entry to SCORE_REVEAL: one question in individual play, every question the
+ * round revealed in Team Play. Players and audience only receive it when
+ * `settings.showAnswersToPlayers` is on; host and presentation always do.
+ */
+export interface AnswerRevealMessage {
+  type: "ANSWER_REVEAL";
+  payload: {
+    roundIndex: number;
+    questions: QuestionReveal[];
+  };
+  timestamp: number;
+}
+
 // Host-only messages
 export interface AnswersForReviewMessage {
   type: "ANSWERS_FOR_REVIEW";
@@ -746,6 +762,7 @@ export type ServerMessage =
   | GameOverMessage
   | QuestionShowMessage
   | QuestionShowFullMessage
+  | AnswerRevealMessage
   | AnswersForReviewMessage
   | AnswerSubmittedNotificationMessage
   | GameCreatedMessage

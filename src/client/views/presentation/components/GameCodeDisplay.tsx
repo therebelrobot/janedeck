@@ -9,13 +9,22 @@ import { colors, spacing, radii, shadows } from "../../../styles/theme";
 interface GameCodeDisplayProps {
   /** The 6-character game code */
   gameCode: string;
+  /**
+   * Shrink the code tiles, QR and spacing so a lobby with a long roster below
+   * still fits the shared screen. The code stays the biggest thing on it —
+   * it's what people are squinting at from across the room.
+   */
+  compact?: boolean;
 }
 
 /**
  * Large animated game code display for the presentation lobby screen.
  * Each character is rendered in its own styled box with a subtle bounce animation.
  */
-export function GameCodeDisplay({ gameCode }: GameCodeDisplayProps): React.ReactElement {
+export function GameCodeDisplay({
+  gameCode,
+  compact = false,
+}: GameCodeDisplayProps): React.ReactElement {
   const prefersReducedMotion = useReducedMotion();
   const chars = Array.from(gameCode.toUpperCase());
   const joinUrl = `${window.location.origin}/play/${gameCode}`;
@@ -26,7 +35,7 @@ export function GameCodeDisplay({ gameCode }: GameCodeDisplayProps): React.React
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        gap: spacing[6],
+        gap: compact ? spacing[3] : spacing[6],
       }}
     >
       {/* Instructions */}
@@ -78,14 +87,14 @@ export function GameCodeDisplay({ gameCode }: GameCodeDisplayProps): React.React
               display: "inline-flex",
               alignItems: "center",
               justifyContent: "center",
-              width: "clamp(60px, 10vw, 120px)",
+              width: compact ? "clamp(48px, 6vw, 80px)" : "clamp(60px, 10vw, 120px)",
               height: "clamp(72px, 12vw, 140px)",
               backgroundColor: colors.bgCard,
               borderRadius: radii.xl,
               border: `3px solid ${colors.accentYellow}`,
               boxShadow: `0 0 30px rgba(250, 204, 21, 0.3)`,
               fontFamily: "var(--font-display)",
-              fontSize: "clamp(2.5rem, 7vw, 6rem)",
+              fontSize: compact ? "clamp(1.75rem, 4vw, 3.5rem)" : "clamp(2.5rem, 7vw, 6rem)",
               fontWeight: 700,
               color: colors.accentYellow,
               textShadow: "0 0 20px rgba(250, 204, 21, 0.5)",
@@ -103,7 +112,7 @@ export function GameCodeDisplay({ gameCode }: GameCodeDisplayProps): React.React
           display: "flex",
           flexDirection: "row",
           alignItems: "center",
-          gap: spacing[6],
+          gap: compact ? spacing[4] : spacing[6],
           flexWrap: "wrap",
           justifyContent: "center",
         }}
@@ -120,7 +129,7 @@ export function GameCodeDisplay({ gameCode }: GameCodeDisplayProps): React.React
         >
           <QRCode
             value={joinUrl}
-            size={Math.min(160, Math.max(100, window.innerWidth * 0.1))}
+            size={Math.min(compact ? 110 : 160, Math.max(compact ? 80 : 100, window.innerWidth * 0.1))}
             fgColor="#000000"
             bgColor="#ffffff"
           />

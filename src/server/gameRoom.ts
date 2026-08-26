@@ -18,6 +18,7 @@ import type {
   TeamAnswer,
   TeamScoreChange,
   TeamScoreEntry,
+  Question,
 } from "@/shared/types";
 import type {
   ClientMessage,
@@ -68,6 +69,7 @@ import {
   validateTransition,
 } from "@/server/stateMachine";
 import { batchMatch, batchMatchTeams } from "@/server/fuzzyMatcher";
+import { buildReveals } from "@/server/answerReveal";
 import {
   startTimer,
   cancelTimer,
@@ -159,6 +161,19 @@ export class GameRoom extends Server<Env> {
           },
           timestamp: Date.now(),
         });
+      }
+
+      // A screen opened during the reveal (or refreshed mid-reveal) would
+      // otherwise sit on a bare leaderboard with no idea what the answer was.
+      if (
+        this.game.type === "trivia" &&
+        (this.game.state === "SCORE_REVEAL" || this.game.state === "ROUND_RESULTS") &&
+        (role === "host" ||
+          role === "presentation" ||
+          this.game.settings.showAnswersToPlayers)
+      ) {
+        const reveal = this.buildAnswerReveal();
+        if (reveal) sendToConnection(conn, reveal);
       }
 
       // If in a question-related state, send question info
@@ -994,6 +1009,10 @@ export class GameRoom extends Server<Env> {
       }
     }
 
+    // Feedback on the question just played — the answer wanted, plus what
+    // everyone said — is the payoff for having answered at all.
+    this.broadcastAnswerReveal();
+
     broadcastStateChange(this, this.game);
     await this.persistGame();
   }
@@ -1086,6 +1105,10 @@ export class GameRoom extends Server<Env> {
         });
       }
     }
+
+    // Team Play judges the whole round at once, so this reveals every
+    // question the round covered rather than just the last one.
+    this.broadcastAnswerReveal();
 
     broadcastStateChange(this, this.game);
     await this.persistGame();
@@ -1992,6 +2015,65 @@ export class GameRoom extends Server<Env> {
   }
 
   /** Run fuzzy matching on all answers for the current question and send to host */
+  /**
+   * The questions whose answers are now settled and ready to show: the one
+   * just played in individual mode, every question the host revealed in Team
+   * Play (where judging happens for the whole round at once).
+   */
+  private questionsAwaitingReveal(): Question[] {
+    if (!this.game || this.game.type !== "trivia") return [];
+
+    const round = this.game.rounds[this.game.currentRoundIndex];
+    if (!round) return [];
+
+    if (this.game.settings.teamPlayEnabled) {
+      return round.questions.slice(0, revealedQuestionCount(this.game));
+    }
+
+    const question = round.questions[this.game.currentQuestionIndex];
+    return question ? [question] : [];
+  }
+
+  /**
+   * Build the ANSWER_REVEAL message for the questions that just closed.
+   * Returns null when there's nothing to reveal yet.
+   */
+  private buildAnswerReveal(): ServerMessage | null {
+    if (!this.game || this.game.type !== "trivia") return null;
+
+    const questions = this.questionsAwaitingReveal();
+    if (questions.length === 0) return null;
+
+    return {
+      type: "ANSWER_REVEAL",
+      payload: {
+        roundIndex: this.game.currentRoundIndex,
+        questions: buildReveals(this.game, questions),
+      },
+      timestamp: Date.now(),
+    };
+  }
+
+  /**
+   * Push the correct answers — and what everyone actually said — to every
+   * screen. The host and the shared screen always get it; players and audience
+   * are gated on `settings.showAnswersToPlayers`.
+   */
+  private broadcastAnswerReveal(): void {
+    if (!this.game || this.game.type !== "trivia") return;
+
+    const message = this.buildAnswerReveal();
+    if (!message) return;
+
+    broadcastToRole(this, "host", message);
+    broadcastToRole(this, "presentation", message);
+
+    if (this.game.settings.showAnswersToPlayers) {
+      broadcastToRole(this, "player", message);
+      broadcastToRole(this, "audience", message);
+    }
+  }
+
   private async runFuzzyMatchingAndNotifyHost(): Promise<void> {
     if (!this.game || this.game.type !== "trivia") return;
 

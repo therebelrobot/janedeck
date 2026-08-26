@@ -7,6 +7,11 @@
 //
 // Both trivia flows also attach an image to one question, so every question
 // screen is captured twice: once plain and once with media (`-media` suffix).
+//
+// Four players answer each trivia question with a deliberate spread — exact,
+// near-miss, way-off — and the host judges them one by one rather than waving
+// them all through, so the post-question answer reveal is captured with
+// something in every group.
 // A fifth flow captures the frame and filter catalog into
 // docs/screenshots/media/.
 //
@@ -18,6 +23,9 @@
 // Usage:
 //   npm run dev                    # in one terminal, leave running
 //   npm run capture:screenshots    # in another terminal
+//
+// Pass flow names to re-capture only some of them:
+//   npm run capture:screenshots -- trivia-individual trivia-team
 //
 // First run only: npx playwright install chromium
 //
@@ -283,37 +291,159 @@ async function login(page) {
 }
 
 /**
- * Accept every pending answer-review bulk action visible on the page.
- * Each bulk button clears its whole group in a single click (there may be
- * several groups at once in Team Play — one per question in the round).
- * Clicking "Accept All Auto-Accepted" and "Accept All Remaining" back to
- * back in the same pass is a race: the first click can make the second
- * button vanish mid-click (it covers the same answers), which hangs
- * waiting for a stable element. So this clicks at most ONE button per
- * pass, then re-queries fresh next pass.
+ * Crop shots of just the answer reveal — the correct answer, the alternates it
+ * was set up to take, the near-misses the host saved by hand, and the ones
+ * that didn't count. Worth capturing on its own because it's the panel the
+ * README leads with, and full-page shots bury it next to the leaderboard.
  */
-async function bulkAcceptAllReviews(page) {
-  for (let i = 0; i < 12; i++) {
-    const autoAccept = page.locator('button:has-text("Accept All Auto-Accepted")').first();
-    if (await autoAccept.count()) {
-      await step("bulk accept auto-accepted", () => autoAccept.click({ timeout: 3000 }));
-      await page.waitForTimeout(250);
-      continue;
-    }
-    const remaining = page.locator('button:has-text("Accept All Remaining")').first();
-    if (await remaining.count()) {
-      await step("bulk accept remaining", () => remaining.click({ timeout: 3000 }));
-      await page.waitForTimeout(250);
-      continue;
-    }
-    return; // nothing left to accept
+async function shotAnswerReveal(pages, mode, suffix = "") {
+  for (const [role, page] of Object.entries(pages)) {
+    await step(`${role} answer reveal`, async () => {
+      await page.bringToFront();
+      await page.waitForTimeout(400);
+      const panel = page.locator('section:has(> h3:has-text("The Answer"))').first();
+      if (!(await panel.count())) throw new Error("no reveal panel on screen");
+      await shotElement(panel, mode, `${role}-answer-reveal${suffix}`);
+    });
   }
 }
 
 // ─── Trivia (individual + team) ────────────────────────────────────────────
 
-const ROUND1_ANSWERS = ["Paris", "Mars", "7"];
-const ROUND2_ANSWERS = ["Steven Spielberg", "Queen"];
+/**
+ * Who plays, and what they type, round by round.
+ *
+ * The spread across the three is deliberate: one exact match, one near-miss
+ * the host has to save by hand, and one way-off guess that gets rejected. That
+ * is what fills all three groups of the post-question answer reveal — a table
+ * where everyone answers correctly produces a reveal with nothing in it but
+ * the correct answer, which documents the feature poorly and isn't what a real
+ * trivia night looks like either.
+ *
+ * `teamName` also splits them into three teams for the Team Play flow, with
+ * Alex and Sam sharing one so the team screenshots show a real roster.
+ * `mediaAnswer` replaces round 1's second answer when a picture gets attached
+ * to that question — see MEDIA_QUESTION.
+ */
+const TRIVIA_ROSTER = [
+  {
+    name: "Alex",
+    teamName: "Alpha Team",
+    rounds: [["Paris", "Mars", "7"], ["Steven Spielberg", "Queen"]],
+    mediaAnswer: MEDIA_QUESTION.playerAnswer,
+  },
+  {
+    name: "Sam",
+    teamName: "Alpha Team",
+    rounds: [["Pariss", "Marss", "Sevn"], ["Steven Spielburg", "Queeen"]],
+    mediaAnswer: "Tabbby",
+  },
+  {
+    name: "Jo",
+    teamName: "Beta Squad",
+    rounds: [["Pariss", "Marz", "Sevan"], ["Spielburg", "Kween"]],
+    mediaAnswer: "Tabbie",
+  },
+  {
+    name: "Kim",
+    teamName: "Gamma Crew",
+    rounds: [["Eiffel Tower", "Jupiter", "Twelve"], ["Martin Scorsese", "The Beatles"]],
+    mediaAnswer: "A very smug dog",
+  },
+];
+
+/** The answers one roster member gives for a round, media substitution applied */
+function answersFor(member, roundIndex, hasMedia) {
+  const answers = [...member.rounds[roundIndex]];
+  if (hasMedia && roundIndex === 0) answers[MEDIA_QUESTION_INDEX] = member.mediaAnswer;
+  return answers;
+}
+
+/**
+ * Join a player in their own browser context.
+ *
+ * PlayerView persists playerId/displayName to localStorage per game code for
+ * reconnect support (R9.5), so pages sharing a context would auto-reconnect as
+ * the first player instead of joining fresh — each one needs its own context,
+ * exactly like a separate phone.
+ */
+async function joinPlayer(browser, gameCode, { name, teamName }) {
+  const ctx = await browser.newContext({ reducedMotion: "reduce" });
+  const page = await newPage(ctx, PHONE_VIEWPORT);
+  await page.goto(BASE + "/play/" + gameCode);
+  await page.waitForSelector("#display-name");
+  await fillRetry(page, "#display-name", name);
+  await clickRetry(page, "Join Game");
+  if (teamName) {
+    await step(`${name} team select wait`, () =>
+      page.waitForSelector("#team-name", { timeout: 10000 }),
+    );
+    await fillRetry(page, "#team-name", teamName);
+    await clickRetry(page, "Join / Create Team");
+  }
+  await page.waitForTimeout(400);
+  return { ctx, page, name, teamName };
+}
+
+/**
+ * Click every enabled button matching a selector, re-querying between clicks.
+ * Judging one answer re-renders its section, which detaches any locator
+ * captured beforehand — and in Team Play one name owns several cards at once
+ * (one per question of the round), so a single click is never enough.
+ */
+async function clickAllEnabled(page, selector, label) {
+  await step(label, async () => {
+    for (let i = 0; i < 32; i++) {
+      const btn = page.locator(`${selector}:not([disabled])`).first();
+      if (!(await btn.count())) return;
+      await btn.click({ timeout: 3000 });
+      await page.waitForTimeout(200);
+    }
+  });
+}
+
+/**
+ * Work the review panel the way a host actually does, rather than waving
+ * everything through: accept the exact matches and the near-misses worth
+ * saving, and reject the way-off guesses — giving one of them bonus points
+ * first, the "wrong but worth a laugh" path that shows up starred in the
+ * answer reveal.
+ *
+ * Judging by submitter name rather than by fuzzy group is what makes this work
+ * for both panels: individual play groups answers into labelled sections,
+ * Team Play lists them flat, but both render the same AnswerCard with the same
+ * per-answer aria-labels.
+ */
+async function judgeAnswers(page, { accept = [], bonusThenReject = [], reject = [] }) {
+  for (const name of accept) {
+    await clickAllEnabled(page, `button[aria-label="Accept answer from ${name}"]`, `accept ${name}`);
+  }
+
+  for (const name of bonusThenReject) {
+    await step(`bonus ${name}`, async () => {
+      const card = page.locator(`[aria-label^="Answer from ${name}:"]`).first();
+      if (!(await card.count())) return;
+      await card.locator('button[aria-label="Increase bonus points"]').click({ timeout: 3000 });
+      await page.waitForTimeout(200);
+    });
+    await clickAllEnabled(page, `button[aria-label="Reject answer from ${name}"]`, `reject ${name}`);
+  }
+
+  for (const name of reject) {
+    await clickAllEnabled(page, `button[aria-label="Reject answer from ${name}"]`, `reject ${name}`);
+  }
+
+  // Anything the roster didn't cover (a renamed player, a dropped answer)
+  // would otherwise sit pending and read as a miss in the reveal. A judged
+  // card is the one with a disabled button — accepting disables Accept,
+  // rejecting disables Reject, and the other stays live either way so the
+  // host can change their mind.
+  const cards = page.locator('[aria-label^="Answer from "]');
+  const unjudged =
+    (await cards.count()) -
+    (await page.locator('[aria-label^="Answer from "]:has(button[disabled])').count());
+  if (unjudged > 0) log(`WARN ${unjudged} answer(s) left unjudged`);
+}
 
 async function runTriviaFlow({ teamMode }) {
   const mode = teamMode ? "trivia-team" : "trivia-individual";
@@ -363,11 +493,17 @@ async function runTriviaFlow({ teamMode }) {
   await host.waitForTimeout(500);
 
   // ---------- Players join ----------
+  // The whole roster plays, so leaderboards have real rows and the answer
+  // reveal has a spread of right, nearly-right and way-off answers to show.
+  // Alex is the "hero" page every player-* screenshot is taken from; the rest
+  // stay connected and answering in their own contexts until the flow ends.
+  const [hero, ...others] = TRIVIA_ROSTER;
+
   const player = await newPage(context, PHONE_VIEWPORT);
   await player.goto(BASE + "/play/" + gameCode);
   await player.waitForSelector("#game-code");
   await shot(player, mode, "player-join");
-  await fillRetry(player, "#display-name", "Alex");
+  await fillRetry(player, "#display-name", hero.name);
   await clickRetry(player, "Join Game");
 
   if (teamMode) {
@@ -375,27 +511,30 @@ async function runTriviaFlow({ teamMode }) {
       player.waitForSelector("#team-name", { timeout: 10000 }),
     );
     await shot(player, mode, "player-team-select");
-    await fillRetry(player, "#team-name", "Alpha Team");
+    await fillRetry(player, "#team-name", hero.teamName);
     await clickRetry(player, "Join / Create Team");
-
-    // Second player joins the same team so the lobby/team views show a
-    // group. PlayerView persists playerId/displayName to localStorage per
-    // game code for reconnect support (R9.5), so a page sharing player1's
-    // browser context would auto-reconnect as player1 instead of joining
-    // fresh — give player2 its own context, like a separate device.
-    const player2Context = await browser.newContext({ reducedMotion: "reduce" });
-    const player2 = await newPage(player2Context, PHONE_VIEWPORT);
-    await player2.goto(BASE + "/play/" + gameCode);
-    await player2.waitForSelector("#display-name");
-    await fillRetry(player2, "#display-name", "Sam");
-    await clickRetry(player2, "Join Game");
-    await step("player2 team select wait", () =>
-      player2.waitForSelector("#team-name", { timeout: 10000 }),
-    );
-    await fillRetry(player2, "#team-name", "Alpha Team");
-    await clickRetry(player2, "Join / Create Team");
-    await player2Context.close();
   }
+
+  const guests = [];
+  for (const member of others) {
+    guests.push(
+      await joinPlayer(browser, gameCode, {
+        name: member.name,
+        teamName: teamMode ? member.teamName : null,
+      }),
+    );
+  }
+
+  // One typist per team in Team Play (teammates share one answer box), every
+  // player for themselves otherwise.
+  const seats = teamMode
+    ? [{ page: player, member: hero }, ...guests
+        .map((g) => ({ page: g.page, member: others.find((m) => m.name === g.name) }))
+        .filter((seat) => seat.member.teamName !== hero.teamName)]
+    : [{ page: player, member: hero }, ...guests.map((g) => ({
+        page: g.page,
+        member: others.find((m) => m.name === g.name),
+      }))];
 
   await step("player lobby wait", () =>
     player.waitForSelector("text=Waiting for the host", { timeout: 10000 }),
@@ -439,18 +578,23 @@ async function runTriviaFlow({ teamMode }) {
   await player.waitForTimeout(500);
   await shot(player, mode, "player-round-intro");
 
-  // Round 1's media question was rewritten by attachSampleImage, so the
-  // answer the player types has to change with it.
-  const round1Answers = hasMedia
-    ? ROUND1_ANSWERS.map((a, i) =>
-        i === MEDIA_QUESTION_INDEX ? MEDIA_QUESTION.playerAnswer : a,
-      )
-    : ROUND1_ANSWERS;
-  const roundAnswers = [round1Answers, ROUND2_ANSWERS];
+  // Who the host accepts and who gets rejected, named so judgeAnswers can drive
+  // either review panel. In Team Play the names are the teams that answered.
+  const [saved, ...missed] = teamMode
+    ? seats.map((seat) => seat.member.teamName)
+    : seats.map((seat) => seat.member.name);
+  const judgement = {
+    accept: [saved, ...missed.slice(0, -1)],
+    bonusThenReject: missed.slice(-1),
+  };
+
+  const roundCount = hero.rounds.length;
   let firstRound = true;
 
-  for (let r = 0; r < roundAnswers.length; r++) {
-    const answers = roundAnswers[r];
+  for (let r = 0; r < roundCount; r++) {
+    // Round 1's media question was rewritten by attachSampleImage, so the
+    // answers everyone types have to change with it.
+    const answers = answersFor(hero, r, hasMedia);
 
     if (teamMode) {
       // ROUND_INTRO -> ANSWERING (whole round at once, no QUESTION_DISPLAY)
@@ -503,12 +647,20 @@ async function runTriviaFlow({ teamMode }) {
           await player.waitForTimeout(300);
         }
 
-        await step(`fill team answer ${q + 1}`, async () => {
-          const input = player.locator(`input[aria-label="Answer for question ${q + 1}"]`);
-          await input.fill(answers[q]);
-        });
+        // Every team types its own answer — teammates share one box, so one
+        // typist per team is all it takes.
+        for (const seat of seats) {
+          await seat.page.bringToFront();
+          await step(`fill ${seat.member.teamName} answer ${q + 1}`, async () => {
+            const input = seat.page.locator(`input[aria-label="Answer for question ${q + 1}"]`);
+            await input.fill(answersFor(seat.member, r, hasMedia)[q]);
+            await input.blur();
+          });
+          await seat.page.waitForTimeout(300);
+        }
+        await player.bringToFront();
       }
-      await player.waitForTimeout(700); // debounce + submit
+      await player.waitForTimeout(900); // debounce + submit
 
       if (firstRound) {
         // Mid-round, with a couple of questions revealed — the state the
@@ -538,7 +690,7 @@ async function runTriviaFlow({ teamMode }) {
         await shot(player, mode, "player-reviewing");
         await host.bringToFront();
       }
-      await bulkAcceptAllReviews(host);
+      await judgeAnswers(host, judgement);
       await host.waitForTimeout(300);
 
       await step("reveal scores", () => host.click('button:has-text("Reveal Scores")'));
@@ -554,13 +706,14 @@ async function runTriviaFlow({ teamMode }) {
         await player.bringToFront();
         await player.waitForTimeout(500);
         await shot(player, mode, "player-score-reveal");
+        await shotAnswerReveal({ presentation, player, audience }, mode);
         await host.bringToFront();
       }
 
       // SCORE_REVEAL always advances to ROUND_RESULTS via "End Round" — the
       // last round's actual end-game moment is one screen later, on
       // ROUND_RESULTS's own "End Game" button.
-      const isLastRound = r === roundAnswers.length - 1;
+      const isLastRound = r === roundCount - 1;
       await step("end round", () => host.click('button:has-text("End Round")'));
       await host.waitForTimeout(700);
       if (!isLastRound) {
@@ -645,10 +798,18 @@ async function runTriviaFlow({ teamMode }) {
         if (isFirstQuestionEver || isMediaQuestion) {
           await shot(player, mode, `player-answering${answeringSuffix}`);
         }
-        await step("player submit answer", async () => {
-          await player.fill("#answer-input", answers[q]);
-          await player.click('button[type="submit"]');
-        });
+        // Everyone answers — the guests first, so the hero page is the one
+        // left in front for its own screenshots.
+        for (const seat of [...seats].reverse()) {
+          await seat.page.bringToFront();
+          await step(`${seat.member.name} submit answer`, async () => {
+            await seat.page.waitForSelector("#answer-input", { timeout: 10000 });
+            await seat.page.fill("#answer-input", answersFor(seat.member, r, hasMedia)[q]);
+            await seat.page.click('button[type="submit"]');
+          });
+          await seat.page.waitForTimeout(300);
+        }
+        await player.bringToFront();
         await player.waitForTimeout(400);
         if (isFirstQuestionEver) await shot(player, mode, "player-submitted");
 
@@ -668,7 +829,7 @@ async function runTriviaFlow({ teamMode }) {
           await shot(player, mode, "player-reviewing");
           await host.bringToFront();
         }
-        await bulkAcceptAllReviews(host);
+        await judgeAnswers(host, judgement);
         await host.waitForTimeout(300);
 
         await step("reveal scores", () => host.click('button:has-text("Reveal Scores")'));
@@ -684,6 +845,7 @@ async function runTriviaFlow({ teamMode }) {
           await player.bringToFront();
           await player.waitForTimeout(400);
           await shot(player, mode, "player-score-reveal");
+          await shotAnswerReveal({ presentation, player, audience }, mode);
           await host.bringToFront();
         }
       }
@@ -691,7 +853,7 @@ async function runTriviaFlow({ teamMode }) {
       // SCORE_REVEAL always advances to ROUND_RESULTS via "End Round" — the
       // last round's actual end-game moment is one screen later, on
       // ROUND_RESULTS's own "End Game" button.
-      const isLastRound = r === roundAnswers.length - 1;
+      const isLastRound = r === roundCount - 1;
       await step("end round", () => host.click('button:has-text("End Round")'));
       await host.waitForTimeout(700);
       if (!isLastRound) {
@@ -1042,14 +1204,29 @@ async function runFlow(label, fn) {
   }
 }
 
-await runFlow("trivia-individual", () => runTriviaFlow({ teamMode: false }));
-await runFlow("trivia-team", () => runTriviaFlow({ teamMode: true }));
-await runFlow("bingo", () =>
-  runBingoFlow({ mode: "bingo", cardMode: "numbered", playerName: "Jamie" }),
-);
-await runFlow("bingo-phrases", () =>
-  runBingoFlow({ mode: "bingo-phrases", cardMode: "phrasePool", playerName: "Riley" }),
-);
-await runFlow("media", () => runMediaCatalogFlow());
+const FLOWS = {
+  "trivia-individual": () => runTriviaFlow({ teamMode: false }),
+  "trivia-team": () => runTriviaFlow({ teamMode: true }),
+  bingo: () => runBingoFlow({ mode: "bingo", cardMode: "numbered", playerName: "Jamie" }),
+  "bingo-phrases": () =>
+    runBingoFlow({ mode: "bingo-phrases", cardMode: "phrasePool", playerName: "Riley" }),
+  media: () => runMediaCatalogFlow(),
+};
+
+// Name flows on the command line to re-capture only those — handy when a
+// change touches one mode and re-running the full matrix is minutes of wall
+// clock for screenshots that wouldn't change. No arguments runs everything.
+const requested = process.argv.slice(2);
+const unknown = requested.filter((name) => !(name in FLOWS));
+if (unknown.length) {
+  throw new Error(
+    `Unknown flow(s): ${unknown.join(", ")}. Available: ${Object.keys(FLOWS).join(", ")}`,
+  );
+}
+const selected = requested.length ? requested : Object.keys(FLOWS);
+
+for (const name of selected) {
+  await runFlow(name, FLOWS[name]);
+}
 
 log("all done");

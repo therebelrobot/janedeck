@@ -213,6 +213,42 @@ export interface AnswerReview {
   submittedAt: number;
 }
 
+// === Answer Reveal (shown once a question closes) ===
+/**
+ * One distinct submitted answer, aggregated across everyone who gave it.
+ * Answers are grouped by their normalized form, so "the Nile" and "Nile "
+ * collapse into a single entry.
+ */
+export interface RevealedAnswer {
+  /** The submitted text, as the first submitter of this group typed it */
+  text: string;
+  /** Who said it — player display names, or team names in Team Play */
+  submitters: string[];
+  /** True when the host awarded bonus points for it — a fun answer, not a correct one */
+  isBonus: boolean;
+}
+
+/**
+ * Everything shown when a question's answer is revealed: the question, the
+ * answer that was being looked for, and what everyone actually said.
+ */
+export interface QuestionReveal {
+  questionId: string;
+  /** 1-based position within the round */
+  questionNumber: number;
+  questionText: string;
+  correctAnswer: string;
+  /** Alternates the host configured up front, before anyone answered */
+  acceptableAnswers: string[];
+  /**
+   * Submitted answers the host accepted that weren't already covered by
+   * `correctAnswer`/`acceptableAnswers` — the manual saves.
+   */
+  acceptedAnswers: RevealedAnswer[];
+  /** Submitted answers that didn't count, including the bonus-worthy ones */
+  rejectedAnswers: RevealedAnswer[];
+}
+
 // === Team Play ===
 /** A team of up to `settings.maxTeamSize` players sharing one answer per question */
 export interface Team {

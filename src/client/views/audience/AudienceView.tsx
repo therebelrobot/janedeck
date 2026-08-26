@@ -12,6 +12,7 @@ import { usePartySocket } from "../../hooks/usePartySocket";
 import { useGameStore } from "../../stores/gameStore";
 import { colors, spacing, radii, shadows } from "../../styles/theme";
 import { QuestionMedia } from "../../components/QuestionMedia";
+import { AnswerRevealPanel } from "../../components/AnswerReveal";
 import { AudienceLeaderboard } from "./AudienceLeaderboard";
 import { VoteInput } from "./VoteInput";
 
@@ -185,6 +186,7 @@ export function AudienceView(): React.ReactElement {
     roundQuestions,
     roundTitle,
     roundTotalQuestions,
+    answerReveal,
   } = gameStore;
 
   // Join screen
@@ -627,6 +629,38 @@ export function AudienceView(): React.ReactElement {
               </h3>
             </div>
           )}
+
+          {/* The answers, same as the players get — spectating is more fun
+              when you can see whether your armchair guess would have counted.
+              Team Play judges the round as a whole, so its answers stay up
+              through ROUND_RESULTS; individual play showed each one already. */}
+          {answerReveal &&
+            answerReveal.length > 0 &&
+            (gameState === "SCORE_REVEAL" ||
+              (gameState === "ROUND_RESULTS" && teamPlayEnabled)) && (
+              <section
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: spacing[3],
+                  marginBottom: spacing[4],
+                }}
+              >
+                <h3
+                  style={{
+                    fontFamily: "var(--font-display)",
+                    fontSize: "var(--text-lg)",
+                    fontWeight: 700,
+                    color: colors.correct,
+                    textAlign: "center",
+                    margin: 0,
+                  }}
+                >
+                  ✅ {answerReveal.length > 1 ? "The answers" : "The answer"}
+                </h3>
+                <AnswerRevealPanel reveals={answerReveal} variant="player" />
+              </section>
+            )}
 
           {/* BINGO_PLAYING / BINGO_ENDED — spectate-only: winners + activity feed, no card */}
           {(gameState === "BINGO_PLAYING" || gameState === "BINGO_ENDED") && (

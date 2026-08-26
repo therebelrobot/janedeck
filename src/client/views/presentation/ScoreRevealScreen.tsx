@@ -3,7 +3,14 @@
 // R5.4: High contrast colors for screen-sharing.
 import React from "react";
 import { motion, useReducedMotion } from "framer-motion";
-import type { ScoreEntry, ScoreChange, TeamScoreEntry, TeamScoreChange } from "@/shared/types";
+import type {
+  QuestionReveal,
+  ScoreEntry,
+  ScoreChange,
+  TeamScoreEntry,
+  TeamScoreChange,
+} from "@/shared/types";
+import { AnswerRevealPanel } from "../../components/AnswerReveal";
 import { Leaderboard } from "../../components/Leaderboard";
 import { TeamLeaderboard } from "../../components/TeamLeaderboard";
 import { colors, spacing, radii, shadows } from "../../styles/theme";
@@ -25,6 +32,12 @@ interface ScoreRevealScreenProps {
   /** Team Play only: when present, teams are shown as first-class rows instead of leaderboard/roundMVP */
   teamLeaderboard?: TeamScoreEntry[];
   teamScoreChanges?: TeamScoreChange[];
+  /**
+   * The question(s) that just closed, with their correct answers and what
+   * everyone said. Rendered alongside the leaderboard so the room gets the
+   * payoff before the scores move on.
+   */
+  answerReveal?: QuestionReveal[] | null;
 }
 
 /**
@@ -40,8 +53,15 @@ export function ScoreRevealScreen({
   roundMVP,
   teamLeaderboard,
   teamScoreChanges,
+  answerReveal,
 }: ScoreRevealScreenProps): React.ReactElement {
   const prefersReducedMotion = useReducedMotion();
+  const hasReveal = !!answerReveal && answerReveal.length > 0;
+  // A whole Team Play round needs room to tile into columns; a single question
+  // is happier staying compact. Kept narrow enough that reveal + leaderboard
+  // still sit side by side on a 1280-wide shared screen — wrapping there would
+  // push the scores below the fold, and a projected screen can't scroll.
+  const revealBasis = (answerReveal?.length ?? 0) > 1 ? 720 : 560;
 
   return (
     <div
@@ -145,43 +165,93 @@ export function ScoreRevealScreen({
         </motion.div>
       )}
 
-      {/* Leaderboard */}
-      <motion.div
-        initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 30 }}
-        animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
-        transition={
-          prefersReducedMotion
-            ? { duration: 0.01 }
-            : {
-                type: "spring",
-                stiffness: 200,
-                damping: 25,
-                delay: isRoundResults && roundMVP ? 0.4 : 0.2,
-              }
-        }
+      {/*
+        Answers and scores sit side by side where the shared screen is wide
+        enough for both, and stack on anything narrower. Without a reveal the
+        leaderboard keeps its original centered width.
+      */}
+      <div
         style={{
-          width: "100%",
-          maxWidth: "min(1000px, 90vw)",
           display: "flex",
+          flexWrap: "wrap",
+          alignItems: "flex-start",
           justifyContent: "center",
+          gap: spacing[8],
+          width: "100%",
+          maxWidth: hasReveal ? "min(1800px, 95vw)" : "min(1000px, 90vw)",
         }}
       >
-        {teamLeaderboard ? (
-          <TeamLeaderboard
-            entries={teamLeaderboard}
-            showChanges={!isRoundResults}
-            scoreChanges={teamScoreChanges}
-            maxDisplay={10}
-          />
-        ) : (
-          <Leaderboard
-            entries={leaderboard}
-            showChanges={!isRoundResults}
-            scoreChanges={scoreChanges}
-            maxDisplay={10}
-          />
+        {hasReveal && (
+          <motion.section
+            initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 30 }}
+            animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+            transition={
+              prefersReducedMotion
+                ? { duration: 0.01 }
+                : { type: "spring", stiffness: 200, damping: 25, delay: 0.1 }
+            }
+            style={{
+              flex: `1 1 min(100%, ${revealBasis}px)`,
+              minWidth: 0,
+              display: "flex",
+              flexDirection: "column",
+              gap: spacing[4],
+            }}
+          >
+            <h3
+              style={{
+                fontFamily: "var(--font-display)",
+                fontSize: "var(--text-2xl)",
+                fontWeight: 700,
+                color: colors.correct,
+                margin: 0,
+                textAlign: "center",
+              }}
+            >
+              ✅ {answerReveal.length > 1 ? "The Answers" : "The Answer"}
+            </h3>
+            <AnswerRevealPanel reveals={answerReveal} variant="presentation" />
+          </motion.section>
         )}
-      </motion.div>
+
+        {/* Leaderboard */}
+        <motion.div
+          initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 30 }}
+          animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+          transition={
+            prefersReducedMotion
+              ? { duration: 0.01 }
+              : {
+                  type: "spring",
+                  stiffness: 200,
+                  damping: 25,
+                  delay: isRoundResults && roundMVP ? 0.4 : 0.2,
+                }
+          }
+          style={{
+            flex: hasReveal ? "1 1 min(100%, 400px)" : "1 1 100%",
+            minWidth: 0,
+            display: "flex",
+            justifyContent: "center",
+          }}
+        >
+          {teamLeaderboard ? (
+            <TeamLeaderboard
+              entries={teamLeaderboard}
+              showChanges={!isRoundResults}
+              scoreChanges={teamScoreChanges}
+              maxDisplay={10}
+            />
+          ) : (
+            <Leaderboard
+              entries={leaderboard}
+              showChanges={!isRoundResults}
+              scoreChanges={scoreChanges}
+              maxDisplay={10}
+            />
+          )}
+        </motion.div>
+      </div>
     </div>
   );
 }

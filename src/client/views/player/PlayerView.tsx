@@ -381,6 +381,7 @@ export function PlayerView(): React.ReactElement {
     roundQuestions,
     roundTotalQuestions,
     roundAnswerDrafts,
+    answerReveal,
   } = gameStore;
 
   // Unmarked squares whose label another player currently has marked — glow hint.
@@ -411,6 +412,10 @@ export function PlayerView(): React.ReactElement {
   } = playerStore;
 
   const myTeam = teams.find((t) => t.id === teamId) ?? null;
+
+  // Whose answers to flag as "yours" in the reveal — the team answers as one
+  // in Team Play, so there the name to look for is the team's.
+  const myRevealName = teamPlayEnabled ? (myTeam?.name ?? null) : displayName;
 
   const handleAvatarChange = useCallback(
     (newSeed: string) => {
@@ -671,6 +676,13 @@ export function PlayerView(): React.ReactElement {
               playerId={playerId}
               leaderboard={leaderboard}
               isGameOver={false}
+              // Individual play already showed each answer at its own
+              // SCORE_REVEAL; Team Play judges the round as a whole, so its
+              // answers belong to the round-end screens too.
+              answerReveal={
+                gameState === "SCORE_REVEAL" || teamPlayEnabled ? answerReveal : null
+              }
+              myName={myRevealName}
             />
           )}
 

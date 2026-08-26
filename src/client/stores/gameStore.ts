@@ -5,6 +5,7 @@ import type {
   GameState,
   GameType,
   QuestionMedia,
+  QuestionReveal,
   ScoreEntry,
   ScoreChange,
   BingoSquare,
@@ -107,6 +108,14 @@ interface GameStoreState {
   /** Team Play: per-team round-answering progress, keyed by team ID */
   teamAnswerProgress: Record<string, TeamAnswerProgressEntry>;
 
+  /**
+   * The answers being looked for, plus what everyone actually said, for the
+   * question(s) that just closed. One entry in individual play, the whole
+   * round's worth in Team Play. Null until the host reveals scores, and
+   * cleared again as soon as the next question opens.
+   */
+  answerReveal: QuestionReveal[] | null;
+
   // Actions
   setGameState: (state: GameState) => void;
   setRoundIndex: (index: number) => void;
@@ -151,6 +160,7 @@ const initialState = {
   roundTotalQuestions: 0,
   roundAnswerDrafts: {} as Record<string, { text: string; submittedBy: string }>,
   teamAnswerProgress: {} as Record<string, TeamAnswerProgressEntry>,
+  answerReveal: null as QuestionReveal[] | null,
 };
 
 export const useGameStore = create<GameStoreState>((set) => ({
@@ -193,6 +203,15 @@ export const useGameStore = create<GameStoreState>((set) => ({
         if (message.payload.state !== "ANSWERING") {
           set({ timerSeconds: null });
         }
+        // Drop the previous reveal the moment play resumes, so a stale
+        // correct answer can never sit on screen next to a live question.
+        if (
+          message.payload.state === "ROUND_INTRO" ||
+          message.payload.state === "QUESTION_DISPLAY" ||
+          message.payload.state === "ANSWERING"
+        ) {
+          set({ answerReveal: null });
+        }
         // Clear question data when returning to lobby
         if (message.payload.state === "LOBBY") {
           set({
@@ -203,6 +222,7 @@ export const useGameStore = create<GameStoreState>((set) => ({
             roundQuestions: null,
             roundTotalQuestions: 0,
             roundAnswerDrafts: {},
+            answerReveal: null,
           });
         }
         break;
@@ -338,6 +358,10 @@ export const useGameStore = create<GameStoreState>((set) => ({
             maxTeamSize: message.payload.gameSettings.maxTeamSize,
           });
         }
+        break;
+
+      case "ANSWER_REVEAL":
+        set({ answerReveal: message.payload.questions });
         break;
 
       case "TIMER_TICK":

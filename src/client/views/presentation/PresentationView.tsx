@@ -231,6 +231,7 @@ export function PresentationView(): React.ReactElement {
     roundTitle: teamRoundTitle,
     roundQuestions,
     roundTotalQuestions,
+    answerReveal,
   } = gameStore;
 
   // Background color based on game state
@@ -379,6 +380,7 @@ export function PresentationView(): React.ReactElement {
               scoreChanges={scoreChanges}
               teamLeaderboard={teamPlayEnabled ? teamLeaderboard : undefined}
               teamScoreChanges={teamPlayEnabled ? teamScoreChanges : undefined}
+              answerReveal={answerReveal}
             />
           )}
 
@@ -392,6 +394,11 @@ export function PresentationView(): React.ReactElement {
               roundIndex={roundIndex}
               isRoundResults
               roundMVP={roundMVP}
+              // Team Play judges the round as a whole, so its answers belong to
+              // this screen too. Individual play already showed each answer at
+              // its own SCORE_REVEAL — repeating the last one here would read
+              // as if it were the round's only question.
+              answerReveal={teamPlayEnabled ? answerReveal : null}
             />
           )}
 
@@ -944,7 +951,7 @@ function DynamicBackground({
   const [c1, c2, c3] = orbColors;
   const transition = prefersReducedMotion
     ? { duration: 0 }
-    : { duration: 1.8, ease: "easeInOut" };
+    : { duration: 1.8, ease: "easeInOut" as const };
 
   return (
     <div className="presentation-bg" aria-hidden="true">

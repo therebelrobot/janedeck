@@ -125,6 +125,9 @@ export function GameCreator(): React.ReactElement {
 
   // Game settings
   const [allowAudience, setAllowAudience] = useState(false);
+  // Whether players see the answer reveal after a question/round closes.
+  // The presentation screen always shows it; this is the phone-side copy.
+  const [showAnswersToPlayers, setShowAnswersToPlayers] = useState(true);
   const [defaultTimeLimit, setDefaultTimeLimit] = useState(DEFAULT_TIME_LIMIT);
   const [defaultBonus, setDefaultBonus] = useState(DEFAULT_BONUS_POINTS);
   const [maxPlayers, setMaxPlayers] = useState(16);
@@ -506,9 +509,9 @@ export function GameCreator(): React.ReactElement {
         settings: {
           maxPlayers,
           allowAudience,
+          showAnswersToPlayers,
           audienceBonusPoints: defaultBonus,
           defaultTimeLimit,
-          showAnswersToPlayers: true,
           teamPlayEnabled,
           maxTeamSize,
         },
@@ -537,7 +540,7 @@ export function GameCreator(): React.ReactElement {
 
     // Trigger reconnect to the real game-code room
     setSocketGameCode(code);
-  }, [token, allowAudience, defaultBonus, defaultTimeLimit, maxPlayers, teamPlayEnabled, maxTeamSize, rounds]);
+  }, [token, allowAudience, showAnswersToPlayers, defaultBonus, defaultTimeLimit, maxPlayers, teamPlayEnabled, maxTeamSize, rounds]);
 
   return (
     <motion.div
@@ -841,6 +844,34 @@ export function GameCreator(): React.ReactElement {
                 }}
               />
               Enable audience participation
+            </label>
+          </div>
+
+          {/* Answer reveal toggle */}
+          <div style={{ display: "flex", alignItems: "center", gap: spacing[3] }}>
+            <label
+              htmlFor="show-answers-to-players"
+              style={{
+                fontSize: "var(--text-sm)",
+                cursor: "pointer",
+                display: "flex",
+                alignItems: "center",
+                gap: spacing[2],
+              }}
+            >
+              <input
+                id="show-answers-to-players"
+                type="checkbox"
+                checked={showAnswersToPlayers}
+                onChange={(e) => setShowAnswersToPlayers(e.target.checked)}
+                style={{
+                  width: 20,
+                  height: 20,
+                  minHeight: "auto",
+                  accentColor: colors.primary,
+                }}
+              />
+              Show answers on player phones
             </label>
           </div>
 

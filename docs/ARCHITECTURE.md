@@ -548,6 +548,35 @@ interface ServerMessage {
 | `QUESTION_SHOW` | presentation, players, audience | `{ questionId, text, type, choices?, pointValue, timeLimit, questionNumber, totalQuestions }` |
 | `QUESTION_SHOW_FULL` | host | Same as above plus `{ correctAnswer, acceptableAnswers }` |
 
+#### Answer Reveal Messages
+
+| Type | Sent To | Payload |
+|---|---|---|
+| `ANSWER_REVEAL` | host, presentation; players/audience only when `settings.showAnswersToPlayers` | `{ roundIndex, questions: QuestionReveal[] }` |
+
+Broadcast on entry to `SCORE_REVEAL`, and replayed to any client that connects
+during `SCORE_REVEAL`/`ROUND_RESULTS`. Individual play carries the one question
+just played; Team Play carries every question the round revealed, since judging
+there happens for the whole round at once.
+
+```typescript
+interface QuestionReveal {
+  questionId: string;
+  questionNumber: number;      // 1-based within the round
+  questionText: string;
+  correctAnswer: string;
+  acceptableAnswers: string[]; // alternates configured up front
+  acceptedAnswers: RevealedAnswer[]; // host's manual saves, not already listed above
+  rejectedAnswers: RevealedAnswer[]; // misses, with host-bonused ones flagged
+}
+
+interface RevealedAnswer {
+  text: string;         // first spelling seen for this normalized group
+  submitters: string[]; // player names, or team names in Team Play
+  isBonus: boolean;     // host awarded bonus points for it
+}
+```
+
 #### Host-Only Messages
 
 | Type | Payload | Description |

@@ -36,6 +36,12 @@ export function LobbyScreen({
 }: LobbyScreenProps): React.ReactElement {
   const prefersReducedMotion = useReducedMotion();
 
+  // Once there's a roster to show — teams forming, or players streaming in —
+  // the vertical rhythm tightens to make room for it. At full size a lobby
+  // with three or more teams pushes the team cards off the bottom of the
+  // shared screen, and a projected screen can't scroll down to reach them.
+  const compact = teamPlayEnabled ? teams.length > 1 : players.length > 8;
+
   return (
     <div
       style={{
@@ -43,7 +49,7 @@ export function LobbyScreen({
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        gap: spacing[8],
+        gap: compact ? spacing[4] : spacing[8],
         width: "100%",
         minHeight: "80vh",
       }}
@@ -59,7 +65,7 @@ export function LobbyScreen({
         }
         style={{
           fontFamily: "var(--font-display)",
-          fontSize: "clamp(3rem, 8vw, 8rem)",
+          fontSize: compact ? "clamp(2rem, 5vw, 4.5rem)" : "clamp(3rem, 8vw, 8rem)",
           fontWeight: 700,
           color: colors.secondary,
           textShadow: "0 0 60px rgba(236, 72, 153, 0.6), 0 0 120px rgba(236, 72, 153, 0.2)",
@@ -71,7 +77,7 @@ export function LobbyScreen({
       </motion.h1>
 
       {/* Game code display */}
-      <GameCodeDisplay gameCode={gameCode} />
+      <GameCodeDisplay gameCode={gameCode} compact={compact} />
 
       {/* Player count */}
       <motion.div
@@ -91,7 +97,7 @@ export function LobbyScreen({
         <span
           style={{
             fontFamily: "var(--font-display)",
-            fontSize: "clamp(1.5rem, 3vw, 3rem)",
+            fontSize: compact ? "clamp(1.25rem, 2vw, 2rem)" : "clamp(1.5rem, 3vw, 3rem)",
             fontWeight: 700,
             color: colors.primaryLight,
           }}
