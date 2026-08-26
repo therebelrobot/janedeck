@@ -14,6 +14,7 @@ Players join from their phones, the host controls (or, for Bingo, simply starts/
   - **Presentation** — screen-share view for video calls (TV/projector)
   - **Player** — mobile-first interface for answering questions or marking a bingo card (phone)
   - **Audience** — spectator mode with reactions (phone)
+- **Spreadsheet authoring** — write a whole quiz in Google Sheets from a [downloadable template](docs/templates/), export one CSV, import, and run. Games export back out the same way, so a quiz is a file you can keep, edit and share
 - **Question images** — hosts can attach an image to any trivia question, present it in a frame (Polaroid, TV screen, 35mm slide, gallery frame, phone screen) and stack filters over it (black & white, sepia, halftone, film grain, vignette, VHS, blur, pixelate). Stored in Cloudflare R2, shown on the presentation screen and every player's phone alongside the question. Audio and video are architected for but not enabled yet — see [Question Media](#question-media).
 - **Real-time** WebSocket communication via PartyServer
 - **In-app notifications** — toasts and synthesized sound effects (mutable) for marks, wins, and other live events, so players don't need to be watching the shared presentation screen
@@ -157,6 +158,54 @@ The dev server starts Vite with the Cloudflare plugin, serving both the WebSocke
 9. Marks and wins are announced live (toast + sound, mutable via the in-app sound toggle) so players don't need to watch the shared screen
 10. **Host** ends the game when ready — multiple players can complete multiple patterns before then
 
+## Write It in a Spreadsheet, Import, Run
+
+Typing a whole quiz into the browser form works, but it isn't the nicest way to write one. The form is best for tweaks; a spreadsheet is best for authoring. Write the questions in Google Sheets (or Excel, or Numbers), export one CSV, import it, hit **Start Game**.
+
+**1. Grab a template** — these are the same files the app's *Download Template* button produces:
+
+| Template | |
+|---|---|
+| [`janedeck-trivia-template.csv`](docs/templates/janedeck-trivia-template.csv) | Rounds, questions, answers, timings, and picture-round columns |
+| [`janedeck-bingo-template.csv`](docs/templates/janedeck-bingo-template.csv) | Card settings, win patterns, and a 24-phrase pool |
+
+On GitHub, open the file and use the **Download raw file** button (⤓, top-right of the file view).
+
+**2. Open it in Google Sheets** — *File → Import → Upload*, choose **Replace spreadsheet**, and leave the separator on *Detect automatically*. Keep the header row: it tells you what every column accepts, e.g.
+
+> `Media Frame (none, polaroid, tv, slide, gallery or phone)`
+
+**3. Write your quiz.** Rows sharing a **Round Name** become one round, in the order they appear. Delete the example rows when you're done with them, and delete any column you don't need — every column except *Round Name*, *Question* and *Correct Answer* is optional.
+
+**4. Download as CSV** — *File → Download → Comma-separated values (.csv)*.
+
+**5. Import and run** — *Host → Trivia → 📥 Import CSV*, then **Start Game**. The import is also remembered in your browser, so you can close the tab and pick up where you left off without re-uploading.
+
+<table>
+<tr>
+<td align="center"><b>Imported and ready</b></td>
+<td align="center"><b>Running it</b></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/trivia-individual/host-create-filled.png" width="400"></td>
+<td><img src="docs/screenshots/trivia-individual/presentation-answering.png" width="400"></td>
+</tr>
+</table>
+
+### Two things a spreadsheet can't do
+
+**Images.** A CSV carries a *reference* to an image, not the image itself — see [Question Media](#question-media). Add pictures on the question after importing, and if you export afterwards the reference travels with the sheet.
+
+**Beat Google Sheets' autocorrect.** Sheets reformats things that look like numbers or dates, which occasionally mangles an answer on the way out:
+
+| You type | Sheets stores | Fix |
+|---|---|---|
+| `3/4` | `3/4/2026` | Format the column as *Plain text* (*Format → Number → Plain text*) before typing |
+| `007` | `7` | Same, or prefix with an apostrophe: `'007` |
+| `=MC²` | a broken formula | Prefix with an apostrophe: `'=MC²` |
+
+Formatting the whole sheet as plain text before you start avoids all three. It's worth a quick skim of the exported CSV before importing — and the importer will tell you about any row it couldn't read rather than dropping it silently.
+
 ## Architecture
 
 See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full system design.
@@ -213,6 +262,15 @@ See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the full system design.
 ## Project Structure
 
 ```
+docs/
+├── ARCHITECTURE.md          # Design document
+├── screenshots/             # Every screen and state, by game mode (npm run capture:screenshots)
+└── templates/               # Downloadable CSV templates (npm run templates)
+
+scripts/
+├── capture-screenshots.mjs  # Playwright capture of every role x state
+└── write-templates.mjs      # Generates docs/templates/ from src/client/utils/csv.ts
+
 src/
 ├── shared/                  # Shared types, messages, constants
 │   ├── types.ts             # TypeScript interfaces (Game, Player, Answer, BingoCard, etc.)
@@ -295,7 +353,12 @@ npm run deploy
 
 # Re-capture every README screenshot with Playwright (needs `npm run dev` running in another terminal)
 npm run capture:screenshots
+
+# Regenerate the downloadable CSV templates in docs/templates/
+npm run templates
 ```
+
+`npm run templates` writes `docs/templates/*.csv` from the very functions the app's *Download Template* buttons call, so the files people download from GitHub can't drift from what the app produces. Run it after changing anything in `src/client/utils/csv.ts` — CI re-runs it and fails if the committed files come out different.
 
 The capture script drives five flows — trivia individual, trivia team, bingo numbered, bingo phrase pool, and a media catalog — writing to `docs/screenshots/<flow>/`. Both trivia flows attach an image to one question, so every question screen is captured twice: plain, and with media (`-media` suffix).
 
@@ -718,6 +781,12 @@ Media travels through the CSV alongside every other question setting, in nine co
 | `Media Caption` | `Paris, 1962` | Printed on frames that have a caption slot |
 
 Every media column is optional. A sheet written by hand, or one exported before this feature existed, imports exactly as it always did.
+
+The same template is downloadable straight from this repo — [`docs/templates/janedeck-trivia-template.csv`](docs/templates/janedeck-trivia-template.csv) — and there's a walkthrough of the spreadsheet workflow in [Write It in a Spreadsheet, Import, Run](#write-it-in-a-spreadsheet-import-run).
+
+**Download Template** writes the accepted values into the header row itself — `Media Frame (none, polaroid, tv, slide, gallery or phone)` and so on — plus a worked "Picture Round" showing filled-in media columns. Imports strip those hints, so a template can be filled in and imported straight back. Exports keep the plain header names.
+
+The one column you can't author by hand is `Media ID`: it identifies a file already uploaded to this server. Add the image on the question in the app, then **Export CSV** and the real id lands in that column. The template's picture rows are switched off (`Media` = `no`) for exactly that reason — they show the shape without pointing at a file that doesn't exist.
 
 **A CSV carries the reference, not the file.** The image itself lives in R2, so a sheet imported onto a server that never had the upload — a fresh instance, another host's machine — points at something that isn't there. The host pages handle that rather than letting the room find out on the projector:
 

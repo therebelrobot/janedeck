@@ -18,7 +18,8 @@
     "release:tags": "git tag --sort=-v:refname | grep '^v'",
     "wrangler:login": "wrangler login",
     "wrangler:logout": "wrangler logout",
-    "capture:screenshots": "node scripts/capture-screenshots.mjs"
+    "capture:screenshots": "node scripts/capture-screenshots.mjs",
+    "templates": "node scripts/write-templates.mjs"
   },
   "keywords": [
     "partyserver",

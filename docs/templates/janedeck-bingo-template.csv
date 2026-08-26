@@ -1,0 +1,32 @@
+﻿"Type (Setting, FreeSpace or Phrase)","Name (the setting's name, or the phrase text on Phrase/FreeSpace rows)",Value (the setting's value; leave blank on Phrase/FreeSpace rows),Definition (optional clarification players can expand; ignored on Setting rows)
+Setting,maxPlayers,16,"a whole number, 1-100"
+Setting,cardMode,phrasePool,numbered or phrasePool
+Setting,numberRange,75,"highest number on a numbered card, 25-999 (classic bingo: 75)"
+Setting,gridSize,5,card is gridSize x gridSize; 5 is the only supported value
+Setting,freeSpace,true,true or false — a free centre square
+Setting,winPatterns,line;four_corners;blackout,"any of line, four_corners, blackout; separate with semicolons"
+FreeSpace,"Someone yells ""BINGO!"" before checking their card",,House rule — they still have to verify it
+Phrase,"Someone says ""I love this movie""",,
+Phrase,A character cries on screen,,A single tear counts
+Phrase,Someone quotes the movie before it happens,,
+Phrase,Someone pauses for a bathroom break,,
+Phrase,A phone rings at the worst possible moment,,
+Phrase,Someone falls asleep,,
+Phrase,A jump scare makes someone yell,,Horror movies only
+Phrase,"Someone asks ""wait, what just happened?""",,
+Phrase,A character does something obviously stupid,,
+Phrase,Someone laughs way too hard,,
+Phrase,A plot hole gets pointed out out loud,,
+Phrase,Someone checks their phone mid-scene,,
+Phrase,A villain monologues,,
+Phrase,Someone predicts the twist correctly,,
+Phrase,A dramatic slow-motion shot happens,,
+Phrase,The hero says a one-liner after a fight,,
+Phrase,"Someone says ""that's not how that works""",,A nod to scientific inaccuracy
+Phrase,A character has an obvious fake mustache or wig,,
+Phrase,The music swells before a big reveal,,
+Phrase,Someone refills their snacks,,
+Phrase,A callback joke to earlier in the movie lands,,
+Phrase,Someone says the movie's title out loud,,
+Phrase,A character ignores obviously good advice,,
+Phrase,"Credits roll and someone asks ""is there a post-credits scene?""",,

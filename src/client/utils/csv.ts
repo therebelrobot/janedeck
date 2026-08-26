@@ -150,6 +150,66 @@ function parseCSV(raw: string): string[][] {
   return rows;
 }
 
+// ─── Template header hints ────────────────────────────────────────────────────
+//
+// The downloaded template annotates each header with the values that column
+// accepts, because several of them (frame, filters, the yes/no switch) have a
+// closed vocabulary that example rows alone can't convey. Exports keep the
+// plain header names; only the template carries the hints.
+//
+// Imports accept either form — `normalizeHeader` strips a trailing
+// parenthetical before matching — so a template can be filled in and imported
+// straight back without editing the header row.
+
+const CSV_HEADER_HINTS: Partial<Record<(typeof CSV_HEADERS)[number], string>> = {
+  "Round Name": "required; rows sharing a name form one round",
+  "Round Points": "points per question in this round, 1-1000",
+  Question: "required",
+  "Correct Answer": "required",
+  "Acceptable Answers": "also marked correct; separate with semicolons",
+  "Time Limit (seconds)": "seconds, 5-300",
+  Media: "yes or no; leave blank for no image",
+  "Media File": "the original filename, for your reference",
+  "Media ID": "comes from the app: add the image on the question, then Export CSV",
+  "Media Kind": "image",
+  "Media Frame": "none, polaroid, tv, slide, gallery or phone",
+  "Media Filters":
+    "separate with semicolons: bw, sepia, halftone, grain, vignette, vhs, blur, pixelate",
+  "Media Intensity": "0-100; only blur and pixelate use it",
+  "Media Alt": "describes the image for players using a screen reader",
+  "Media Caption": "printed on the polaroid, slide and gallery frames",
+};
+
+/**
+ * Compare header cells by their base name, ignoring case and any trailing
+ * parenthetical. "Time Limit (seconds)", "time limit" and
+ * "Time Limit (seconds, 5-300)" all match each other.
+ */
+function normalizeHeader(header: string): string {
+  return header
+    .trim()
+    .toLowerCase()
+    .replace(/\s*\([^)]*\)\s*$/, "")
+    .trim();
+}
+
+/** A header cell for the template: the plain name plus its hint. */
+function templateHeader(header: (typeof CSV_HEADERS)[number]): string {
+  const hint = CSV_HEADER_HINTS[header];
+  if (!hint) return header;
+  const base = header.replace(/\s*\([^)]*\)\s*$/, "").trim();
+  return `${base} (${hint})`;
+}
+
+/**
+ * Stand-in for a real media id in the template. Deliberately self-describing
+ * rather than a realistic-looking token: a host can't invent an id, and this
+ * says where the real one comes from. It is a valid id *shape*, so switching
+ * the row's "Media" to yes without replacing it lands in the app's normal
+ * "this image isn't on the server — upload it" state rather than an error.
+ */
+const MEDIA_ID_PLACEHOLDER = "REPLACE_WITH_ID_FROM_EXPORT";
+
 /** Number of media columns, and a blank run for template rows */
 const MEDIA_COLUMN_COUNT = 9;
 const EMPTY_MEDIA_CELLS: string[] = Array(MEDIA_COLUMN_COUNT).fill("");
@@ -217,7 +277,9 @@ export function gameToCSV(rounds: RoundEditorData[]): string {
 export function templateCSV(): string {
   const lines: string[] = [];
 
-  lines.push(toCSVRow([...CSV_HEADERS]));
+  // Headers carry their accepted values — see CSV_HEADER_HINTS. Imports strip
+  // the hints, so this file can be filled in and imported back as-is.
+  lines.push(toCSVRow(CSV_HEADERS.map(templateHeader)));
 
   // Example Round 1: General Knowledge
   lines.push(
@@ -264,6 +326,51 @@ export function templateCSV(): string {
       "avatar",
       "30",
       ...EMPTY_MEDIA_CELLS,
+    ]),
+  );
+
+  // Example Round 3: a picture round, showing what filled-in media columns
+  // look like. Both rows are switched off ("Media" = no) because the image
+  // itself can't come from a spreadsheet — "Media ID" identifies a file
+  // already uploaded to this server. The workflow is: add the image on the
+  // question in the app, Export CSV, and the real id lands in this column.
+  // Until then these rows import as ordinary questions with no image.
+  lines.push(
+    toCSVRow([
+      "Picture Round",
+      "150",
+      "What breed is the cat in this picture?",
+      "Tabby",
+      "tabby; brown tabby",
+      "30",
+      "no",
+      "office-cat.jpg",
+      MEDIA_ID_PLACEHOLDER,
+      "image",
+      "polaroid",
+      "sepia; grain",
+      "40",
+      "A tabby cat looking straight at the camera",
+      "The office cat, 2026",
+    ]),
+  );
+  lines.push(
+    toCSVRow([
+      "Picture Round",
+      "150",
+      "Which landmark is hiding behind the pixels?",
+      "The Eiffel Tower",
+      "eiffel tower; la tour eiffel",
+      "45",
+      "no",
+      "landmark.jpg",
+      MEDIA_ID_PLACEHOLDER,
+      "image",
+      "none",
+      "pixelate",
+      "70",
+      "A heavily pixelated photograph of a landmark",
+      "",
     ]),
   );
 
@@ -365,9 +472,11 @@ export function csvToGame(csvContent: string): CSVImportResult {
 
   // Validate header row
   const headerRow = rows[0];
-  const normalizedHeaders = headerRow.map((h) => h.trim().toLowerCase());
+  // Both sides go through normalizeHeader, so an annotated template header
+  // ("Media Frame (none, polaroid, …)") matches the plain name it documents.
+  const normalizedHeaders = headerRow.map(normalizeHeader);
 
-  const expectedHeaders = CSV_HEADERS.map((h) => h.toLowerCase());
+  const expectedHeaders = CSV_HEADERS.map(normalizeHeader);
 
   // Check that we have at least the required columns by matching header names
   const roundNameIdx = normalizedHeaders.findIndex(
@@ -682,6 +791,36 @@ export function leaderboardToCSV(
 
 const BINGO_CSV_HEADERS = ["Type", "Name", "Value", "Definition"] as const;
 
+/**
+ * What each bingo column accepts, for the downloaded template's header row.
+ * Same mechanism as the trivia template: imports strip the parenthetical, so
+ * an annotated template can be filled in and imported straight back.
+ */
+const BINGO_HEADER_HINTS: Record<(typeof BINGO_CSV_HEADERS)[number], string> = {
+  Type: "Setting, FreeSpace or Phrase",
+  Name: "the setting's name, or the phrase text on Phrase/FreeSpace rows",
+  Value: "the setting's value; leave blank on Phrase/FreeSpace rows",
+  Definition:
+    "optional clarification players can expand; ignored on Setting rows",
+};
+
+/**
+ * Accepted values for each setting, written into the template's unused
+ * Definition cell so every option is visible in the file itself. Setting rows
+ * ignore that column on import, so these are notes, not data.
+ */
+const BINGO_SETTING_HINTS: Record<
+  (typeof BINGO_SETTING_KEYS)[number],
+  string
+> = {
+  maxPlayers: "a whole number, 1-100",
+  cardMode: "numbered or phrasePool",
+  numberRange: "highest number on a numbered card, 25-999 (classic bingo: 75)",
+  gridSize: "card is gridSize x gridSize; 5 is the only supported value",
+  freeSpace: "true or false — a free centre square",
+  winPatterns: "any of line, four_corners, blackout; separate with semicolons",
+};
+
 const BINGO_SETTING_KEYS = [
   "maxPlayers",
   "cardMode",
@@ -749,10 +888,21 @@ export function bingoTemplateCSV(): string {
   };
 
   const lines: string[] = [];
-  lines.push(toCSVRow([...BINGO_CSV_HEADERS]));
+  lines.push(
+    toCSVRow(
+      BINGO_CSV_HEADERS.map((header) => `${header} (${BINGO_HEADER_HINTS[header]})`),
+    ),
+  );
 
   for (const key of BINGO_SETTING_KEYS) {
-    lines.push(toCSVRow(["Setting", key, settingValueToString(key, exampleSettings), ""]));
+    lines.push(
+      toCSVRow([
+        "Setting",
+        key,
+        settingValueToString(key, exampleSettings),
+        BINGO_SETTING_HINTS[key],
+      ]),
+    );
   }
 
   if (exampleSettings.freeSpacePhrase) {
@@ -820,8 +970,9 @@ export function csvToBingoSettingsAndPhrases(csvContent: string): BingoCSVImport
     return { settings, phrases, warnings, errors };
   }
 
-  // Skip the header row if present
-  const firstCell = (rows[0][0] || "").trim().toLowerCase();
+  // Skip the header row if present. normalizeHeader so the annotated template
+  // header ("Type (Setting, FreeSpace or Phrase)") is recognised too.
+  const firstCell = normalizeHeader(rows[0][0] || "");
   const startIndex = firstCell === "type" ? 1 : 0;
 
   for (let i = startIndex; i < rows.length; i++) {

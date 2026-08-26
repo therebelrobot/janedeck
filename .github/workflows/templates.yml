@@ -1,0 +1,46 @@
+name: CSV templates are current
+
+# docs/templates/*.csv are downloadable from the README, and are generated from
+# the same functions the app's "Download Template" buttons call. This fails the
+# build if someone changes src/client/utils/csv.ts without running
+# `npm run templates`, so the files people download can't drift from what the
+# app actually produces.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Regenerate templates
+        run: npm run templates
+
+      - name: Fail if the committed templates are out of date
+        run: |
+          # --porcelain rather than `git diff`, so a template that was never
+          # committed (untracked) or was deleted is caught too, not just an
+          # edit to a tracked file.
+          STATUS="$(git status --porcelain -- docs/templates)"
+          if [ -n "$STATUS" ]; then
+            echo "::error::docs/templates/ is out of date. Run 'npm run templates' and commit the result."
+            echo "$STATUS"
+            git diff -- docs/templates
+            exit 1
+          fi
+          echo "Templates match the generator."
