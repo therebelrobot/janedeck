@@ -1,0 +1,571 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>JaneDeck — shared screen at scale</title>
+<style>
+  :root { color-scheme: dark; --bg:#0f172a; --card:#1e293b; --line:#334155; --text:#f1f5f9; --dim:#94a3b8; }
+  body { margin:0; padding:2rem; background:var(--bg); color:var(--text);
+         font:14px/1.5 system-ui, -apple-system, sans-serif; }
+  h1 { margin:0 0 .25rem; font-size:1.6rem; }
+  .stamp { color:var(--dim); margin:0 0 2rem; max-width:60ch; }
+  table { border-collapse:collapse; margin-bottom:3rem; min-width:min(900px,100%); }
+  th, td { text-align:left; padding:.5rem .9rem; border-bottom:1px solid var(--line); }
+  th { color:var(--dim); font-weight:600; }
+  a { color:#60a5fa; }
+  article { border-top:2px solid var(--line); padding-top:1.5rem; margin-bottom:3rem; }
+  h2 { font-size:1.25rem; margin:0 0 1rem; }
+  h3 { font-size:.8rem; text-transform:uppercase; letter-spacing:.08em; color:var(--dim);
+       margin:1.5rem 0 .6rem; }
+  .row { display:flex; gap:1rem; flex-wrap:wrap; }
+  figure { margin:0; background:var(--card); border:1px solid var(--line); border-radius:.6rem;
+           padding:.6rem; flex:1 1 320px; max-width:520px; }
+  img { width:100%; display:block; border-radius:.35rem; background:#000; }
+  img.tall { max-height:70vh; object-fit:contain; object-position:top; }
+  figcaption { padding-top:.5rem; color:var(--dim); font-size:.8rem; }
+  .ok { color:#22c55e; } .bad { color:#ef4444; }
+  .notes { color:var(--dim); font-family:ui-monospace, monospace; font-size:.72rem; }
+  .noshot { padding:3rem 0; text-align:center; color:var(--dim); }
+  .lead { color:var(--dim); margin:2rem 0 0; padding-top:1rem; border-top:1px dashed var(--line); }
+</style>
+<h1>Shared screen at scale</h1>
+<p class="stamp">2026-08-27 15:50 UTC · every screen, at every display size, for every crowd.
+“Rung” is the step of its layout ladder a roster settled on — 0 is the boldest, and a
+higher number means it had to tighten to fit. Regenerate with <code>npm run load-test</code>.</p>
+<table>
+  <tr><th>Crowd</th><th>Teams</th><th>Joined</th><th>Host review queue</th><th>Shared screen</th></tr>
+  <tr>
+        <td><a href="#scale-4p-teams-of-2">4 players · teams of 2</a></td>
+        <td>2</td>
+        <td>4/4 in 0.1s</td>
+        <td>Accept All Remaining (3)</td>
+        <td class="ok">all fit</td>
+      </tr><tr>
+        <td><a href="#scale-12p-teams-of-4">12 players · teams of 4</a></td>
+        <td>3</td>
+        <td>12/12 in 0.1s</td>
+        <td>Accept All Remaining (6)</td>
+        <td class="ok">all fit</td>
+      </tr><tr>
+        <td><a href="#scale-32p-teams-of-4">32 players · teams of 4</a></td>
+        <td>8</td>
+        <td>32/32 in 0.3s</td>
+        <td>Accept All Remaining (21)</td>
+        <td class="bad">3 clipped</td>
+      </tr><tr>
+        <td><a href="#scale-68p-teams-of-4">68 players · teams of 4</a></td>
+        <td>17</td>
+        <td>68/68 in 0.9s</td>
+        <td>Accept All Remaining (48)</td>
+        <td class="ok">all fit</td>
+      </tr><tr>
+        <td><a href="#scale-100p-teams-of-4">100 players · teams of 4</a></td>
+        <td>25</td>
+        <td>100/100 in 1.5s</td>
+        <td>Accept All Remaining (72)</td>
+        <td class="ok">all fit</td>
+      </tr><tr>
+        <td><a href="#scale-68p-individual">68 players · individual</a></td>
+        <td>—</td>
+        <td>68/68 in 0.7s</td>
+        <td>—</td>
+        <td class="bad">3 clipped</td>
+      </tr>
+</table>
+<article id="scale-4p-teams-of-2">
+      <h2>4 players · teams of 2</h2>
+      <p class="lead">Shared screen — fixed height, cannot scroll.</p>
+      <section><h3>lobby</h3><div class="row"><figure>
+          <a href="4p-teams-of-2/lobby-1920x1080.png" target="_blank"><img src="4p-teams-of-2/lobby-1920x1080.png" loading="lazy" alt="lobby at 1920×1080"></a>
+          <figcaption><b>projector</b> 1920×1080<br><span class="ok">fits</span><br><span class="notes">rung 0</span></figcaption>
+        </figure><figure>
+          <a href="4p-teams-of-2/lobby-1366x768.png" target="_blank"><img src="4p-teams-of-2/lobby-1366x768.png" loading="lazy" alt="lobby at 1366×768"></a>
+          <figcaption><b>conf room</b> 1366×768<br><span class="ok">fits</span><br><span class="notes">rung 1</span></figcaption>
+        </figure><figure>
+          <a href="4p-teams-of-2/lobby-1280x800.png" target="_blank"><img src="4p-teams-of-2/lobby-1280x800.png" loading="lazy" alt="lobby at 1280×800"></a>
+          <figcaption><b>laptop share</b> 1280×800<br><span class="ok">fits</span><br><span class="notes">rung 0</span></figcaption>
+        </figure></div></section><section><h3>answering</h3><div class="row"><figure>
+          <a href="4p-teams-of-2/answering-1920x1080.png" target="_blank"><img src="4p-teams-of-2/answering-1920x1080.png" loading="lazy" alt="answering at 1920×1080"></a>
+          <figcaption><b>projector</b> 1920×1080<br><span class="ok">fits</span><br><span class="notes">rung 0</span></figcaption>
+        </figure><figure>
+          <a href="4p-teams-of-2/answering-1366x768.png" target="_blank"><img src="4p-teams-of-2/answering-1366x768.png" loading="lazy" alt="answering at 1366×768"></a>
+          <figcaption><b>conf room</b> 1366×768<br><span class="ok">fits</span><br><span class="notes">rung 0</span></figcaption>
+        </figure><figure>
+          <a href="4p-teams-of-2/answering-1280x800.png" target="_blank"><img src="4p-teams-of-2/answering-1280x800.png" loading="lazy" alt="answering at 1280×800"></a>
+          <figcaption><b>laptop share</b> 1280×800<br><span class="ok">fits</span><br><span class="notes">rung 0</span></figcaption>
+        </figure></div></section><section><h3>score-reveal</h3><div class="row"><figure>
+          <a href="4p-teams-of-2/score-reveal-1920x1080.png" target="_blank"><img src="4p-teams-of-2/score-reveal-1920x1080.png" loading="lazy" alt="score-reveal at 1920×1080"></a>
+          <figcaption><b>projector</b> 1920×1080<br><span class="ok">fits</span><br><span class="notes">rung 0</span></figcaption>
+        </figure><figure>
+          <a href="4p-teams-of-2/score-reveal-1366x768.png" target="_blank"><img src="4p-teams-of-2/score-reveal-1366x768.png" loading="lazy" alt="score-reveal at 1366×768"></a>
+          <figcaption><b>conf room</b> 1366×768<br><span class="ok">fits</span><br><span class="notes">rung 0</span></figcaption>
+        </figure><figure>
+          <a href="4p-teams-of-2/score-reveal-1280x800.png" target="_blank"><img src="4p-teams-of-2/score-reveal-1280x800.png" loading="lazy" alt="score-reveal at 1280×800"></a>
+          <figcaption><b>laptop share</b> 1280×800<br><span class="ok">fits</span><br><span class="notes">rung 0</span></figcaption>
+        </figure></div></section><section><h3>game-over</h3><div class="row"><figure>
+          <a href="4p-teams-of-2/game-over-1920x1080.png" target="_blank"><img src="4p-teams-of-2/game-over-1920x1080.png" loading="lazy" alt="game-over at 1920×1080"></a>
+          <figcaption><b>projector</b> 1920×1080<br><span class="ok">fits</span></figcaption>
+        </figure><figure>
+          <a href="4p-teams-of-2/game-over-1366x768.png" target="_blank"><img src="4p-teams-of-2/game-over-1366x768.png" loading="lazy" alt="game-over at 1366×768"></a>
+          <figcaption><b>conf room</b> 1366×768<br><span class="ok">fits</span></figcaption>
+        </figure><figure>
+          <a href="4p-teams-of-2/game-over-1280x800.png" target="_blank"><img src="4p-teams-of-2/game-over-1280x800.png" loading="lazy" alt="game-over at 1280×800"></a>
+          <figcaption><b>laptop share</b> 1280×800<br><span class="ok">fits</span></figcaption>
+        </figure></div></section>
+      <p class="lead">Other roles — these scroll, so length is a workload measure, not a defect.
+      Shots are full-page; a sticky action bar renders once, at its viewport position, so
+      apparent overlap partway down a tall page is a capture artifact rather than a real one.</p>
+      <section><h3>host dashboard · 1440×900 · scrolls</h3><div class="row"><figure>
+            <a href="4p-teams-of-2/host-lobby.png" target="_blank"><img class="tall" src="4p-teams-of-2/host-lobby.png" loading="lazy" alt="host dashboard at lobby"></a>
+            <figcaption><b>lobby</b><br><span class="ok">no side overflow</span><br><span class="notes">1.3 screens tall · 1188px</span></figcaption>
+          </figure><figure>
+            <a href="4p-teams-of-2/host-answering.png" target="_blank"><img class="tall" src="4p-teams-of-2/host-answering.png" loading="lazy" alt="host dashboard at answering"></a>
+            <figcaption><b>answering</b><br><span class="ok">no side overflow</span><br><span class="notes">1.1 screens tall · 952px</span></figcaption>
+          </figure><figure>
+            <a href="4p-teams-of-2/host-reviewing.png" target="_blank"><img class="tall" src="4p-teams-of-2/host-reviewing.png" loading="lazy" alt="host dashboard at reviewing"></a>
+            <figcaption><b>reviewing</b><br><span class="ok">no side overflow</span><br><span class="notes">1.7 screens tall · 1506px</span></figcaption>
+          </figure><figure>
+            <a href="4p-teams-of-2/host-score-reveal.png" target="_blank"><img class="tall" src="4p-teams-of-2/host-score-reveal.png" loading="lazy" alt="host dashboard at score-reveal"></a>
+            <figcaption><b>score-reveal</b><br><span class="ok">no side overflow</span><br><span class="notes">1 screens tall · 900px</span></figcaption>
+          </figure><figure>
+            <a href="4p-teams-of-2/host-game-over.png" target="_blank"><img class="tall" src="4p-teams-of-2/host-game-over.png" loading="lazy" alt="host dashboard at game-over"></a>
+            <figcaption><b>game-over</b><br><span class="ok">no side overflow</span><br><span class="notes">1 screens tall · 900px</span></figcaption>
+          </figure></div></section><section><h3>player phone · 390×844 · scrolls</h3><div class="row"><figure>
+            <a href="4p-teams-of-2/player-lobby.png" target="_blank"><img class="tall" src="4p-teams-of-2/player-lobby.png" loading="lazy" alt="player phone at lobby"></a>
+            <figcaption><b>lobby</b><br><span class="ok">no side overflow</span><br><span class="notes">1.1 screens tall · 951px</span></figcaption>
+          </figure><figure>
+            <a href="4p-teams-of-2/player-answering.png" target="_blank"><img class="tall" src="4p-teams-of-2/player-answering.png" loading="lazy" alt="player phone at answering"></a>
+            <figcaption><b>answering</b><br><span class="ok">no side overflow</span><br><span class="notes">1 screens tall · 844px</span></figcaption>
+          </figure><figure>
+            <a href="4p-teams-of-2/player-score-reveal.png" target="_blank"><img class="tall" src="4p-teams-of-2/player-score-reveal.png" loading="lazy" alt="player phone at score-reveal"></a>
+            <figcaption><b>score-reveal</b><br><span class="ok">no side overflow</span><br><span class="notes">1 screens tall · 844px</span></figcaption>
+          </figure><figure>
+            <a href="4p-teams-of-2/player-game-over.png" target="_blank"><img class="tall" src="4p-teams-of-2/player-game-over.png" loading="lazy" alt="player phone at game-over"></a>
+            <figcaption><b>game-over</b><br><span class="ok">no side overflow</span><br><span class="notes">1 screens tall · 844px</span></figcaption>
+          </figure></div></section><section><h3>audience phone · 390×844 · scrolls</h3><div class="row"><figure>
+            <a href="4p-teams-of-2/audience-lobby.png" target="_blank"><img class="tall" src="4p-teams-of-2/audience-lobby.png" loading="lazy" alt="audience phone at lobby"></a>
+            <figcaption><b>lobby</b><br><span class="ok">no side overflow</span><br><span class="notes">1 screens tall · 844px</span></figcaption>
+          </figure><figure>
+            <a href="4p-teams-of-2/audience-answering.png" target="_blank"><img class="tall" src="4p-teams-of-2/audience-answering.png" loading="lazy" alt="audience phone at answering"></a>
+            <figcaption><b>answering</b><br><span class="ok">no side overflow</span><br><span class="notes">1 screens tall · 844px</span></figcaption>
+          </figure><figure>
+            <a href="4p-teams-of-2/audience-score-reveal.png" target="_blank"><img class="tall" src="4p-teams-of-2/audience-score-reveal.png" loading="lazy" alt="audience phone at score-reveal"></a>
+            <figcaption><b>score-reveal</b><br><span class="ok">no side overflow</span><br><span class="notes">1.4 screens tall · 1192px</span></figcaption>
+          </figure><figure>
+            <a href="4p-teams-of-2/audience-game-over.png" target="_blank"><img class="tall" src="4p-teams-of-2/audience-game-over.png" loading="lazy" alt="audience phone at game-over"></a>
+            <figcaption><b>game-over</b><br><span class="ok">no side overflow</span><br><span class="notes">1 screens tall · 844px</span></figcaption>
+          </figure></div></section>
+    </article><article id="scale-12p-teams-of-4">
+      <h2>12 players · teams of 4</h2>
+      <p class="lead">Shared screen — fixed height, cannot scroll.</p>
+      <section><h3>lobby</h3><div class="row"><figure>
+          <a href="12p-teams-of-4/lobby-1920x1080.png" target="_blank"><img src="12p-teams-of-4/lobby-1920x1080.png" loading="lazy" alt="lobby at 1920×1080"></a>
+          <figcaption><b>projector</b> 1920×1080<br><span class="ok">fits</span><br><span class="notes">rung 0</span></figcaption>
+        </figure><figure>
+          <a href="12p-teams-of-4/lobby-1366x768.png" target="_blank"><img src="12p-teams-of-4/lobby-1366x768.png" loading="lazy" alt="lobby at 1366×768"></a>
+          <figcaption><b>conf room</b> 1366×768<br><span class="ok">fits</span><br><span class="notes">rung 1</span></figcaption>
+        </figure><figure>
+          <a href="12p-teams-of-4/lobby-1280x800.png" target="_blank"><img src="12p-teams-of-4/lobby-1280x800.png" loading="lazy" alt="lobby at 1280×800"></a>
+          <figcaption><b>laptop share</b> 1280×800<br><span class="ok">fits</span><br><span class="notes">rung 0</span></figcaption>
+        </figure></div></section><section><h3>answering</h3><div class="row"><figure>
+          <a href="12p-teams-of-4/answering-1920x1080.png" target="_blank"><img src="12p-teams-of-4/answering-1920x1080.png" loading="lazy" alt="answering at 1920×1080"></a>
+          <figcaption><b>projector</b> 1920×1080<br><span class="ok">fits</span><br><span class="notes">rung 0</span></figcaption>
+        </figure><figure>
+          <a href="12p-teams-of-4/answering-1366x768.png" target="_blank"><img src="12p-teams-of-4/answering-1366x768.png" loading="lazy" alt="answering at 1366×768"></a>
+          <figcaption><b>conf room</b> 1366×768<br><span class="ok">fits</span><br><span class="notes">rung 0</span></figcaption>
+        </figure><figure>
+          <a href="12p-teams-of-4/answering-1280x800.png" target="_blank"><img src="12p-teams-of-4/answering-1280x800.png" loading="lazy" alt="answering at 1280×800"></a>
+          <figcaption><b>laptop share</b> 1280×800<br><span class="ok">fits</span><br><span class="notes">rung 0</span></figcaption>
+        </figure></div></section><section><h3>score-reveal</h3><div class="row"><figure>
+          <a href="12p-teams-of-4/score-reveal-1920x1080.png" target="_blank"><img src="12p-teams-of-4/score-reveal-1920x1080.png" loading="lazy" alt="score-reveal at 1920×1080"></a>
+          <figcaption><b>projector</b> 1920×1080<br><span class="ok">fits</span><br><span class="notes">rung 0</span></figcaption>
+        </figure><figure>
+          <a href="12p-teams-of-4/score-reveal-1366x768.png" target="_blank"><img src="12p-teams-of-4/score-reveal-1366x768.png" loading="lazy" alt="score-reveal at 1366×768"></a>
+          <figcaption><b>conf room</b> 1366×768<br><span class="ok">fits</span><br><span class="notes">rung 0</span></figcaption>
+        </figure><figure>
+          <a href="12p-teams-of-4/score-reveal-1280x800.png" target="_blank"><img src="12p-teams-of-4/score-reveal-1280x800.png" loading="lazy" alt="score-reveal at 1280×800"></a>
+          <figcaption><b>laptop share</b> 1280×800<br><span class="ok">fits</span><br><span class="notes">rung 0</span></figcaption>
+        </figure></div></section><section><h3>game-over</h3><div class="row"><figure>
+          <a href="12p-teams-of-4/game-over-1920x1080.png" target="_blank"><img src="12p-teams-of-4/game-over-1920x1080.png" loading="lazy" alt="game-over at 1920×1080"></a>
+          <figcaption><b>projector</b> 1920×1080<br><span class="ok">fits</span></figcaption>
+        </figure><figure>
+          <a href="12p-teams-of-4/game-over-1366x768.png" target="_blank"><img src="12p-teams-of-4/game-over-1366x768.png" loading="lazy" alt="game-over at 1366×768"></a>
+          <figcaption><b>conf room</b> 1366×768<br><span class="ok">fits</span></figcaption>
+        </figure><figure>
+          <a href="12p-teams-of-4/game-over-1280x800.png" target="_blank"><img src="12p-teams-of-4/game-over-1280x800.png" loading="lazy" alt="game-over at 1280×800"></a>
+          <figcaption><b>laptop share</b> 1280×800<br><span class="ok">fits</span></figcaption>
+        </figure></div></section>
+      <p class="lead">Other roles — these scroll, so length is a workload measure, not a defect.
+      Shots are full-page; a sticky action bar renders once, at its viewport position, so
+      apparent overlap partway down a tall page is a capture artifact rather than a real one.</p>
+      <section><h3>host dashboard · 1440×900 · scrolls</h3><div class="row"><figure>
+            <a href="12p-teams-of-4/host-lobby.png" target="_blank"><img class="tall" src="12p-teams-of-4/host-lobby.png" loading="lazy" alt="host dashboard at lobby"></a>
+            <figcaption><b>lobby</b><br><span class="ok">no side overflow</span><br><span class="notes">1.9 screens tall · 1746px</span></figcaption>
+          </figure><figure>
+            <a href="12p-teams-of-4/host-answering.png" target="_blank"><img class="tall" src="12p-teams-of-4/host-answering.png" loading="lazy" alt="host dashboard at answering"></a>
+            <figcaption><b>answering</b><br><span class="ok">no side overflow</span><br><span class="notes">1.1 screens tall · 1004px</span></figcaption>
+          </figure><figure>
+            <a href="12p-teams-of-4/host-reviewing.png" target="_blank"><img class="tall" src="12p-teams-of-4/host-reviewing.png" loading="lazy" alt="host dashboard at reviewing"></a>
+            <figcaption><b>reviewing</b><br><span class="ok">no side overflow</span><br><span class="notes">2.4 screens tall · 2203px</span></figcaption>
+          </figure><figure>
+            <a href="12p-teams-of-4/host-score-reveal.png" target="_blank"><img class="tall" src="12p-teams-of-4/host-score-reveal.png" loading="lazy" alt="host dashboard at score-reveal"></a>
+            <figcaption><b>score-reveal</b><br><span class="ok">no side overflow</span><br><span class="notes">1 screens tall · 900px</span></figcaption>
+          </figure><figure>
+            <a href="12p-teams-of-4/host-game-over.png" target="_blank"><img class="tall" src="12p-teams-of-4/host-game-over.png" loading="lazy" alt="host dashboard at game-over"></a>
+            <figcaption><b>game-over</b><br><span class="ok">no side overflow</span><br><span class="notes">1.1 screens tall · 964px</span></figcaption>
+          </figure></div></section><section><h3>player phone · 390×844 · scrolls</h3><div class="row"><figure>
+            <a href="12p-teams-of-4/player-lobby.png" target="_blank"><img class="tall" src="12p-teams-of-4/player-lobby.png" loading="lazy" alt="player phone at lobby"></a>
+            <figcaption><b>lobby</b><br><span class="ok">no side overflow</span><br><span class="notes">1.1 screens tall · 951px</span></figcaption>
+          </figure><figure>
+            <a href="12p-teams-of-4/player-answering.png" target="_blank"><img class="tall" src="12p-teams-of-4/player-answering.png" loading="lazy" alt="player phone at answering"></a>
+            <figcaption><b>answering</b><br><span class="ok">no side overflow</span><br><span class="notes">1 screens tall · 844px</span></figcaption>
+          </figure><figure>
+            <a href="12p-teams-of-4/player-score-reveal.png" target="_blank"><img class="tall" src="12p-teams-of-4/player-score-reveal.png" loading="lazy" alt="player phone at score-reveal"></a>
+            <figcaption><b>score-reveal</b><br><span class="ok">no side overflow</span><br><span class="notes">1 screens tall · 844px</span></figcaption>
+          </figure><figure>
+            <a href="12p-teams-of-4/player-game-over.png" target="_blank"><img class="tall" src="12p-teams-of-4/player-game-over.png" loading="lazy" alt="player phone at game-over"></a>
+            <figcaption><b>game-over</b><br><span class="ok">no side overflow</span><br><span class="notes">1.4 screens tall · 1216px</span></figcaption>
+          </figure></div></section><section><h3>audience phone · 390×844 · scrolls</h3><div class="row"><figure>
+            <a href="12p-teams-of-4/audience-lobby.png" target="_blank"><img class="tall" src="12p-teams-of-4/audience-lobby.png" loading="lazy" alt="audience phone at lobby"></a>
+            <figcaption><b>lobby</b><br><span class="ok">no side overflow</span><br><span class="notes">1 screens tall · 844px</span></figcaption>
+          </figure><figure>
+            <a href="12p-teams-of-4/audience-answering.png" target="_blank"><img class="tall" src="12p-teams-of-4/audience-answering.png" loading="lazy" alt="audience phone at answering"></a>
+            <figcaption><b>answering</b><br><span class="ok">no side overflow</span><br><span class="notes">1 screens tall · 844px</span></figcaption>
+          </figure><figure>
+            <a href="12p-teams-of-4/audience-score-reveal.png" target="_blank"><img class="tall" src="12p-teams-of-4/audience-score-reveal.png" loading="lazy" alt="audience phone at score-reveal"></a>
+            <figcaption><b>score-reveal</b><br><span class="ok">no side overflow</span><br><span class="notes">2 screens tall · 1688px</span></figcaption>
+          </figure><figure>
+            <a href="12p-teams-of-4/audience-game-over.png" target="_blank"><img class="tall" src="12p-teams-of-4/audience-game-over.png" loading="lazy" alt="audience phone at game-over"></a>
+            <figcaption><b>game-over</b><br><span class="ok">no side overflow</span><br><span class="notes">1.1 screens tall · 918px</span></figcaption>
+          </figure></div></section>
+    </article><article id="scale-32p-teams-of-4">
+      <h2>32 players · teams of 4</h2>
+      <p class="lead">Shared screen — fixed height, cannot scroll.</p>
+      <section><h3>lobby</h3><div class="row"><figure>
+          <a href="32p-teams-of-4/lobby-1920x1080.png" target="_blank"><img src="32p-teams-of-4/lobby-1920x1080.png" loading="lazy" alt="lobby at 1920×1080"></a>
+          <figcaption><b>projector</b> 1920×1080<br><span class="ok">fits</span><br><span class="notes">rung 0</span></figcaption>
+        </figure><figure>
+          <a href="32p-teams-of-4/lobby-1366x768.png" target="_blank"><img src="32p-teams-of-4/lobby-1366x768.png" loading="lazy" alt="lobby at 1366×768"></a>
+          <figcaption><b>conf room</b> 1366×768<br><span class="ok">fits</span><br><span class="notes">rung 3</span></figcaption>
+        </figure><figure>
+          <a href="32p-teams-of-4/lobby-1280x800.png" target="_blank"><img src="32p-teams-of-4/lobby-1280x800.png" loading="lazy" alt="lobby at 1280×800"></a>
+          <figcaption><b>laptop share</b> 1280×800<br><span class="ok">fits</span><br><span class="notes">rung 3</span></figcaption>
+        </figure></div></section><section><h3>answering</h3><div class="row"><figure>
+          <a href="32p-teams-of-4/answering-1920x1080.png" target="_blank"><img src="32p-teams-of-4/answering-1920x1080.png" loading="lazy" alt="answering at 1920×1080"></a>
+          <figcaption><b>projector</b> 1920×1080<br><span class="ok">fits</span><br><span class="notes">rung 1</span></figcaption>
+        </figure><figure>
+          <a href="32p-teams-of-4/answering-1366x768.png" target="_blank"><img src="32p-teams-of-4/answering-1366x768.png" loading="lazy" alt="answering at 1366×768"></a>
+          <figcaption><b>conf room</b> 1366×768<br><span class="ok">fits</span><br><span class="notes">rung 2</span></figcaption>
+        </figure><figure>
+          <a href="32p-teams-of-4/answering-1280x800.png" target="_blank"><img src="32p-teams-of-4/answering-1280x800.png" loading="lazy" alt="answering at 1280×800"></a>
+          <figcaption><b>laptop share</b> 1280×800<br><span class="ok">fits</span><br><span class="notes">rung 2</span></figcaption>
+        </figure></div></section><section><h3>score-reveal</h3><div class="row"><figure>
+          <a href="32p-teams-of-4/score-reveal-1920x1080.png" target="_blank"><img src="32p-teams-of-4/score-reveal-1920x1080.png" loading="lazy" alt="score-reveal at 1920×1080"></a>
+          <figcaption><b>projector</b> 1920×1080<br><span class="ok">fits</span><br><span class="notes">rung 2 · +1 more teams</span></figcaption>
+        </figure><figure>
+          <a href="32p-teams-of-4/score-reveal-1366x768.png" target="_blank"><img src="32p-teams-of-4/score-reveal-1366x768.png" loading="lazy" alt="score-reveal at 1366×768"></a>
+          <figcaption><b>conf room</b> 1366×768<br><span class="ok">fits</span><br><span class="notes">rung 2 · +3 more teams</span></figcaption>
+        </figure><figure>
+          <a href="32p-teams-of-4/score-reveal-1280x800.png" target="_blank"><img src="32p-teams-of-4/score-reveal-1280x800.png" loading="lazy" alt="score-reveal at 1280×800"></a>
+          <figcaption><b>laptop share</b> 1280×800<br><span class="ok">fits</span><br><span class="notes">rung 2 · +2 more teams</span></figcaption>
+        </figure></div></section><section><h3>game-over</h3><div class="row"><figure>
+          <a href="32p-teams-of-4/game-over-1920x1080.png" target="_blank"><img src="32p-teams-of-4/game-over-1920x1080.png" loading="lazy" alt="game-over at 1920×1080"></a>
+          <figcaption><b>projector</b> 1920×1080<br><span class="bad">clipped 13 — “&lt;image&gt;”</span><br><span class="notes">rung 0</span></figcaption>
+        </figure><figure>
+          <a href="32p-teams-of-4/game-over-1366x768.png" target="_blank"><img src="32p-teams-of-4/game-over-1366x768.png" loading="lazy" alt="game-over at 1366×768"></a>
+          <figcaption><b>conf room</b> 1366×768<br><span class="bad">clipped 16 — “#7”</span><br><span class="notes">rung 2 · +4 more teams</span></figcaption>
+        </figure><figure>
+          <a href="32p-teams-of-4/game-over-1280x800.png" target="_blank"><img src="32p-teams-of-4/game-over-1280x800.png" loading="lazy" alt="game-over at 1280×800"></a>
+          <figcaption><b>laptop share</b> 1280×800<br><span class="bad">clipped 16 — “#7”</span><br><span class="notes">rung 2</span></figcaption>
+        </figure></div></section>
+      <p class="lead">Other roles — these scroll, so length is a workload measure, not a defect.
+      Shots are full-page; a sticky action bar renders once, at its viewport position, so
+      apparent overlap partway down a tall page is a capture artifact rather than a real one.</p>
+      <section><h3>host dashboard · 1440×900 · scrolls</h3><div class="row"><figure>
+            <a href="32p-teams-of-4/host-lobby.png" target="_blank"><img class="tall" src="32p-teams-of-4/host-lobby.png" loading="lazy" alt="host dashboard at lobby"></a>
+            <figcaption><b>lobby</b><br><span class="ok">no side overflow</span><br><span class="notes">3.7 screens tall · 3296px</span></figcaption>
+          </figure><figure>
+            <a href="32p-teams-of-4/host-answering.png" target="_blank"><img class="tall" src="32p-teams-of-4/host-answering.png" loading="lazy" alt="host dashboard at answering"></a>
+            <figcaption><b>answering</b><br><span class="ok">no side overflow</span><br><span class="notes">1.4 screens tall · 1262px</span></figcaption>
+          </figure><figure>
+            <a href="32p-teams-of-4/host-reviewing.png" target="_blank"><img class="tall" src="32p-teams-of-4/host-reviewing.png" loading="lazy" alt="host dashboard at reviewing"></a>
+            <figcaption><b>reviewing</b><br><span class="ok">no side overflow</span><br><span class="notes">6.3 screens tall · 5689px</span></figcaption>
+          </figure><figure>
+            <a href="32p-teams-of-4/host-score-reveal.png" target="_blank"><img class="tall" src="32p-teams-of-4/host-score-reveal.png" loading="lazy" alt="host dashboard at score-reveal"></a>
+            <figcaption><b>score-reveal</b><br><span class="ok">no side overflow</span><br><span class="notes">1.3 screens tall · 1194px</span></figcaption>
+          </figure><figure>
+            <a href="32p-teams-of-4/host-game-over.png" target="_blank"><img class="tall" src="32p-teams-of-4/host-game-over.png" loading="lazy" alt="host dashboard at game-over"></a>
+            <figcaption><b>game-over</b><br><span class="ok">no side overflow</span><br><span class="notes">1.6 screens tall · 1444px</span></figcaption>
+          </figure></div></section><section><h3>player phone · 390×844 · scrolls</h3><div class="row"><figure>
+            <a href="32p-teams-of-4/player-lobby.png" target="_blank"><img class="tall" src="32p-teams-of-4/player-lobby.png" loading="lazy" alt="player phone at lobby"></a>
+            <figcaption><b>lobby</b><br><span class="ok">no side overflow</span><br><span class="notes">1.1 screens tall · 951px</span></figcaption>
+          </figure><figure>
+            <a href="32p-teams-of-4/player-answering.png" target="_blank"><img class="tall" src="32p-teams-of-4/player-answering.png" loading="lazy" alt="player phone at answering"></a>
+            <figcaption><b>answering</b><br><span class="ok">no side overflow</span><br><span class="notes">1 screens tall · 844px</span></figcaption>
+          </figure><figure>
+            <a href="32p-teams-of-4/player-score-reveal.png" target="_blank"><img class="tall" src="32p-teams-of-4/player-score-reveal.png" loading="lazy" alt="player phone at score-reveal"></a>
+            <figcaption><b>score-reveal</b><br><span class="ok">no side overflow</span><br><span class="notes">1 screens tall · 844px</span></figcaption>
+          </figure><figure>
+            <a href="32p-teams-of-4/player-game-over.png" target="_blank"><img class="tall" src="32p-teams-of-4/player-game-over.png" loading="lazy" alt="player phone at game-over"></a>
+            <figcaption><b>game-over</b><br><span class="ok">no side overflow</span><br><span class="notes">1.4 screens tall · 1216px</span></figcaption>
+          </figure></div></section><section><h3>audience phone · 390×844 · scrolls</h3><div class="row"><figure>
+            <a href="32p-teams-of-4/audience-lobby.png" target="_blank"><img class="tall" src="32p-teams-of-4/audience-lobby.png" loading="lazy" alt="audience phone at lobby"></a>
+            <figcaption><b>lobby</b><br><span class="ok">no side overflow</span><br><span class="notes">1 screens tall · 844px</span></figcaption>
+          </figure><figure>
+            <a href="32p-teams-of-4/audience-answering.png" target="_blank"><img class="tall" src="32p-teams-of-4/audience-answering.png" loading="lazy" alt="audience phone at answering"></a>
+            <figcaption><b>answering</b><br><span class="ok">no side overflow</span><br><span class="notes">1 screens tall · 844px</span></figcaption>
+          </figure><figure>
+            <a href="32p-teams-of-4/audience-score-reveal.png" target="_blank"><img class="tall" src="32p-teams-of-4/audience-score-reveal.png" loading="lazy" alt="audience phone at score-reveal"></a>
+            <figcaption><b>score-reveal</b><br><span class="ok">no side overflow</span><br><span class="notes">2.2 screens tall · 1874px</span></figcaption>
+          </figure><figure>
+            <a href="32p-teams-of-4/audience-game-over.png" target="_blank"><img class="tall" src="32p-teams-of-4/audience-game-over.png" loading="lazy" alt="audience phone at game-over"></a>
+            <figcaption><b>game-over</b><br><span class="ok">no side overflow</span><br><span class="notes">1.3 screens tall · 1104px</span></figcaption>
+          </figure></div></section>
+    </article><article id="scale-68p-teams-of-4">
+      <h2>68 players · teams of 4</h2>
+      <p class="lead">Shared screen — fixed height, cannot scroll.</p>
+      <section><h3>lobby</h3><div class="row"><figure>
+          <a href="68p-teams-of-4/lobby-1920x1080.png" target="_blank"><img src="68p-teams-of-4/lobby-1920x1080.png" loading="lazy" alt="lobby at 1920×1080"></a>
+          <figcaption><b>projector</b> 1920×1080<br><span class="ok">fits</span><br><span class="notes">rung 2</span></figcaption>
+        </figure><figure>
+          <a href="68p-teams-of-4/lobby-1366x768.png" target="_blank"><img src="68p-teams-of-4/lobby-1366x768.png" loading="lazy" alt="lobby at 1366×768"></a>
+          <figcaption><b>conf room</b> 1366×768<br><span class="ok">fits</span><br><span class="notes">rung 4</span></figcaption>
+        </figure><figure>
+          <a href="68p-teams-of-4/lobby-1280x800.png" target="_blank"><img src="68p-teams-of-4/lobby-1280x800.png" loading="lazy" alt="lobby at 1280×800"></a>
+          <figcaption><b>laptop share</b> 1280×800<br><span class="ok">fits</span><br><span class="notes">rung 4</span></figcaption>
+        </figure></div></section><section><h3>answering</h3><div class="row"><figure>
+          <a href="68p-teams-of-4/answering-1920x1080.png" target="_blank"><img src="68p-teams-of-4/answering-1920x1080.png" loading="lazy" alt="answering at 1920×1080"></a>
+          <figcaption><b>projector</b> 1920×1080<br><span class="ok">fits</span><br><span class="notes">rung 3</span></figcaption>
+        </figure><figure>
+          <a href="68p-teams-of-4/answering-1366x768.png" target="_blank"><img src="68p-teams-of-4/answering-1366x768.png" loading="lazy" alt="answering at 1366×768"></a>
+          <figcaption><b>conf room</b> 1366×768<br><span class="ok">fits</span><br><span class="notes">rung 3</span></figcaption>
+        </figure><figure>
+          <a href="68p-teams-of-4/answering-1280x800.png" target="_blank"><img src="68p-teams-of-4/answering-1280x800.png" loading="lazy" alt="answering at 1280×800"></a>
+          <figcaption><b>laptop share</b> 1280×800<br><span class="ok">fits</span><br><span class="notes">rung 3</span></figcaption>
+        </figure></div></section><section><h3>score-reveal</h3><div class="row"><figure>
+          <a href="68p-teams-of-4/score-reveal-1920x1080.png" target="_blank"><img src="68p-teams-of-4/score-reveal-1920x1080.png" loading="lazy" alt="score-reveal at 1920×1080"></a>
+          <figcaption><b>projector</b> 1920×1080<br><span class="ok">fits</span><br><span class="notes">rung 2 · +8 more teams</span></figcaption>
+        </figure><figure>
+          <a href="68p-teams-of-4/score-reveal-1366x768.png" target="_blank"><img src="68p-teams-of-4/score-reveal-1366x768.png" loading="lazy" alt="score-reveal at 1366×768"></a>
+          <figcaption><b>conf room</b> 1366×768<br><span class="ok">fits</span><br><span class="notes">rung 2 · +11 more teams</span></figcaption>
+        </figure><figure>
+          <a href="68p-teams-of-4/score-reveal-1280x800.png" target="_blank"><img src="68p-teams-of-4/score-reveal-1280x800.png" loading="lazy" alt="score-reveal at 1280×800"></a>
+          <figcaption><b>laptop share</b> 1280×800<br><span class="ok">fits</span><br><span class="notes">rung 2 · +10 more teams</span></figcaption>
+        </figure></div></section><section><h3>game-over</h3><div class="row"><figure>
+          <a href="68p-teams-of-4/game-over-1920x1080.png" target="_blank"><img src="68p-teams-of-4/game-over-1920x1080.png" loading="lazy" alt="game-over at 1920×1080"></a>
+          <figcaption><b>projector</b> 1920×1080<br><span class="ok">fits</span><br><span class="notes">rung 2 · +12 more teams</span></figcaption>
+        </figure><figure>
+          <a href="68p-teams-of-4/game-over-1366x768.png" target="_blank"><img src="68p-teams-of-4/game-over-1366x768.png" loading="lazy" alt="game-over at 1366×768"></a>
+          <figcaption><b>conf room</b> 1366×768<br><span class="ok">fits</span><br><span class="notes">rung 2 · +13 more teams</span></figcaption>
+        </figure><figure>
+          <a href="68p-teams-of-4/game-over-1280x800.png" target="_blank"><img src="68p-teams-of-4/game-over-1280x800.png" loading="lazy" alt="game-over at 1280×800"></a>
+          <figcaption><b>laptop share</b> 1280×800<br><span class="ok">fits</span><br><span class="notes">rung 2 · +12 more teams</span></figcaption>
+        </figure></div></section>
+      <p class="lead">Other roles — these scroll, so length is a workload measure, not a defect.
+      Shots are full-page; a sticky action bar renders once, at its viewport position, so
+      apparent overlap partway down a tall page is a capture artifact rather than a real one.</p>
+      <section><h3>host dashboard · 1440×900 · scrolls</h3><div class="row"><figure>
+            <a href="68p-teams-of-4/host-lobby.png" target="_blank"><img class="tall" src="68p-teams-of-4/host-lobby.png" loading="lazy" alt="host dashboard at lobby"></a>
+            <figcaption><b>lobby</b><br><span class="ok">no side overflow</span><br><span class="notes">6.8 screens tall · 6086px</span></figcaption>
+          </figure><figure>
+            <a href="68p-teams-of-4/host-answering.png" target="_blank"><img class="tall" src="68p-teams-of-4/host-answering.png" loading="lazy" alt="host dashboard at answering"></a>
+            <figcaption><b>answering</b><br><span class="ok">no side overflow</span><br><span class="notes">1.9 screens tall · 1726px</span></figcaption>
+          </figure><figure>
+            <a href="68p-teams-of-4/host-reviewing.png" target="_blank"><img class="tall" src="68p-teams-of-4/host-reviewing.png" loading="lazy" alt="host dashboard at reviewing"></a>
+            <figcaption><b>reviewing</b><br><span class="ok">no side overflow</span><br><span class="notes">13.3 screens tall · 11964px</span></figcaption>
+          </figure><figure>
+            <a href="68p-teams-of-4/host-score-reveal.png" target="_blank"><img class="tall" src="68p-teams-of-4/host-score-reveal.png" loading="lazy" alt="host dashboard at score-reveal"></a>
+            <figcaption><b>score-reveal</b><br><span class="ok">no side overflow</span><br><span class="notes">1.5 screens tall · 1314px</span></figcaption>
+          </figure><figure>
+            <a href="68p-teams-of-4/host-game-over.png" target="_blank"><img class="tall" src="68p-teams-of-4/host-game-over.png" loading="lazy" alt="host dashboard at game-over"></a>
+            <figcaption><b>game-over</b><br><span class="ok">no side overflow</span><br><span class="notes">2.3 screens tall · 2104px</span></figcaption>
+          </figure></div></section><section><h3>player phone · 390×844 · scrolls</h3><div class="row"><figure>
+            <a href="68p-teams-of-4/player-lobby.png" target="_blank"><img class="tall" src="68p-teams-of-4/player-lobby.png" loading="lazy" alt="player phone at lobby"></a>
+            <figcaption><b>lobby</b><br><span class="ok">no side overflow</span><br><span class="notes">1.1 screens tall · 951px</span></figcaption>
+          </figure><figure>
+            <a href="68p-teams-of-4/player-answering.png" target="_blank"><img class="tall" src="68p-teams-of-4/player-answering.png" loading="lazy" alt="player phone at answering"></a>
+            <figcaption><b>answering</b><br><span class="ok">no side overflow</span><br><span class="notes">1 screens tall · 844px</span></figcaption>
+          </figure><figure>
+            <a href="68p-teams-of-4/player-score-reveal.png" target="_blank"><img class="tall" src="68p-teams-of-4/player-score-reveal.png" loading="lazy" alt="player phone at score-reveal"></a>
+            <figcaption><b>score-reveal</b><br><span class="ok">no side overflow</span><br><span class="notes">1 screens tall · 844px</span></figcaption>
+          </figure><figure>
+            <a href="68p-teams-of-4/player-game-over.png" target="_blank"><img class="tall" src="68p-teams-of-4/player-game-over.png" loading="lazy" alt="player phone at game-over"></a>
+            <figcaption><b>game-over</b><br><span class="ok">no side overflow</span><br><span class="notes">1.4 screens tall · 1216px</span></figcaption>
+          </figure></div></section><section><h3>audience phone · 390×844 · scrolls</h3><div class="row"><figure>
+            <a href="68p-teams-of-4/audience-lobby.png" target="_blank"><img class="tall" src="68p-teams-of-4/audience-lobby.png" loading="lazy" alt="audience phone at lobby"></a>
+            <figcaption><b>lobby</b><br><span class="ok">no side overflow</span><br><span class="notes">1 screens tall · 844px</span></figcaption>
+          </figure><figure>
+            <a href="68p-teams-of-4/audience-answering.png" target="_blank"><img class="tall" src="68p-teams-of-4/audience-answering.png" loading="lazy" alt="audience phone at answering"></a>
+            <figcaption><b>answering</b><br><span class="ok">no side overflow</span><br><span class="notes">1 screens tall · 844px</span></figcaption>
+          </figure><figure>
+            <a href="68p-teams-of-4/audience-score-reveal.png" target="_blank"><img class="tall" src="68p-teams-of-4/audience-score-reveal.png" loading="lazy" alt="audience phone at score-reveal"></a>
+            <figcaption><b>score-reveal</b><br><span class="ok">no side overflow</span><br><span class="notes">2.2 screens tall · 1874px</span></figcaption>
+          </figure><figure>
+            <a href="68p-teams-of-4/audience-game-over.png" target="_blank"><img class="tall" src="68p-teams-of-4/audience-game-over.png" loading="lazy" alt="audience phone at game-over"></a>
+            <figcaption><b>game-over</b><br><span class="ok">no side overflow</span><br><span class="notes">1.3 screens tall · 1104px</span></figcaption>
+          </figure></div></section>
+    </article><article id="scale-100p-teams-of-4">
+      <h2>100 players · teams of 4</h2>
+      <p class="lead">Shared screen — fixed height, cannot scroll.</p>
+      <section><h3>lobby</h3><div class="row"><figure>
+          <a href="100p-teams-of-4/lobby-1920x1080.png" target="_blank"><img src="100p-teams-of-4/lobby-1920x1080.png" loading="lazy" alt="lobby at 1920×1080"></a>
+          <figcaption><b>projector</b> 1920×1080<br><span class="ok">fits</span><br><span class="notes">rung 3</span></figcaption>
+        </figure><figure>
+          <a href="100p-teams-of-4/lobby-1366x768.png" target="_blank"><img src="100p-teams-of-4/lobby-1366x768.png" loading="lazy" alt="lobby at 1366×768"></a>
+          <figcaption><b>conf room</b> 1366×768<br><span class="ok">fits</span><br><span class="notes">rung 4 · +5 more</span></figcaption>
+        </figure><figure>
+          <a href="100p-teams-of-4/lobby-1280x800.png" target="_blank"><img src="100p-teams-of-4/lobby-1280x800.png" loading="lazy" alt="lobby at 1280×800"></a>
+          <figcaption><b>laptop share</b> 1280×800<br><span class="ok">fits</span><br><span class="notes">rung 4 · +5 more</span></figcaption>
+        </figure></div></section><section><h3>answering</h3><div class="row"><figure>
+          <a href="100p-teams-of-4/answering-1920x1080.png" target="_blank"><img src="100p-teams-of-4/answering-1920x1080.png" loading="lazy" alt="answering at 1920×1080"></a>
+          <figcaption><b>projector</b> 1920×1080<br><span class="ok">fits</span><br><span class="notes">rung 3</span></figcaption>
+        </figure><figure>
+          <a href="100p-teams-of-4/answering-1366x768.png" target="_blank"><img src="100p-teams-of-4/answering-1366x768.png" loading="lazy" alt="answering at 1366×768"></a>
+          <figcaption><b>conf room</b> 1366×768<br><span class="ok">fits</span><br><span class="notes">rung 3</span></figcaption>
+        </figure><figure>
+          <a href="100p-teams-of-4/answering-1280x800.png" target="_blank"><img src="100p-teams-of-4/answering-1280x800.png" loading="lazy" alt="answering at 1280×800"></a>
+          <figcaption><b>laptop share</b> 1280×800<br><span class="ok">fits</span><br><span class="notes">rung 3</span></figcaption>
+        </figure></div></section><section><h3>score-reveal</h3><div class="row"><figure>
+          <a href="100p-teams-of-4/score-reveal-1920x1080.png" target="_blank"><img src="100p-teams-of-4/score-reveal-1920x1080.png" loading="lazy" alt="score-reveal at 1920×1080"></a>
+          <figcaption><b>projector</b> 1920×1080<br><span class="ok">fits</span><br><span class="notes">rung 2 · +16 more teams</span></figcaption>
+        </figure><figure>
+          <a href="100p-teams-of-4/score-reveal-1366x768.png" target="_blank"><img src="100p-teams-of-4/score-reveal-1366x768.png" loading="lazy" alt="score-reveal at 1366×768"></a>
+          <figcaption><b>conf room</b> 1366×768<br><span class="ok">fits</span><br><span class="notes">rung 2 · +19 more teams</span></figcaption>
+        </figure><figure>
+          <a href="100p-teams-of-4/score-reveal-1280x800.png" target="_blank"><img src="100p-teams-of-4/score-reveal-1280x800.png" loading="lazy" alt="score-reveal at 1280×800"></a>
+          <figcaption><b>laptop share</b> 1280×800<br><span class="ok">fits</span><br><span class="notes">rung 2 · +18 more teams</span></figcaption>
+        </figure></div></section><section><h3>game-over</h3><div class="row"><figure>
+          <a href="100p-teams-of-4/game-over-1920x1080.png" target="_blank"><img src="100p-teams-of-4/game-over-1920x1080.png" loading="lazy" alt="game-over at 1920×1080"></a>
+          <figcaption><b>projector</b> 1920×1080<br><span class="ok">fits</span><br><span class="notes">rung 2 · +20 more teams</span></figcaption>
+        </figure><figure>
+          <a href="100p-teams-of-4/game-over-1366x768.png" target="_blank"><img src="100p-teams-of-4/game-over-1366x768.png" loading="lazy" alt="game-over at 1366×768"></a>
+          <figcaption><b>conf room</b> 1366×768<br><span class="ok">fits</span><br><span class="notes">rung 2 · +21 more teams</span></figcaption>
+        </figure><figure>
+          <a href="100p-teams-of-4/game-over-1280x800.png" target="_blank"><img src="100p-teams-of-4/game-over-1280x800.png" loading="lazy" alt="game-over at 1280×800"></a>
+          <figcaption><b>laptop share</b> 1280×800<br><span class="ok">fits</span><br><span class="notes">rung 2 · +20 more teams</span></figcaption>
+        </figure></div></section>
+      <p class="lead">Other roles — these scroll, so length is a workload measure, not a defect.
+      Shots are full-page; a sticky action bar renders once, at its viewport position, so
+      apparent overlap partway down a tall page is a capture artifact rather than a real one.</p>
+      <section><h3>host dashboard · 1440×900 · scrolls</h3><div class="row"><figure>
+            <a href="100p-teams-of-4/host-lobby.png" target="_blank"><img class="tall" src="100p-teams-of-4/host-lobby.png" loading="lazy" alt="host dashboard at lobby"></a>
+            <figcaption><b>lobby</b><br><span class="ok">no side overflow</span><br><span class="notes">9.5 screens tall · 8566px</span></figcaption>
+          </figure><figure>
+            <a href="100p-teams-of-4/host-answering.png" target="_blank"><img class="tall" src="100p-teams-of-4/host-answering.png" loading="lazy" alt="host dashboard at answering"></a>
+            <figcaption><b>answering</b><br><span class="ok">no side overflow</span><br><span class="notes">2.4 screens tall · 2139px</span></figcaption>
+          </figure><figure>
+            <a href="100p-teams-of-4/host-reviewing.png" target="_blank"><img class="tall" src="100p-teams-of-4/host-reviewing.png" loading="lazy" alt="host dashboard at reviewing"></a>
+            <figcaption><b>reviewing</b><br><span class="ok">no side overflow</span><br><span class="notes">19.5 screens tall · 17541px</span></figcaption>
+          </figure><figure>
+            <a href="100p-teams-of-4/host-score-reveal.png" target="_blank"><img class="tall" src="100p-teams-of-4/host-score-reveal.png" loading="lazy" alt="host dashboard at score-reveal"></a>
+            <figcaption><b>score-reveal</b><br><span class="ok">no side overflow</span><br><span class="notes">1.5 screens tall · 1314px</span></figcaption>
+          </figure><figure>
+            <a href="100p-teams-of-4/host-game-over.png" target="_blank"><img class="tall" src="100p-teams-of-4/host-game-over.png" loading="lazy" alt="host dashboard at game-over"></a>
+            <figcaption><b>game-over</b><br><span class="ok">no side overflow</span><br><span class="notes">2.7 screens tall · 2404px</span></figcaption>
+          </figure></div></section><section><h3>player phone · 390×844 · scrolls</h3><div class="row"><figure>
+            <a href="100p-teams-of-4/player-lobby.png" target="_blank"><img class="tall" src="100p-teams-of-4/player-lobby.png" loading="lazy" alt="player phone at lobby"></a>
+            <figcaption><b>lobby</b><br><span class="ok">no side overflow</span><br><span class="notes">1.1 screens tall · 951px</span></figcaption>
+          </figure><figure>
+            <a href="100p-teams-of-4/player-answering.png" target="_blank"><img class="tall" src="100p-teams-of-4/player-answering.png" loading="lazy" alt="player phone at answering"></a>
+            <figcaption><b>answering</b><br><span class="ok">no side overflow</span><br><span class="notes">1 screens tall · 844px</span></figcaption>
+          </figure><figure>
+            <a href="100p-teams-of-4/player-score-reveal.png" target="_blank"><img class="tall" src="100p-teams-of-4/player-score-reveal.png" loading="lazy" alt="player phone at score-reveal"></a>
+            <figcaption><b>score-reveal</b><br><span class="ok">no side overflow</span><br><span class="notes">1 screens tall · 844px</span></figcaption>
+          </figure><figure>
+            <a href="100p-teams-of-4/player-game-over.png" target="_blank"><img class="tall" src="100p-teams-of-4/player-game-over.png" loading="lazy" alt="player phone at game-over"></a>
+            <figcaption><b>game-over</b><br><span class="ok">no side overflow</span><br><span class="notes">1.4 screens tall · 1216px</span></figcaption>
+          </figure></div></section><section><h3>audience phone · 390×844 · scrolls</h3><div class="row"><figure>
+            <a href="100p-teams-of-4/audience-lobby.png" target="_blank"><img class="tall" src="100p-teams-of-4/audience-lobby.png" loading="lazy" alt="audience phone at lobby"></a>
+            <figcaption><b>lobby</b><br><span class="ok">no side overflow</span><br><span class="notes">1 screens tall · 844px</span></figcaption>
+          </figure><figure>
+            <a href="100p-teams-of-4/audience-answering.png" target="_blank"><img class="tall" src="100p-teams-of-4/audience-answering.png" loading="lazy" alt="audience phone at answering"></a>
+            <figcaption><b>answering</b><br><span class="ok">no side overflow</span><br><span class="notes">1 screens tall · 844px</span></figcaption>
+          </figure><figure>
+            <a href="100p-teams-of-4/audience-score-reveal.png" target="_blank"><img class="tall" src="100p-teams-of-4/audience-score-reveal.png" loading="lazy" alt="audience phone at score-reveal"></a>
+            <figcaption><b>score-reveal</b><br><span class="ok">no side overflow</span><br><span class="notes">2.2 screens tall · 1874px</span></figcaption>
+          </figure><figure>
+            <a href="100p-teams-of-4/audience-game-over.png" target="_blank"><img class="tall" src="100p-teams-of-4/audience-game-over.png" loading="lazy" alt="audience phone at game-over"></a>
+            <figcaption><b>game-over</b><br><span class="ok">no side overflow</span><br><span class="notes">1.3 screens tall · 1104px</span></figcaption>
+          </figure></div></section>
+    </article><article id="scale-68p-individual">
+      <h2>68 players · individual</h2>
+      <p class="lead">Shared screen — fixed height, cannot scroll.</p>
+      <section><h3>lobby</h3><div class="row"><figure>
+          <a href="68p-individual/lobby-1920x1080.png" target="_blank"><img src="68p-individual/lobby-1920x1080.png" loading="lazy" alt="lobby at 1920×1080"></a>
+          <figcaption><b>projector</b> 1920×1080<br><span class="ok">fits</span><br><span class="notes">rung 2</span></figcaption>
+        </figure><figure>
+          <a href="68p-individual/lobby-1366x768.png" target="_blank"><img src="68p-individual/lobby-1366x768.png" loading="lazy" alt="lobby at 1366×768"></a>
+          <figcaption><b>conf room</b> 1366×768<br><span class="ok">fits</span><br><span class="notes">rung 3</span></figcaption>
+        </figure><figure>
+          <a href="68p-individual/lobby-1280x800.png" target="_blank"><img src="68p-individual/lobby-1280x800.png" loading="lazy" alt="lobby at 1280×800"></a>
+          <figcaption><b>laptop share</b> 1280×800<br><span class="ok">fits</span><br><span class="notes">rung 3</span></figcaption>
+        </figure></div></section><section><h3>answering</h3><div class="row"><figure>
+          <a href="68p-individual/answering-1920x1080.png" target="_blank"><img src="68p-individual/answering-1920x1080.png" loading="lazy" alt="answering at 1920×1080"></a>
+          <figcaption><b>projector</b> 1920×1080<br><span class="ok">fits</span></figcaption>
+        </figure><figure>
+          <a href="68p-individual/answering-1366x768.png" target="_blank"><img src="68p-individual/answering-1366x768.png" loading="lazy" alt="answering at 1366×768"></a>
+          <figcaption><b>conf room</b> 1366×768<br><span class="ok">fits</span></figcaption>
+        </figure><figure>
+          <a href="68p-individual/answering-1280x800.png" target="_blank"><img src="68p-individual/answering-1280x800.png" loading="lazy" alt="answering at 1280×800"></a>
+          <figcaption><b>laptop share</b> 1280×800<br><span class="ok">fits</span></figcaption>
+        </figure></div></section><section><h3>score-reveal</h3><div class="row"><figure>
+          <a href="68p-individual/score-reveal-1920x1080.png" target="_blank"><img src="68p-individual/score-reveal-1920x1080.png" loading="lazy" alt="score-reveal at 1920×1080"></a>
+          <figcaption><b>projector</b> 1920×1080<br><span class="ok">fits</span><br><span class="notes">rung 2 · +61 more players</span></figcaption>
+        </figure><figure>
+          <a href="68p-individual/score-reveal-1366x768.png" target="_blank"><img src="68p-individual/score-reveal-1366x768.png" loading="lazy" alt="score-reveal at 1366×768"></a>
+          <figcaption><b>conf room</b> 1366×768<br><span class="ok">fits</span><br><span class="notes">rung 2 · +63 more players</span></figcaption>
+        </figure><figure>
+          <a href="68p-individual/score-reveal-1280x800.png" target="_blank"><img src="68p-individual/score-reveal-1280x800.png" loading="lazy" alt="score-reveal at 1280×800"></a>
+          <figcaption><b>laptop share</b> 1280×800<br><span class="ok">fits</span><br><span class="notes">rung 2 · +62 more players</span></figcaption>
+        </figure></div></section><section><h3>game-over</h3><div class="row"><figure>
+          <a href="68p-individual/game-over-1920x1080.png" target="_blank"><img src="68p-individual/game-over-1920x1080.png" loading="lazy" alt="game-over at 1920×1080"></a>
+          <figcaption><b>projector</b> 1920×1080<br><span class="bad">clipped 64 — “#8”</span><br><span class="notes">rung 2 · +63 more players</span></figcaption>
+        </figure><figure>
+          <a href="68p-individual/game-over-1366x768.png" target="_blank"><img src="68p-individual/game-over-1366x768.png" loading="lazy" alt="game-over at 1366×768"></a>
+          <figcaption><b>conf room</b> 1366×768<br><span class="bad">clipped 69 — “#7”</span><br><span class="notes">rung 2 · +45 more players</span></figcaption>
+        </figure><figure>
+          <a href="68p-individual/game-over-1280x800.png" target="_blank"><img src="68p-individual/game-over-1280x800.png" loading="lazy" alt="game-over at 1280×800"></a>
+          <figcaption><b>laptop share</b> 1280×800<br><span class="bad">clipped 68 — “#7”</span><br><span class="notes">rung 2 · +64 more players</span></figcaption>
+        </figure></div></section>
+      <p class="lead">Other roles — these scroll, so length is a workload measure, not a defect.
+      Shots are full-page; a sticky action bar renders once, at its viewport position, so
+      apparent overlap partway down a tall page is a capture artifact rather than a real one.</p>
+      <section><h3>host dashboard · 1440×900 · scrolls</h3><div class="row"><figure>
+            <a href="68p-individual/host-lobby.png" target="_blank"><img class="tall" src="68p-individual/host-lobby.png" loading="lazy" alt="host dashboard at lobby"></a>
+            <figcaption><b>lobby</b><br><span class="ok">no side overflow</span><br><span class="notes">5.5 screens tall · 4932px</span></figcaption>
+          </figure><figure>
+            <a href="68p-individual/host-answering.png" target="_blank"><img class="tall" src="68p-individual/host-answering.png" loading="lazy" alt="host dashboard at answering"></a>
+            <figcaption><b>answering</b><br><span class="ok">no side overflow</span><br><span class="notes">1 screens tall · 900px</span></figcaption>
+          </figure><figure>
+            <a href="68p-individual/host-reviewing.png" target="_blank"><img class="tall" src="68p-individual/host-reviewing.png" loading="lazy" alt="host dashboard at reviewing"></a>
+            <figcaption><b>reviewing</b><br><span class="ok">no side overflow</span><br><span class="notes">1 screens tall · 900px</span></figcaption>
+          </figure><figure>
+            <a href="68p-individual/host-score-reveal.png" target="_blank"><img class="tall" src="68p-individual/host-score-reveal.png" loading="lazy" alt="host dashboard at score-reveal"></a>
+            <figcaption><b>score-reveal</b><br><span class="ok">no side overflow</span><br><span class="notes">1.4 screens tall · 1254px</span></figcaption>
+          </figure><figure>
+            <a href="68p-individual/host-game-over.png" target="_blank"><img class="tall" src="68p-individual/host-game-over.png" loading="lazy" alt="host dashboard at game-over"></a>
+            <figcaption><b>game-over</b><br><span class="ok">no side overflow</span><br><span class="notes">2.5 screens tall · 2284px</span></figcaption>
+          </figure></div></section><section><h3>player phone · 390×844 · scrolls</h3><div class="row"><figure>
+            <a href="68p-individual/player-lobby.png" target="_blank"><img class="tall" src="68p-individual/player-lobby.png" loading="lazy" alt="player phone at lobby"></a>
+            <figcaption><b>lobby</b><br><span class="ok">no side overflow</span><br><span class="notes">1 screens tall · 844px</span></figcaption>
+          </figure><figure>
+            <a href="68p-individual/player-answering.png" target="_blank"><img class="tall" src="68p-individual/player-answering.png" loading="lazy" alt="player phone at answering"></a>
+            <figcaption><b>answering</b><br><span class="ok">no side overflow</span><br><span class="notes">1 screens tall · 844px</span></figcaption>
+          </figure><figure>
+            <a href="68p-individual/player-score-reveal.png" target="_blank"><img class="tall" src="68p-individual/player-score-reveal.png" loading="lazy" alt="player phone at score-reveal"></a>
+            <figcaption><b>score-reveal</b><br><span class="ok">no side overflow</span><br><span class="notes">1 screens tall · 844px</span></figcaption>
+          </figure><figure>
+            <a href="68p-individual/player-game-over.png" target="_blank"><img class="tall" src="68p-individual/player-game-over.png" loading="lazy" alt="player phone at game-over"></a>
+            <figcaption><b>game-over</b><br><span class="ok">no side overflow</span><br><span class="notes">1.4 screens tall · 1216px</span></figcaption>
+          </figure></div></section><section><h3>audience phone · 390×844 · scrolls</h3><div class="row"><figure>
+            <a href="68p-individual/audience-lobby.png" target="_blank"><img class="tall" src="68p-individual/audience-lobby.png" loading="lazy" alt="audience phone at lobby"></a>
+            <figcaption><b>lobby</b><br><span class="ok">no side overflow</span><br><span class="notes">1 screens tall · 844px</span></figcaption>
+          </figure><figure>
+            <a href="68p-individual/audience-answering.png" target="_blank"><img class="tall" src="68p-individual/audience-answering.png" loading="lazy" alt="audience phone at answering"></a>
+            <figcaption><b>answering</b><br><span class="ok">no side overflow</span><br><span class="notes">1 screens tall · 844px</span></figcaption>
+          </figure><figure>
+            <a href="68p-individual/audience-score-reveal.png" target="_blank"><img class="tall" src="68p-individual/audience-score-reveal.png" loading="lazy" alt="audience phone at score-reveal"></a>
+            <figcaption><b>score-reveal</b><br><span class="ok">no side overflow</span><br><span class="notes">1.7 screens tall · 1445px</span></figcaption>
+          </figure><figure>
+            <a href="68p-individual/audience-game-over.png" target="_blank"><img class="tall" src="68p-individual/audience-game-over.png" loading="lazy" alt="audience phone at game-over"></a>
+            <figcaption><b>game-over</b><br><span class="ok">no side overflow</span><br><span class="notes">1.3 screens tall · 1104px</span></figcaption>
+          </figure></div></section>
+    </article>

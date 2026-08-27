@@ -13,8 +13,18 @@ export function generateAvatarSeed(): string {
   return nanoid(10);
 }
 
+// Rendering an avatar is ~0.05ms, which is nothing for one face and ~3.5ms a
+// paint for a room of 70 — on every re-render, on the screen that re-renders
+// most (the host dashboard, on every incoming message). Seeds are stable for
+// the life of a game, so the SVG only ever has to be built once.
+const dataUriCache = new Map<string, string>();
+
 export function getAvatarDataUri(seed: string): string {
-  return createAvatar(bigSmile, { seed, backgroundColor: BOLD_POP_BACKGROUND_COLORS }).toDataUri();
+  const cached = dataUriCache.get(seed);
+  if (cached !== undefined) return cached;
+  const uri = createAvatar(bigSmile, { seed, backgroundColor: BOLD_POP_BACKGROUND_COLORS }).toDataUri();
+  dataUriCache.set(seed, uri);
+  return uri;
 }
 
 /** Generate `count` unique seeds, all different from `exclude`. */

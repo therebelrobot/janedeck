@@ -12,6 +12,8 @@ import { knownMediaAvailability } from "../../hooks/useMediaAvailability";
 import { usePartySocket } from "../../hooks/usePartySocket";
 import type { ClientMessage, ServerMessage } from "@/shared/messages";
 import {
+  DEFAULT_GAME_SETTINGS,
+  MAX_PLAYERS,
   DEFAULT_TIME_LIMIT,
   DEFAULT_POINT_VALUE,
   DEFAULT_BONUS_POINTS,
@@ -130,7 +132,7 @@ export function GameCreator(): React.ReactElement {
   const [showAnswersToPlayers, setShowAnswersToPlayers] = useState(true);
   const [defaultTimeLimit, setDefaultTimeLimit] = useState(DEFAULT_TIME_LIMIT);
   const [defaultBonus, setDefaultBonus] = useState(DEFAULT_BONUS_POINTS);
-  const [maxPlayers, setMaxPlayers] = useState(16);
+  const [maxPlayers, setMaxPlayers] = useState<number>(DEFAULT_GAME_SETTINGS.maxPlayers);
   const [teamPlayEnabled, setTeamPlayEnabled] = useState(false);
   const [maxTeamSize, setMaxTeamSize] = useState(DEFAULT_MAX_TEAM_SIZE);
 
@@ -931,10 +933,10 @@ export function GameCreator(): React.ReactElement {
               id="max-players"
               type="number"
               min={1}
-              max={100}
+              max={MAX_PLAYERS}
               value={maxPlayers}
               onChange={(e) =>
-                setMaxPlayers(Math.max(1, Math.min(100, parseInt(e.target.value, 10) || 16)))
+                setMaxPlayers(Math.max(1, Math.min(MAX_PLAYERS, parseInt(e.target.value, 10) || DEFAULT_GAME_SETTINGS.maxPlayers)))
               }
             />
           </div>

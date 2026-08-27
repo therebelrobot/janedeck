@@ -5,6 +5,9 @@ import React from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import type { ScoreEntry, ScoreChange } from "@/shared/types";
 import { PlayerAvatar } from "./PlayerAvatar";
+import { rankRingColors } from "../styles/theme";
+import { LEADERBOARD_LADDER } from "../utils/rosterLayouts";
+import { useFitToBox } from "../hooks/useFitToBox";
 
 interface LeaderboardProps {
   /** Sorted leaderboard entries */
@@ -17,6 +20,14 @@ interface LeaderboardProps {
   showChanges?: boolean;
   /** Score changes for the "+X" indicators */
   scoreChanges?: ScoreChange[];
+  /** Avatar size — bump to "lg" on the shared screen, keep "md" on handsets */
+  avatarSize?: "md" | "lg";
+  /**
+   * Shared-screen mode: the board fills the height it's given and shrinks its
+   * rows to fit, rather than running off the bottom of a projector. Leave off
+   * anywhere the page can simply scroll.
+   */
+  constrainHeight?: boolean;
 }
 
 /**
@@ -29,9 +40,25 @@ export function Leaderboard({
   highlightPlayerId,
   showChanges = false,
   scoreChanges = [],
+  avatarSize = "md",
+  constrainHeight = false,
 }: LeaderboardProps): React.ReactElement {
   const prefersReducedMotion = useReducedMotion();
   const displayed = entries.slice(0, maxDisplay);
+  // A long board has to fit under its own title on a screen nobody can scroll,
+  // so the rows shrink first and the board drops places only as a last resort.
+  const fit = useFitToBox<HTMLOListElement>(displayed.length, LEADERBOARD_LADDER.length);
+  const laddered = LEADERBOARD_LADDER[Math.min(fit.step, LEADERBOARD_LADDER.length - 1)];
+  const rowAvatar =
+    LEADERBOARD_LADDER.indexOf(avatarSize as (typeof LEADERBOARD_LADDER)[number]) >
+    LEADERBOARD_LADDER.indexOf(laddered)
+      ? laddered
+      : avatarSize;
+  const rows = displayed.slice(0, fit.visibleCount);
+  // Everyone off the board, not just the rows the fit pass dropped — maxDisplay
+  // has usually cut some before it ever gets measured, and a tile that
+  // undercounts them is worse than no tile at all.
+  const notShown = entries.length - rows.length;
 
   // Build a map of playerId → pointsEarned for quick lookup
   const changeMap = new Map<string, number>();
@@ -44,9 +71,18 @@ export function Leaderboard({
   }
 
   return (
-    <ol className="leaderboard" aria-label="Leaderboard">
+    <ol
+      ref={fit.ref}
+      className={`leaderboard${displayed.length > 8 ? " leaderboard--dense" : ""}`}
+      style={
+        constrainHeight
+          ? { flex: 1, minHeight: 0, overflow: "hidden", position: "relative" }
+          : undefined
+      }
+      aria-label="Leaderboard"
+    >
       <AnimatePresence mode="popLayout">
-        {displayed.map((entry) => {
+        {rows.map((entry) => {
           const isHighlighted = entry.playerId === highlightPlayerId;
           const pointsEarned = changeMap.get(entry.playerId);
 
@@ -73,7 +109,14 @@ export function Leaderboard({
                 {entry.rank <= 3 ? ["🥇", "🥈", "🥉"][entry.rank - 1] : `#${entry.rank}`}
               </span>
 
-              <PlayerAvatar displayName={entry.displayName} avatarSeed={entry.avatarSeed} isConnected />
+              <PlayerAvatar
+                displayName={entry.displayName}
+                avatarSeed={entry.avatarSeed}
+                isConnected
+                size={rowAvatar}
+                ring={entry.rank <= 3 ? rankRingColors[entry.rank - 1] : null}
+                hideStatus
+              />
 
               <span className="leaderboard__name">{entry.displayName}</span>
 
@@ -104,6 +147,12 @@ export function Leaderboard({
           );
         })}
       </AnimatePresence>
+
+      {notShown > 0 && (
+        <li className="leaderboard__entry" style={{ justifyContent: "center", color: "var(--color-text-secondary)" }}>
+          +{notShown} more players
+        </li>
+      )}
     </ol>
   );
 }

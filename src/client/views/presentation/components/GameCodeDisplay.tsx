@@ -15,6 +15,12 @@ interface GameCodeDisplayProps {
    * it's what people are squinting at from across the room.
    */
   compact?: boolean;
+  /**
+   * Put the code tiles and the QR/URL on one line instead of stacking them.
+   * Reclaims a block of height for a long roster below without shrinking the
+   * code itself, which is the thing people read from across the room.
+   */
+  dense?: boolean;
 }
 
 /**
@@ -24,6 +30,7 @@ interface GameCodeDisplayProps {
 export function GameCodeDisplay({
   gameCode,
   compact = false,
+  dense = false,
 }: GameCodeDisplayProps): React.ReactElement {
   const prefersReducedMotion = useReducedMotion();
   const chars = Array.from(gameCode.toUpperCase());
@@ -50,6 +57,10 @@ export function GameCodeDisplay({
         Join on your device!
       </p>
 
+      <div
+        className={`game-code-block${dense ? " game-code-block--dense" : ""}`}
+        style={{ gap: dense ? spacing[6] : compact ? spacing[3] : spacing[6] }}
+      >
       {/* Character boxes */}
       <div
         style={{
@@ -108,14 +119,8 @@ export function GameCodeDisplay({
 
       {/* QR code + URL row */}
       <div
-        style={{
-          display: "flex",
-          flexDirection: "row",
-          alignItems: "center",
-          gap: compact ? spacing[4] : spacing[6],
-          flexWrap: "wrap",
-          justifyContent: "center",
-        }}
+        className="game-code-qr"
+        style={{ gap: compact ? spacing[3] : spacing[6] }}
       >
         {/* QR code */}
         <div
@@ -151,6 +156,7 @@ export function GameCodeDisplay({
         >
           {window.location.origin}/play/<strong style={{ color: colors.accentYellow }}>{gameCode}</strong>
         </p>
+      </div>
       </div>
 
       {/* Accessible screen-reader text */}

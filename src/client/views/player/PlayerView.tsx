@@ -23,6 +23,7 @@ import { RoundAnsweringScreen } from "./RoundAnsweringScreen";
 import { Confetti } from "../../components/Confetti";
 import { SoundToggle } from "../../components/SoundToggle";
 import { TeamMemberAvatars } from "../../components/TeamMemberAvatars";
+import { PlayerAvatar, avatarRingColor } from "../../components/PlayerAvatar";
 
 const WIN_PATTERN_LABELS: Record<string, string> = {
   line: "a line",
@@ -762,12 +763,13 @@ function LobbyWaiting({
         aria-hidden="true"
       >
         {currentSrc ? (
-          <img
-            src={currentSrc}
-            alt=""
-            width={96}
-            height={96}
-            style={{ borderRadius: "var(--radius-full)", display: "block" }}
+          <PlayerAvatar
+            displayName={displayName ?? ""}
+            avatarSeed={avatarSeed}
+            isConnected
+            size="2xl"
+            ring={avatarRingColor(avatarSeed ?? displayName ?? "")}
+            hideStatus
           />
         ) : (
           <span style={{ fontSize: "5rem" }}>🎮</span>
@@ -881,7 +883,7 @@ function LobbyWaiting({
           <p style={{ fontSize: "var(--text-sm)", color: colors.textSecondary, margin: 0 }}>
             Team: <strong style={{ color: colors.secondary }}>{teamName}</strong>
           </p>
-          {teammates && teammates.length > 0 && <TeamMemberAvatars members={teammates} size="sm" />}
+          {teammates && teammates.length > 0 && <TeamMemberAvatars members={teammates} size="md" />}
           {onChangeTeam && (
             <button
               type="button"

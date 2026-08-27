@@ -160,7 +160,12 @@ export function TeamSelectScreen({
                   aria-label={`Join team ${team.name}, ${team.members.length} of ${maxTeamSize} members${full ? ", full" : ""}`}
                 >
                   <span style={{ display: "flex", alignItems: "center", gap: spacing[3] }}>
-                    <TeamMemberAvatars members={team.members} size="sm" />
+                    {/* A long team list on a phone needs the width for names */}
+                    <TeamMemberAvatars
+                      members={team.members}
+                      size={selectableTeams.length > 6 ? "sm" : "md"}
+                      maxDisplay={4}
+                    />
                     <span style={{ fontWeight: 600 }}>{team.name}</span>
                   </span>
                   <span style={{ fontSize: "var(--text-sm)", color: colors.textSecondary }}>

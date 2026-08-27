@@ -70,9 +70,12 @@ export function ScoreRevealScreen({
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        gap: spacing[8],
+        gap: spacing[6],
         width: "100%",
-        minHeight: "80vh",
+        // Stretch to the screen instead of setting a floor, so the boards
+        // inside can fit themselves to what's left.
+        flex: 1,
+        minHeight: 0,
       }}
     >
       {/* Header */}
@@ -174,11 +177,15 @@ export function ScoreRevealScreen({
         style={{
           display: "flex",
           flexWrap: "wrap",
-          alignItems: "flex-start",
+          alignItems: "stretch",
           justifyContent: "center",
-          gap: spacing[8],
+          gap: spacing[6],
           width: "100%",
           maxWidth: hasReveal ? "min(1800px, 95vw)" : "min(1000px, 90vw)",
+          // Both columns take the height the title leaves them; the board fits
+          // itself to its share rather than running off the bottom.
+          flex: 1,
+          minHeight: 0,
         }}
       >
         {hasReveal && (
@@ -193,6 +200,10 @@ export function ScoreRevealScreen({
             style={{
               flex: `1 1 min(100%, ${revealBasis}px)`,
               minWidth: 0,
+              minHeight: 0,
+              // A wrapping flex line sizes to its content, so without a ceiling
+              // this column grows past the row that's meant to contain it.
+              maxHeight: "100%",
               display: "flex",
               flexDirection: "column",
               gap: spacing[4],
@@ -232,7 +243,14 @@ export function ScoreRevealScreen({
             flex: hasReveal ? "1 1 min(100%, 400px)" : "1 1 100%",
             minWidth: 0,
             display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
             justifyContent: "center",
+            // The board fills this column and fits itself to it — see
+            // useFitToBox — instead of running off the bottom of the screen.
+            // maxHeight because a wrapping flex line sizes to its content.
+            minHeight: 0,
+            maxHeight: "100%",
           }}
         >
           {teamLeaderboard ? (
@@ -240,14 +258,18 @@ export function ScoreRevealScreen({
               entries={teamLeaderboard}
               showChanges={!isRoundResults}
               scoreChanges={teamScoreChanges}
-              maxDisplay={10}
+              maxDisplay={12}
+              avatarSize="md"
+              constrainHeight
             />
           ) : (
             <Leaderboard
               entries={leaderboard}
               showChanges={!isRoundResults}
               scoreChanges={scoreChanges}
-              maxDisplay={10}
+              maxDisplay={12}
+              avatarSize="lg"
+              constrainHeight
             />
           )}
         </motion.div>

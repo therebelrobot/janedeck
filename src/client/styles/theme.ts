@@ -41,6 +41,9 @@ export const colors = {
   borderLight: "#64748b",
 } as const;
 
+/** Medal halos for the top three, wherever rank is shown — matches the podium */
+export const rankRingColors = [colors.accentYellow, colors.textSecondary, colors.accentOrange] as const;
+
 export const fonts = {
   display: '"Fredoka", system-ui, -apple-system, sans-serif',
   body: '"Inter", system-ui, -apple-system, sans-serif',

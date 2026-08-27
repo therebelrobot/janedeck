@@ -16,11 +16,16 @@ import { colors, spacing, radii } from "../../styles/theme";
 import { Confetti } from "../../components/Confetti";
 import { Timer } from "../../components/Timer";
 import { TeamMemberAvatars } from "../../components/TeamMemberAvatars";
+import { TEAM_PROGRESS_LADDER } from "../../utils/rosterLayouts";
+import { useFitToBox } from "../../hooks/useFitToBox";
 import { QuestionMedia } from "../../components/QuestionMedia";
 import { LobbyScreen } from "./LobbyScreen";
 import { PresentationQuestionScreen } from "./QuestionScreen";
 import { ScoreRevealScreen } from "./ScoreRevealScreen";
 import { GameOverScreen } from "./GameOverScreen";
+
+/** How many bingo winners the shared screen names before it starts counting */
+const BINGO_WINNERS_SHOWN = 8;
 
 const WIN_PATTERN_LABELS: Record<string, string> = {
   line: "a line",
@@ -310,7 +315,11 @@ export function PresentationView(): React.ReactElement {
             flexDirection: "column",
             alignItems: "center",
             justifyContent: "center",
-            minHeight: "100vh",
+            // Fill the view rather than demanding a full viewport of its own —
+            // .view is already exactly one screen tall, so a 100vh child plus
+            // .view's padding put every presentation screen off the bottom.
+            flex: 1,
+            minHeight: 0,
             position: "relative",
             zIndex: 1,
           }}
@@ -547,6 +556,10 @@ function TeamAnsweringScreen({
 }): React.ReactElement {
   const prefersReducedMotion = useReducedMotion();
   const sortedTeams = [...teams].sort((a, b) => a.name.localeCompare(b.name));
+  // The progress grid takes whatever the question and timer leave it and
+  // tightens until every team fits — see useFitToBox.
+  const fit = useFitToBox(sortedTeams.length, TEAM_PROGRESS_LADDER.length);
+  const progressLayout = TEAM_PROGRESS_LADDER[Math.min(fit.step, TEAM_PROGRESS_LADDER.length - 1)];
   const currentIndex = questions.length - 1;
   const current = questions[currentIndex];
   const earlier = questions.slice(0, currentIndex);
@@ -557,10 +570,13 @@ function TeamAnsweringScreen({
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
-        gap: spacing[6],
+        gap: spacing[3],
         width: "100%",
         maxWidth: "min(1400px, 92vw)",
-        padding: `${spacing[6]} 0`,
+        padding: `${spacing[4]} 0`,
+        // Fill the view so the progress grid below can measure what's left.
+        flex: 1,
+        minHeight: 0,
       }}
     >
       <p
@@ -612,6 +628,9 @@ function TeamAnsweringScreen({
               border: `2px solid ${colors.primary}`,
               boxShadow: `0 0 40px rgba(59, 130, 246, 0.4), 0 0 80px rgba(59, 130, 246, 0.15)`,
               backdropFilter: "blur(12px)",
+              // The question itself never gives up space — it's what the room
+              // is reading.
+              flexShrink: 0,
             }}
           >
             {current.media && (
@@ -651,6 +670,12 @@ function TeamAnsweringScreen({
             flexDirection: "column",
             gap: spacing[2],
             padding: spacing[4],
+            // On a short screen something has to give, and this recap is the
+            // least of it — every player has these questions on their own
+            // phone. It shrinks so the live roster below never disappears.
+            flexShrink: 1,
+            minHeight: 0,
+            overflow: "hidden",
             backgroundColor: `${colors.bgCard}99`,
             borderRadius: radii.lg,
             border: `1px solid ${colors.border}`,
@@ -685,14 +710,26 @@ function TeamAnsweringScreen({
       {/* Live per-team progress */}
       {sortedTeams.length > 0 && (
         <div
+          ref={fit.ref}
           style={{
-            width: "100%",
+            // Wider than the question above it: the question wants a readable
+            // measure, the roster wants every column it can get. Centred by the
+            // parent's align-items, capped so it never scrolls sideways.
+            width: "min(1800px, 96vw)",
             display: "grid",
-            gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
-            gap: spacing[3],
+            gridTemplateColumns: `repeat(auto-fit, minmax(calc(${progressLayout.cardPx}px * var(--avatar-scale, 1)), 1fr))`,
+            gap: spacing[2],
+            alignContent: "center",
+            // The box useFitToBox measures: whatever the question above leaves,
+            // but never nothing — a roster squeezed to zero height is a screen
+            // that silently stops showing who's answering.
+            flex: 1,
+            minHeight: "min(32%, 260px)",
+            overflow: "hidden",
+            position: "relative",
           }}
         >
-          {sortedTeams.map((team) => {
+          {sortedTeams.slice(0, fit.visibleCount).map((team) => {
             const progress = teamProgress[team.id];
             const answered = progress?.answeredCount ?? 0;
             const total = progress?.totalQuestions ?? questions.length;
@@ -704,30 +741,66 @@ function TeamAnsweringScreen({
                 style={{
                   display: "flex",
                   flexDirection: "column",
-                  gap: spacing[2],
-                  padding: spacing[4],
+                  gap: progressLayout.gapPx,
+                  padding: progressLayout.padPx,
+                  minWidth: 0,
                   backgroundColor: done ? `${colors.correct}15` : colors.bgCard,
                   borderRadius: radii.lg,
                   border: `1px solid ${done ? colors.correct : colors.border}`,
                 }}
               >
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: spacing[2] }}>
-                  <span style={{ fontFamily: "var(--font-display)", fontWeight: 700 }}>{team.name}</span>
+                  <span
+                    style={{
+                      fontFamily: "var(--font-display)",
+                      fontWeight: 700,
+                      fontSize: progressLayout.namePx,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {team.name}
+                  </span>
+                  {/* The answered count is the point of this screen — it
+                      survives every rung, including the one with no faces. */}
                   <span
                     style={{
                       fontFamily: "var(--font-display)",
                       fontWeight: 700,
                       color: done ? colors.correct : colors.primaryLight,
                       fontSize: "var(--text-sm)",
+                      whiteSpace: "nowrap",
                     }}
                   >
                     {answered}/{total}
                   </span>
                 </div>
-                <TeamMemberAvatars members={team.members} size="sm" />
+                {progressLayout.size && (
+                  <TeamMemberAvatars members={team.members} size={progressLayout.size} maxDisplay={5} />
+                )}
               </div>
             );
           })}
+
+          {fit.hiddenCount > 0 && (
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: progressLayout.padPx,
+                borderRadius: radii.lg,
+                border: `1px dashed ${colors.border}`,
+                fontFamily: "var(--font-display)",
+                fontWeight: 700,
+                fontSize: progressLayout.namePx,
+                color: colors.textSecondary,
+              }}
+            >
+              +{fit.hiddenCount} more
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -835,7 +908,10 @@ function BingoPresentationScreen({
           </p>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: spacing[2] }}>
-            {winners.map((winner, i) => (
+            {/* A blackout round can produce a lot of winners at once, and the
+                shared screen can't scroll — so the newest few show by name and
+                the rest are counted. The header already carries the total. */}
+            {winners.slice(-BINGO_WINNERS_SHOWN).map((winner, i) => (
               <p
                 key={`${winner.playerId}-${winner.pattern}-${i}`}
                 style={{
@@ -847,6 +923,12 @@ function BingoPresentationScreen({
                 🏆 {winner.displayName} — {WIN_PATTERN_LABELS[winner.pattern] || winner.pattern}
               </p>
             ))}
+            {winners.length > BINGO_WINNERS_SHOWN && (
+              <p style={{ fontSize: "var(--text-sm)", color: colors.textSecondary, margin: 0 }}>
+                + {winners.length - BINGO_WINNERS_SHOWN} more winner
+                {winners.length - BINGO_WINNERS_SHOWN === 1 ? "" : "s"}
+              </p>
+            )}
           </div>
         )}
       </div>

@@ -150,6 +150,35 @@ export class GameRoom extends Server<Env> {
         timestamp: Date.now(),
       });
 
+      // The host dashboard and the presentation lobby both build their roster
+      // from live PLAYER_JOINED broadcasts, so a screen opened (or refreshed)
+      // after people joined would show an empty room next to a non-zero player
+      // count. Replay the roster oldest-first, matching live arrival order.
+      if (role === "host" || role === "presentation") {
+        const roster = Object.values(this.game.players).filter((p) => p.role === "player");
+        for (const player of roster) {
+          sendToConnection(conn, {
+            type: "PLAYER_JOINED",
+            payload: {
+              playerId: player.id,
+              displayName: player.displayName,
+              avatarSeed: player.avatarSeed ?? "",
+              playerCount,
+            },
+            timestamp: Date.now(),
+          });
+        }
+        // PLAYER_JOINED marks everyone connected; walk back the ones who aren't.
+        for (const player of roster) {
+          if (player.isConnected) continue;
+          sendToConnection(conn, {
+            type: "PLAYER_LEFT",
+            payload: { playerId: player.id, playerCount },
+            timestamp: Date.now(),
+          });
+        }
+      }
+
       // Team Play: a client connecting after teams have already formed
       // (e.g. the presentation screen opened after players joined) would
       // otherwise show no teams until the next TEAM_UPDATED broadcast.

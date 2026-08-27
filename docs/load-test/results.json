@@ -1,0 +1,1951 @@
+{
+  "stamp": "2026-08-27 15:50 UTC",
+  "base": "http://localhost:5173",
+  "displays": [
+    {
+      "label": "projector",
+      "width": 1920,
+      "height": 1080
+    },
+    {
+      "label": "conf room",
+      "width": 1366,
+      "height": 768
+    },
+    {
+      "label": "laptop share",
+      "width": 1280,
+      "height": 800
+    }
+  ],
+  "runs": [
+    {
+      "slug": "4p-teams-of-2",
+      "label": "4 players · teams of 2",
+      "players": 4,
+      "teamSize": 2,
+      "solo": false,
+      "results": [
+        {
+          "screen": "lobby",
+          "display": "projector",
+          "width": 1920,
+          "height": 1080,
+          "shot": "lobby-1920x1080.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            0
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "lobby",
+          "display": "conf room",
+          "width": 1366,
+          "height": 768,
+          "shot": "lobby-1366x768.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            1
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "lobby",
+          "display": "laptop share",
+          "width": 1280,
+          "height": 800,
+          "shot": "lobby-1280x800.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            0
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "answering",
+          "display": "projector",
+          "width": 1920,
+          "height": 1080,
+          "shot": "answering-1920x1080.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            0
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "answering",
+          "display": "conf room",
+          "width": 1366,
+          "height": 768,
+          "shot": "answering-1366x768.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            0
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "answering",
+          "display": "laptop share",
+          "width": 1280,
+          "height": 800,
+          "shot": "answering-1280x800.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            0
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "score-reveal",
+          "display": "projector",
+          "width": 1920,
+          "height": 1080,
+          "shot": "score-reveal-1920x1080.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            0
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "score-reveal",
+          "display": "conf room",
+          "width": 1366,
+          "height": 768,
+          "shot": "score-reveal-1366x768.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            0
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "score-reveal",
+          "display": "laptop share",
+          "width": 1280,
+          "height": 800,
+          "shot": "score-reveal-1280x800.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            0
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "game-over",
+          "display": "projector",
+          "width": 1920,
+          "height": 1080,
+          "shot": "game-over-1920x1080.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "game-over",
+          "display": "conf room",
+          "width": 1366,
+          "height": 768,
+          "shot": "game-over-1366x768.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "game-over",
+          "display": "laptop share",
+          "width": 1280,
+          "height": 800,
+          "shot": "game-over-1280x800.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [],
+          "hidden": [],
+          "chain": []
+        }
+      ],
+      "roleResults": [
+        {
+          "role": "host",
+          "roleLabel": "host dashboard",
+          "screen": "lobby",
+          "shot": "host-lobby.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 1188,
+          "screens": 1.3
+        },
+        {
+          "role": "player",
+          "roleLabel": "player phone",
+          "screen": "lobby",
+          "shot": "player-lobby.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 951,
+          "screens": 1.1
+        },
+        {
+          "role": "audience",
+          "roleLabel": "audience phone",
+          "screen": "lobby",
+          "shot": "audience-lobby.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 844,
+          "screens": 1
+        },
+        {
+          "role": "host",
+          "roleLabel": "host dashboard",
+          "screen": "answering",
+          "shot": "host-answering.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 952,
+          "screens": 1.1
+        },
+        {
+          "role": "player",
+          "roleLabel": "player phone",
+          "screen": "answering",
+          "shot": "player-answering.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 844,
+          "screens": 1
+        },
+        {
+          "role": "audience",
+          "roleLabel": "audience phone",
+          "screen": "answering",
+          "shot": "audience-answering.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 844,
+          "screens": 1
+        },
+        {
+          "role": "host",
+          "roleLabel": "host dashboard",
+          "screen": "reviewing",
+          "shot": "host-reviewing.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 1506,
+          "screens": 1.7
+        },
+        {
+          "role": "host",
+          "roleLabel": "host dashboard",
+          "screen": "score-reveal",
+          "shot": "host-score-reveal.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 900,
+          "screens": 1
+        },
+        {
+          "role": "player",
+          "roleLabel": "player phone",
+          "screen": "score-reveal",
+          "shot": "player-score-reveal.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 844,
+          "screens": 1
+        },
+        {
+          "role": "audience",
+          "roleLabel": "audience phone",
+          "screen": "score-reveal",
+          "shot": "audience-score-reveal.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 1192,
+          "screens": 1.4
+        },
+        {
+          "role": "host",
+          "roleLabel": "host dashboard",
+          "screen": "game-over",
+          "shot": "host-game-over.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 900,
+          "screens": 1
+        },
+        {
+          "role": "player",
+          "roleLabel": "player phone",
+          "screen": "game-over",
+          "shot": "player-game-over.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 844,
+          "screens": 1
+        },
+        {
+          "role": "audience",
+          "roleLabel": "audience phone",
+          "screen": "game-over",
+          "shot": "audience-game-over.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 844,
+          "screens": 1
+        }
+      ],
+      "problems": [],
+      "failures": 0,
+      "reviewQueue": "Accept All Remaining (3)",
+      "joinSeconds": 0.1,
+      "teams": 2,
+      "joined": 4
+    },
+    {
+      "slug": "12p-teams-of-4",
+      "label": "12 players · teams of 4",
+      "players": 12,
+      "teamSize": 4,
+      "solo": false,
+      "results": [
+        {
+          "screen": "lobby",
+          "display": "projector",
+          "width": 1920,
+          "height": 1080,
+          "shot": "lobby-1920x1080.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            0
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "lobby",
+          "display": "conf room",
+          "width": 1366,
+          "height": 768,
+          "shot": "lobby-1366x768.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            1
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "lobby",
+          "display": "laptop share",
+          "width": 1280,
+          "height": 800,
+          "shot": "lobby-1280x800.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            0
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "answering",
+          "display": "projector",
+          "width": 1920,
+          "height": 1080,
+          "shot": "answering-1920x1080.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            0
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "answering",
+          "display": "conf room",
+          "width": 1366,
+          "height": 768,
+          "shot": "answering-1366x768.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            0
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "answering",
+          "display": "laptop share",
+          "width": 1280,
+          "height": 800,
+          "shot": "answering-1280x800.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            0
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "score-reveal",
+          "display": "projector",
+          "width": 1920,
+          "height": 1080,
+          "shot": "score-reveal-1920x1080.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            0
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "score-reveal",
+          "display": "conf room",
+          "width": 1366,
+          "height": 768,
+          "shot": "score-reveal-1366x768.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            0
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "score-reveal",
+          "display": "laptop share",
+          "width": 1280,
+          "height": 800,
+          "shot": "score-reveal-1280x800.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            0
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "game-over",
+          "display": "projector",
+          "width": 1920,
+          "height": 1080,
+          "shot": "game-over-1920x1080.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "game-over",
+          "display": "conf room",
+          "width": 1366,
+          "height": 768,
+          "shot": "game-over-1366x768.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "game-over",
+          "display": "laptop share",
+          "width": 1280,
+          "height": 800,
+          "shot": "game-over-1280x800.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [],
+          "hidden": [],
+          "chain": []
+        }
+      ],
+      "roleResults": [
+        {
+          "role": "host",
+          "roleLabel": "host dashboard",
+          "screen": "lobby",
+          "shot": "host-lobby.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 1746,
+          "screens": 1.9
+        },
+        {
+          "role": "player",
+          "roleLabel": "player phone",
+          "screen": "lobby",
+          "shot": "player-lobby.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 951,
+          "screens": 1.1
+        },
+        {
+          "role": "audience",
+          "roleLabel": "audience phone",
+          "screen": "lobby",
+          "shot": "audience-lobby.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 844,
+          "screens": 1
+        },
+        {
+          "role": "host",
+          "roleLabel": "host dashboard",
+          "screen": "answering",
+          "shot": "host-answering.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 1004,
+          "screens": 1.1
+        },
+        {
+          "role": "player",
+          "roleLabel": "player phone",
+          "screen": "answering",
+          "shot": "player-answering.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 844,
+          "screens": 1
+        },
+        {
+          "role": "audience",
+          "roleLabel": "audience phone",
+          "screen": "answering",
+          "shot": "audience-answering.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 844,
+          "screens": 1
+        },
+        {
+          "role": "host",
+          "roleLabel": "host dashboard",
+          "screen": "reviewing",
+          "shot": "host-reviewing.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 2203,
+          "screens": 2.4
+        },
+        {
+          "role": "host",
+          "roleLabel": "host dashboard",
+          "screen": "score-reveal",
+          "shot": "host-score-reveal.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 900,
+          "screens": 1
+        },
+        {
+          "role": "player",
+          "roleLabel": "player phone",
+          "screen": "score-reveal",
+          "shot": "player-score-reveal.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 844,
+          "screens": 1
+        },
+        {
+          "role": "audience",
+          "roleLabel": "audience phone",
+          "screen": "score-reveal",
+          "shot": "audience-score-reveal.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 1688,
+          "screens": 2
+        },
+        {
+          "role": "host",
+          "roleLabel": "host dashboard",
+          "screen": "game-over",
+          "shot": "host-game-over.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 964,
+          "screens": 1.1
+        },
+        {
+          "role": "player",
+          "roleLabel": "player phone",
+          "screen": "game-over",
+          "shot": "player-game-over.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 1216,
+          "screens": 1.4
+        },
+        {
+          "role": "audience",
+          "roleLabel": "audience phone",
+          "screen": "game-over",
+          "shot": "audience-game-over.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 918,
+          "screens": 1.1
+        }
+      ],
+      "problems": [],
+      "failures": 0,
+      "reviewQueue": "Accept All Remaining (6)",
+      "joinSeconds": 0.1,
+      "teams": 3,
+      "joined": 12
+    },
+    {
+      "slug": "32p-teams-of-4",
+      "label": "32 players · teams of 4",
+      "players": 32,
+      "teamSize": 4,
+      "solo": false,
+      "results": [
+        {
+          "screen": "lobby",
+          "display": "projector",
+          "width": 1920,
+          "height": 1080,
+          "shot": "lobby-1920x1080.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            0
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "lobby",
+          "display": "conf room",
+          "width": 1366,
+          "height": 768,
+          "shot": "lobby-1366x768.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            3
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "lobby",
+          "display": "laptop share",
+          "width": 1280,
+          "height": 800,
+          "shot": "lobby-1280x800.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            3
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "answering",
+          "display": "projector",
+          "width": 1920,
+          "height": 1080,
+          "shot": "answering-1920x1080.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            1
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "answering",
+          "display": "conf room",
+          "width": 1366,
+          "height": 768,
+          "shot": "answering-1366x768.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            2
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "answering",
+          "display": "laptop share",
+          "width": 1280,
+          "height": 800,
+          "shot": "answering-1280x800.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            2
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "score-reveal",
+          "display": "projector",
+          "width": 1920,
+          "height": 1080,
+          "shot": "score-reveal-1920x1080.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            2
+          ],
+          "hidden": [
+            "+1 more teams"
+          ],
+          "chain": []
+        },
+        {
+          "screen": "score-reveal",
+          "display": "conf room",
+          "width": 1366,
+          "height": 768,
+          "shot": "score-reveal-1366x768.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            2
+          ],
+          "hidden": [
+            "+3 more teams"
+          ],
+          "chain": []
+        },
+        {
+          "screen": "score-reveal",
+          "display": "laptop share",
+          "width": 1280,
+          "height": 800,
+          "shot": "score-reveal-1280x800.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            2
+          ],
+          "hidden": [
+            "+2 more teams"
+          ],
+          "chain": []
+        },
+        {
+          "screen": "game-over",
+          "display": "projector",
+          "width": 1920,
+          "height": 1080,
+          "shot": "game-over-1920x1080.png",
+          "clipped": 13,
+          "worst": "<image>",
+          "rungs": [
+            0
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "game-over",
+          "display": "conf room",
+          "width": 1366,
+          "height": 768,
+          "shot": "game-over-1366x768.png",
+          "clipped": 16,
+          "worst": "#7",
+          "rungs": [
+            2
+          ],
+          "hidden": [
+            "+4 more teams"
+          ],
+          "chain": []
+        },
+        {
+          "screen": "game-over",
+          "display": "laptop share",
+          "width": 1280,
+          "height": 800,
+          "shot": "game-over-1280x800.png",
+          "clipped": 16,
+          "worst": "#7",
+          "rungs": [
+            2
+          ],
+          "hidden": [],
+          "chain": []
+        }
+      ],
+      "roleResults": [
+        {
+          "role": "host",
+          "roleLabel": "host dashboard",
+          "screen": "lobby",
+          "shot": "host-lobby.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 3296,
+          "screens": 3.7
+        },
+        {
+          "role": "player",
+          "roleLabel": "player phone",
+          "screen": "lobby",
+          "shot": "player-lobby.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 951,
+          "screens": 1.1
+        },
+        {
+          "role": "audience",
+          "roleLabel": "audience phone",
+          "screen": "lobby",
+          "shot": "audience-lobby.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 844,
+          "screens": 1
+        },
+        {
+          "role": "host",
+          "roleLabel": "host dashboard",
+          "screen": "answering",
+          "shot": "host-answering.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 1262,
+          "screens": 1.4
+        },
+        {
+          "role": "player",
+          "roleLabel": "player phone",
+          "screen": "answering",
+          "shot": "player-answering.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 844,
+          "screens": 1
+        },
+        {
+          "role": "audience",
+          "roleLabel": "audience phone",
+          "screen": "answering",
+          "shot": "audience-answering.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 844,
+          "screens": 1
+        },
+        {
+          "role": "host",
+          "roleLabel": "host dashboard",
+          "screen": "reviewing",
+          "shot": "host-reviewing.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 5689,
+          "screens": 6.3
+        },
+        {
+          "role": "host",
+          "roleLabel": "host dashboard",
+          "screen": "score-reveal",
+          "shot": "host-score-reveal.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 1194,
+          "screens": 1.3
+        },
+        {
+          "role": "player",
+          "roleLabel": "player phone",
+          "screen": "score-reveal",
+          "shot": "player-score-reveal.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 844,
+          "screens": 1
+        },
+        {
+          "role": "audience",
+          "roleLabel": "audience phone",
+          "screen": "score-reveal",
+          "shot": "audience-score-reveal.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 1874,
+          "screens": 2.2
+        },
+        {
+          "role": "host",
+          "roleLabel": "host dashboard",
+          "screen": "game-over",
+          "shot": "host-game-over.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 1444,
+          "screens": 1.6
+        },
+        {
+          "role": "player",
+          "roleLabel": "player phone",
+          "screen": "game-over",
+          "shot": "player-game-over.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 1216,
+          "screens": 1.4
+        },
+        {
+          "role": "audience",
+          "roleLabel": "audience phone",
+          "screen": "game-over",
+          "shot": "audience-game-over.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 1104,
+          "screens": 1.3
+        }
+      ],
+      "problems": [
+        "game-over @ projector: <image>",
+        "game-over @ conf room: #7",
+        "game-over @ laptop share: #7"
+      ],
+      "failures": 0,
+      "reviewQueue": "Accept All Remaining (21)",
+      "joinSeconds": 0.3,
+      "teams": 8,
+      "joined": 32
+    },
+    {
+      "slug": "68p-teams-of-4",
+      "label": "68 players · teams of 4",
+      "players": 68,
+      "teamSize": 4,
+      "solo": false,
+      "results": [
+        {
+          "screen": "lobby",
+          "display": "projector",
+          "width": 1920,
+          "height": 1080,
+          "shot": "lobby-1920x1080.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            2
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "lobby",
+          "display": "conf room",
+          "width": 1366,
+          "height": 768,
+          "shot": "lobby-1366x768.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            4
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "lobby",
+          "display": "laptop share",
+          "width": 1280,
+          "height": 800,
+          "shot": "lobby-1280x800.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            4
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "answering",
+          "display": "projector",
+          "width": 1920,
+          "height": 1080,
+          "shot": "answering-1920x1080.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            3
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "answering",
+          "display": "conf room",
+          "width": 1366,
+          "height": 768,
+          "shot": "answering-1366x768.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            3
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "answering",
+          "display": "laptop share",
+          "width": 1280,
+          "height": 800,
+          "shot": "answering-1280x800.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            3
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "score-reveal",
+          "display": "projector",
+          "width": 1920,
+          "height": 1080,
+          "shot": "score-reveal-1920x1080.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            2
+          ],
+          "hidden": [
+            "+8 more teams"
+          ],
+          "chain": []
+        },
+        {
+          "screen": "score-reveal",
+          "display": "conf room",
+          "width": 1366,
+          "height": 768,
+          "shot": "score-reveal-1366x768.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            2
+          ],
+          "hidden": [
+            "+11 more teams"
+          ],
+          "chain": []
+        },
+        {
+          "screen": "score-reveal",
+          "display": "laptop share",
+          "width": 1280,
+          "height": 800,
+          "shot": "score-reveal-1280x800.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            2
+          ],
+          "hidden": [
+            "+10 more teams"
+          ],
+          "chain": []
+        },
+        {
+          "screen": "game-over",
+          "display": "projector",
+          "width": 1920,
+          "height": 1080,
+          "shot": "game-over-1920x1080.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            2
+          ],
+          "hidden": [
+            "+12 more teams"
+          ],
+          "chain": []
+        },
+        {
+          "screen": "game-over",
+          "display": "conf room",
+          "width": 1366,
+          "height": 768,
+          "shot": "game-over-1366x768.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            2
+          ],
+          "hidden": [
+            "+13 more teams"
+          ],
+          "chain": []
+        },
+        {
+          "screen": "game-over",
+          "display": "laptop share",
+          "width": 1280,
+          "height": 800,
+          "shot": "game-over-1280x800.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            2
+          ],
+          "hidden": [
+            "+12 more teams"
+          ],
+          "chain": []
+        }
+      ],
+      "roleResults": [
+        {
+          "role": "host",
+          "roleLabel": "host dashboard",
+          "screen": "lobby",
+          "shot": "host-lobby.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 6086,
+          "screens": 6.8
+        },
+        {
+          "role": "player",
+          "roleLabel": "player phone",
+          "screen": "lobby",
+          "shot": "player-lobby.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 951,
+          "screens": 1.1
+        },
+        {
+          "role": "audience",
+          "roleLabel": "audience phone",
+          "screen": "lobby",
+          "shot": "audience-lobby.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 844,
+          "screens": 1
+        },
+        {
+          "role": "host",
+          "roleLabel": "host dashboard",
+          "screen": "answering",
+          "shot": "host-answering.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 1726,
+          "screens": 1.9
+        },
+        {
+          "role": "player",
+          "roleLabel": "player phone",
+          "screen": "answering",
+          "shot": "player-answering.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 844,
+          "screens": 1
+        },
+        {
+          "role": "audience",
+          "roleLabel": "audience phone",
+          "screen": "answering",
+          "shot": "audience-answering.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 844,
+          "screens": 1
+        },
+        {
+          "role": "host",
+          "roleLabel": "host dashboard",
+          "screen": "reviewing",
+          "shot": "host-reviewing.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 11964,
+          "screens": 13.3
+        },
+        {
+          "role": "host",
+          "roleLabel": "host dashboard",
+          "screen": "score-reveal",
+          "shot": "host-score-reveal.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 1314,
+          "screens": 1.5
+        },
+        {
+          "role": "player",
+          "roleLabel": "player phone",
+          "screen": "score-reveal",
+          "shot": "player-score-reveal.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 844,
+          "screens": 1
+        },
+        {
+          "role": "audience",
+          "roleLabel": "audience phone",
+          "screen": "score-reveal",
+          "shot": "audience-score-reveal.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 1874,
+          "screens": 2.2
+        },
+        {
+          "role": "host",
+          "roleLabel": "host dashboard",
+          "screen": "game-over",
+          "shot": "host-game-over.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 2104,
+          "screens": 2.3
+        },
+        {
+          "role": "player",
+          "roleLabel": "player phone",
+          "screen": "game-over",
+          "shot": "player-game-over.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 1216,
+          "screens": 1.4
+        },
+        {
+          "role": "audience",
+          "roleLabel": "audience phone",
+          "screen": "game-over",
+          "shot": "audience-game-over.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 1104,
+          "screens": 1.3
+        }
+      ],
+      "problems": [],
+      "failures": 0,
+      "reviewQueue": "Accept All Remaining (48)",
+      "joinSeconds": 0.9,
+      "teams": 17,
+      "joined": 68
+    },
+    {
+      "slug": "100p-teams-of-4",
+      "label": "100 players · teams of 4",
+      "players": 100,
+      "teamSize": 4,
+      "solo": false,
+      "results": [
+        {
+          "screen": "lobby",
+          "display": "projector",
+          "width": 1920,
+          "height": 1080,
+          "shot": "lobby-1920x1080.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            3
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "lobby",
+          "display": "conf room",
+          "width": 1366,
+          "height": 768,
+          "shot": "lobby-1366x768.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            4
+          ],
+          "hidden": [
+            "+5 more"
+          ],
+          "chain": []
+        },
+        {
+          "screen": "lobby",
+          "display": "laptop share",
+          "width": 1280,
+          "height": 800,
+          "shot": "lobby-1280x800.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            4
+          ],
+          "hidden": [
+            "+5 more"
+          ],
+          "chain": []
+        },
+        {
+          "screen": "answering",
+          "display": "projector",
+          "width": 1920,
+          "height": 1080,
+          "shot": "answering-1920x1080.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            3
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "answering",
+          "display": "conf room",
+          "width": 1366,
+          "height": 768,
+          "shot": "answering-1366x768.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            3
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "answering",
+          "display": "laptop share",
+          "width": 1280,
+          "height": 800,
+          "shot": "answering-1280x800.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            3
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "score-reveal",
+          "display": "projector",
+          "width": 1920,
+          "height": 1080,
+          "shot": "score-reveal-1920x1080.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            2
+          ],
+          "hidden": [
+            "+16 more teams"
+          ],
+          "chain": []
+        },
+        {
+          "screen": "score-reveal",
+          "display": "conf room",
+          "width": 1366,
+          "height": 768,
+          "shot": "score-reveal-1366x768.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            2
+          ],
+          "hidden": [
+            "+19 more teams"
+          ],
+          "chain": []
+        },
+        {
+          "screen": "score-reveal",
+          "display": "laptop share",
+          "width": 1280,
+          "height": 800,
+          "shot": "score-reveal-1280x800.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            2
+          ],
+          "hidden": [
+            "+18 more teams"
+          ],
+          "chain": []
+        },
+        {
+          "screen": "game-over",
+          "display": "projector",
+          "width": 1920,
+          "height": 1080,
+          "shot": "game-over-1920x1080.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            2
+          ],
+          "hidden": [
+            "+20 more teams"
+          ],
+          "chain": []
+        },
+        {
+          "screen": "game-over",
+          "display": "conf room",
+          "width": 1366,
+          "height": 768,
+          "shot": "game-over-1366x768.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            2
+          ],
+          "hidden": [
+            "+21 more teams"
+          ],
+          "chain": []
+        },
+        {
+          "screen": "game-over",
+          "display": "laptop share",
+          "width": 1280,
+          "height": 800,
+          "shot": "game-over-1280x800.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            2
+          ],
+          "hidden": [
+            "+20 more teams"
+          ],
+          "chain": []
+        }
+      ],
+      "roleResults": [
+        {
+          "role": "host",
+          "roleLabel": "host dashboard",
+          "screen": "lobby",
+          "shot": "host-lobby.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 8566,
+          "screens": 9.5
+        },
+        {
+          "role": "player",
+          "roleLabel": "player phone",
+          "screen": "lobby",
+          "shot": "player-lobby.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 951,
+          "screens": 1.1
+        },
+        {
+          "role": "audience",
+          "roleLabel": "audience phone",
+          "screen": "lobby",
+          "shot": "audience-lobby.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 844,
+          "screens": 1
+        },
+        {
+          "role": "host",
+          "roleLabel": "host dashboard",
+          "screen": "answering",
+          "shot": "host-answering.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 2139,
+          "screens": 2.4
+        },
+        {
+          "role": "player",
+          "roleLabel": "player phone",
+          "screen": "answering",
+          "shot": "player-answering.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 844,
+          "screens": 1
+        },
+        {
+          "role": "audience",
+          "roleLabel": "audience phone",
+          "screen": "answering",
+          "shot": "audience-answering.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 844,
+          "screens": 1
+        },
+        {
+          "role": "host",
+          "roleLabel": "host dashboard",
+          "screen": "reviewing",
+          "shot": "host-reviewing.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 17541,
+          "screens": 19.5
+        },
+        {
+          "role": "host",
+          "roleLabel": "host dashboard",
+          "screen": "score-reveal",
+          "shot": "host-score-reveal.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 1314,
+          "screens": 1.5
+        },
+        {
+          "role": "player",
+          "roleLabel": "player phone",
+          "screen": "score-reveal",
+          "shot": "player-score-reveal.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 844,
+          "screens": 1
+        },
+        {
+          "role": "audience",
+          "roleLabel": "audience phone",
+          "screen": "score-reveal",
+          "shot": "audience-score-reveal.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 1874,
+          "screens": 2.2
+        },
+        {
+          "role": "host",
+          "roleLabel": "host dashboard",
+          "screen": "game-over",
+          "shot": "host-game-over.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 2404,
+          "screens": 2.7
+        },
+        {
+          "role": "player",
+          "roleLabel": "player phone",
+          "screen": "game-over",
+          "shot": "player-game-over.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 1216,
+          "screens": 1.4
+        },
+        {
+          "role": "audience",
+          "roleLabel": "audience phone",
+          "screen": "game-over",
+          "shot": "audience-game-over.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 1104,
+          "screens": 1.3
+        }
+      ],
+      "problems": [],
+      "failures": 0,
+      "reviewQueue": "Accept All Remaining (72)",
+      "joinSeconds": 1.5,
+      "teams": 25,
+      "joined": 100
+    },
+    {
+      "slug": "68p-individual",
+      "label": "68 players · individual",
+      "players": 68,
+      "teamSize": null,
+      "solo": true,
+      "results": [
+        {
+          "screen": "lobby",
+          "display": "projector",
+          "width": 1920,
+          "height": 1080,
+          "shot": "lobby-1920x1080.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            2
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "lobby",
+          "display": "conf room",
+          "width": 1366,
+          "height": 768,
+          "shot": "lobby-1366x768.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            3
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "lobby",
+          "display": "laptop share",
+          "width": 1280,
+          "height": 800,
+          "shot": "lobby-1280x800.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            3
+          ],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "answering",
+          "display": "projector",
+          "width": 1920,
+          "height": 1080,
+          "shot": "answering-1920x1080.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "answering",
+          "display": "conf room",
+          "width": 1366,
+          "height": 768,
+          "shot": "answering-1366x768.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "answering",
+          "display": "laptop share",
+          "width": 1280,
+          "height": 800,
+          "shot": "answering-1280x800.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [],
+          "hidden": [],
+          "chain": []
+        },
+        {
+          "screen": "score-reveal",
+          "display": "projector",
+          "width": 1920,
+          "height": 1080,
+          "shot": "score-reveal-1920x1080.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            2
+          ],
+          "hidden": [
+            "+61 more players"
+          ],
+          "chain": []
+        },
+        {
+          "screen": "score-reveal",
+          "display": "conf room",
+          "width": 1366,
+          "height": 768,
+          "shot": "score-reveal-1366x768.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            2
+          ],
+          "hidden": [
+            "+63 more players"
+          ],
+          "chain": []
+        },
+        {
+          "screen": "score-reveal",
+          "display": "laptop share",
+          "width": 1280,
+          "height": 800,
+          "shot": "score-reveal-1280x800.png",
+          "clipped": 0,
+          "worst": "",
+          "rungs": [
+            2
+          ],
+          "hidden": [
+            "+62 more players"
+          ],
+          "chain": []
+        },
+        {
+          "screen": "game-over",
+          "display": "projector",
+          "width": 1920,
+          "height": 1080,
+          "shot": "game-over-1920x1080.png",
+          "clipped": 64,
+          "worst": "#8",
+          "rungs": [
+            2
+          ],
+          "hidden": [
+            "+63 more players"
+          ],
+          "chain": []
+        },
+        {
+          "screen": "game-over",
+          "display": "conf room",
+          "width": 1366,
+          "height": 768,
+          "shot": "game-over-1366x768.png",
+          "clipped": 69,
+          "worst": "#7",
+          "rungs": [
+            2
+          ],
+          "hidden": [
+            "+45 more players"
+          ],
+          "chain": []
+        },
+        {
+          "screen": "game-over",
+          "display": "laptop share",
+          "width": 1280,
+          "height": 800,
+          "shot": "game-over-1280x800.png",
+          "clipped": 68,
+          "worst": "#7",
+          "rungs": [
+            2
+          ],
+          "hidden": [
+            "+64 more players"
+          ],
+          "chain": []
+        }
+      ],
+      "roleResults": [
+        {
+          "role": "host",
+          "roleLabel": "host dashboard",
+          "screen": "lobby",
+          "shot": "host-lobby.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 4932,
+          "screens": 5.5
+        },
+        {
+          "role": "player",
+          "roleLabel": "player phone",
+          "screen": "lobby",
+          "shot": "player-lobby.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 844,
+          "screens": 1
+        },
+        {
+          "role": "audience",
+          "roleLabel": "audience phone",
+          "screen": "lobby",
+          "shot": "audience-lobby.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 844,
+          "screens": 1
+        },
+        {
+          "role": "host",
+          "roleLabel": "host dashboard",
+          "screen": "answering",
+          "shot": "host-answering.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 900,
+          "screens": 1
+        },
+        {
+          "role": "player",
+          "roleLabel": "player phone",
+          "screen": "answering",
+          "shot": "player-answering.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 844,
+          "screens": 1
+        },
+        {
+          "role": "audience",
+          "roleLabel": "audience phone",
+          "screen": "answering",
+          "shot": "audience-answering.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 844,
+          "screens": 1
+        },
+        {
+          "role": "host",
+          "roleLabel": "host dashboard",
+          "screen": "reviewing",
+          "shot": "host-reviewing.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 900,
+          "screens": 1
+        },
+        {
+          "role": "host",
+          "roleLabel": "host dashboard",
+          "screen": "score-reveal",
+          "shot": "host-score-reveal.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 1254,
+          "screens": 1.4
+        },
+        {
+          "role": "player",
+          "roleLabel": "player phone",
+          "screen": "score-reveal",
+          "shot": "player-score-reveal.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 844,
+          "screens": 1
+        },
+        {
+          "role": "audience",
+          "roleLabel": "audience phone",
+          "screen": "score-reveal",
+          "shot": "audience-score-reveal.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 1445,
+          "screens": 1.7
+        },
+        {
+          "role": "host",
+          "roleLabel": "host dashboard",
+          "screen": "game-over",
+          "shot": "host-game-over.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 2284,
+          "screens": 2.5
+        },
+        {
+          "role": "player",
+          "roleLabel": "player phone",
+          "screen": "game-over",
+          "shot": "player-game-over.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 1216,
+          "screens": 1.4
+        },
+        {
+          "role": "audience",
+          "roleLabel": "audience phone",
+          "screen": "game-over",
+          "shot": "audience-game-over.png",
+          "offSide": 0,
+          "worst": "",
+          "pageHeight": 1104,
+          "screens": 1.3
+        }
+      ],
+      "problems": [
+        "game-over @ projector: #8",
+        "game-over @ conf room: #7",
+        "game-over @ laptop share: #7"
+      ],
+      "failures": 0,
+      "reviewQueue": null,
+      "joinSeconds": 0.7,
+      "teams": 0,
+      "joined": 68
+    }
+  ]
+}

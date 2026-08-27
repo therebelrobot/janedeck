@@ -5,7 +5,7 @@ import React from "react";
 import { motion, AnimatePresence, useReducedMotion } from "framer-motion";
 import type { ScoreEntry } from "@/shared/types";
 import { PlayerAvatar } from "../../components/PlayerAvatar";
-import { colors, spacing, radii } from "../../styles/theme";
+import { colors, spacing, radii, rankRingColors } from "../../styles/theme";
 
 interface AudienceLeaderboardProps {
   /** Sorted leaderboard entries */
@@ -100,7 +100,14 @@ export function AudienceLeaderboard({
               </span>
 
               {/* Avatar */}
-              <PlayerAvatar displayName={entry.displayName} avatarSeed={entry.avatarSeed} isConnected size="sm" />
+              <PlayerAvatar
+                displayName={entry.displayName}
+                avatarSeed={entry.avatarSeed}
+                isConnected
+                size="md"
+                ring={entry.rank <= 3 ? rankRingColors[entry.rank - 1] : null}
+                hideStatus
+              />
 
               {/* Name */}
               <span

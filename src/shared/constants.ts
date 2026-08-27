@@ -52,7 +52,11 @@ export const MIN_DISPLAY_NAME_LENGTH = 1;
 
 /** Default game settings */
 export const DEFAULT_GAME_SETTINGS = {
-  maxPlayers: 16,
+  // Default to the ceiling rather than a guess: a room is already gated by its
+  // code, and a cap set too low turns into "The game is full" for everyone
+  // after the sixteenth person — mid-event, with no way to raise it. Hosts who
+  // want a smaller room can still set one.
+  maxPlayers: MAX_PLAYERS,
   allowAudience: true,
   audienceBonusPoints: 1,
   defaultTimeLimit: DEFAULT_TIME_LIMIT,
@@ -66,7 +70,8 @@ export const DEFAULT_ROUND_TIME_LIMIT = 300;
 
 /** Default bingo settings */
 export const DEFAULT_BINGO_SETTINGS = {
-  maxPlayers: 16,
+  // Bingo's schema caps at 50 — see BingoSettingsSchema.
+  maxPlayers: 50,
   cardMode: "numbered",
   numberRange: 75,
   phrasePool: [] as BingoPhraseEntry[],

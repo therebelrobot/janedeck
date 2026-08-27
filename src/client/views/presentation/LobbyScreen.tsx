@@ -8,13 +8,15 @@ import { GameCodeDisplay } from "./components/GameCodeDisplay";
 import { PlayerJoinFeed } from "./components/PlayerJoinFeed";
 import { TeamMemberAvatars } from "../../components/TeamMemberAvatars";
 import { colors, spacing, radii } from "../../styles/theme";
+import { TEAM_CARD_LADDER } from "../../utils/rosterLayouts";
+import { useFitToBox } from "../../hooks/useFitToBox";
 import { pulse, staggerContainer, staggerItem, reduceVariants } from "../../animations/presets";
 
 interface LobbyScreenProps {
   /** The game code */
   gameCode: string;
   /** List of joined players */
-  players: Array<{ playerId: string; displayName: string }>;
+  players: Array<{ playerId: string; displayName: string; avatarSeed?: string }>;
   /** Total player count */
   playerCount: number;
   /** Whether Team Play is enabled — shows team formation instead of a flat join feed */
@@ -36,11 +38,14 @@ export function LobbyScreen({
 }: LobbyScreenProps): React.ReactElement {
   const prefersReducedMotion = useReducedMotion();
 
-  // Once there's a roster to show — teams forming, or players streaming in —
-  // the vertical rhythm tightens to make room for it. At full size a lobby
-  // with three or more teams pushes the team cards off the bottom of the
-  // shared screen, and a projected screen can't scroll down to reach them.
-  const compact = teamPlayEnabled ? teams.length > 1 : players.length > 8;
+  // Once there's a roster to show — teams forming, or faces on the wall — the
+  // vertical rhythm tightens to make room for it. At full size the roster gets
+  // pushed off the bottom of the shared screen, and a projected screen can't
+  // scroll down to reach it.
+  const compact = teamPlayEnabled ? teams.length > 1 : players.length > 0;
+  // A big roster needs the vertical space the stacked code block was using, so
+  // the code and the QR move onto one line instead of two.
+  const denseCode = teamPlayEnabled ? teams.length > 6 : players.length > 10;
 
   return (
     <div
@@ -49,9 +54,13 @@ export function LobbyScreen({
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        gap: compact ? spacing[4] : spacing[8],
+        gap: compact ? spacing[2] : spacing[6],
         width: "100%",
-        minHeight: "80vh",
+        // Fill the screen rather than sizing to content: the roster below needs
+        // a real box to measure itself against, and whatever is left after the
+        // join code is exactly that box.
+        flex: 1,
+        minHeight: 0,
       }}
     >
       {/* Title */}
@@ -77,7 +86,7 @@ export function LobbyScreen({
       </motion.h1>
 
       {/* Game code display */}
-      <GameCodeDisplay gameCode={gameCode} compact={compact} />
+      <GameCodeDisplay gameCode={gameCode} compact={compact} dense={denseCode} />
 
       {/* Player count */}
       <motion.div
@@ -112,8 +121,16 @@ export function LobbyScreen({
         <>
           {/* Player join feed */}
           {players.length > 0 && (
-            <div style={{ width: "100%", maxWidth: "min(900px, 90vw)" }}>
-              <PlayerJoinFeed players={players} maxDisplay={20} />
+            <div
+              style={{
+                width: "100%",
+                maxWidth: "min(1800px, 96vw)",
+                flex: 1,
+                minHeight: 0,
+                display: "flex",
+              }}
+            >
+              <PlayerJoinFeed players={players} />
             </div>
           )}
 
@@ -144,6 +161,13 @@ function TeamFormationGrid({
   teams: PublicTeam[];
   prefersReducedMotion: boolean;
 }): React.ReactElement {
+  // The roster measures itself against the space the join code leaves it and
+  // tightens until it fits — big faces for a handful of teams, name-only chips
+  // for a roomful. See useFitToBox.
+  const { ref, step, visibleCount, hiddenCount } = useFitToBox(teams.length, TEAM_CARD_LADDER.length);
+  const layout = TEAM_CARD_LADDER[Math.min(step, TEAM_CARD_LADDER.length - 1)];
+  const shown = teams.slice(0, visibleCount);
+
   if (teams.length === 0) {
     return (
       <p
@@ -161,21 +185,33 @@ function TeamFormationGrid({
 
   return (
     <motion.div
+      ref={ref}
       variants={prefersReducedMotion ? reduceVariants(staggerContainer) : staggerContainer}
       initial="hidden"
       animate="show"
       style={{
         width: "100%",
-        maxWidth: "min(1100px, 92vw)",
+        maxWidth: "min(1800px, 96vw)",
         display: "grid",
-        gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-        gap: spacing[4],
+        // Columns track --avatar-scale for the same reason the avatars do: on a
+        // 1920px screen every face is drawn 1.3x, and a fixed column would clip
+        // the roster it's meant to hold.
+        gridTemplateColumns: `repeat(auto-fit, minmax(calc(${layout.cardPx}px * var(--avatar-scale, 1)), 1fr))`,
+        gap: spacing[2],
+        alignContent: "center",
+        justifyContent: "center",
+        // The box useFitToBox measures: bounded, clipped, and the origin for
+        // the children's offsetTop.
+        flex: 1,
+        minHeight: 0,
+        overflow: "hidden",
+        position: "relative",
       }}
       aria-label="Teams"
       aria-live="polite"
     >
       <AnimatePresence mode="popLayout">
-        {teams.map((team) => (
+        {shown.map((team) => (
           <motion.div
             key={team.id}
             variants={prefersReducedMotion ? reduceVariants(staggerItem) : staggerItem}
@@ -183,29 +219,73 @@ function TeamFormationGrid({
             style={{
               display: "flex",
               flexDirection: "column",
-              gap: spacing[3],
-              padding: spacing[4],
+              alignItems: "center",
+              justifyContent: "center",
+              gap: layout.gapPx,
+              padding: layout.padPx,
               backgroundColor: colors.bgCard,
               borderRadius: radii.xl,
               border: `1px solid ${colors.border}`,
+              minWidth: 0,
             }}
           >
+            {/* Faces first — the roster is what the room looks at, the label
+                follows. Past the last rung the faces go and the name carries
+                the card on its own. */}
+            {layout.size && (
+              <TeamMemberAvatars
+                members={team.members}
+                size={layout.size}
+                maxDisplay={5}
+                align="center"
+              />
+            )}
             <span
               style={{
                 fontFamily: "var(--font-display)",
                 fontWeight: 700,
-                fontSize: "var(--text-lg)",
+                fontSize: layout.namePx,
+                textAlign: "center",
+                maxWidth: "100%",
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
               }}
             >
               {team.name}
             </span>
-            <TeamMemberAvatars members={team.members} size="md" />
-            <span style={{ fontSize: "var(--text-sm)", color: colors.textSecondary }}>
-              {team.members.length} {team.members.length === 1 ? "player" : "players"}
-            </span>
+            {layout.showDetail && (
+              <span style={{ fontSize: "var(--text-sm)", color: colors.textSecondary }}>
+                {team.members.length} {team.members.length === 1 ? "player" : "players"}
+              </span>
+            )}
+            {!layout.showDetail && !layout.size && (
+              <span style={{ fontSize: "var(--text-xs)", color: colors.textSecondary }}>
+                {team.members.length}
+              </span>
+            )}
           </motion.div>
         ))}
       </AnimatePresence>
+
+      {hiddenCount > 0 && (
+        <div
+          style={{
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: layout.padPx,
+            borderRadius: radii.xl,
+            border: `1px dashed ${colors.border}`,
+            fontFamily: "var(--font-display)",
+            fontWeight: 700,
+            fontSize: layout.namePx,
+            color: colors.textSecondary,
+          }}
+        >
+          +{hiddenCount} more
+        </div>
+      )}
     </motion.div>
   );
 }

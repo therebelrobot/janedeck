@@ -1,5 +1,5 @@
 ﻿"Type (Setting, FreeSpace or Phrase)","Name (the setting's name, or the phrase text on Phrase/FreeSpace rows)",Value (the setting's value; leave blank on Phrase/FreeSpace rows),Definition (optional clarification players can expand; ignored on Setting rows)
-Setting,maxPlayers,16,"a whole number, 1-100"
+Setting,maxPlayers,50,"a whole number, 1-100"
 Setting,cardMode,phrasePool,numbered or phrasePool
 Setting,numberRange,75,"highest number on a numbered card, 25-999 (classic bingo: 75)"
 Setting,gridSize,5,card is gridSize x gridSize; 5 is the only supported value

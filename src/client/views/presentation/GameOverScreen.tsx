@@ -46,9 +46,12 @@ export function GameOverScreen({
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        gap: spacing[8],
+        gap: spacing[6],
         width: "100%",
-        minHeight: "80vh",
+        // Stretch to the screen instead of setting a floor, so the boards
+        // inside can fit themselves to what's left.
+        flex: 1,
+        minHeight: 0,
       }}
     >
       {/* Confetti effect */}
@@ -109,7 +112,21 @@ export function GameOverScreen({
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            gap: spacing[4],
+            gap: spacing[3],
+            // A stable box — whatever the podium leaves — rather than one that
+            // sizes to its own contents. Sizing to content makes the board's
+            // own measurement change the space it is measuring, and it never
+            // settles: rows stay in the DOM below the fold and the "+N more"
+            // tile lands on top of the last visible row.
+            //
+            // The floor matters too: the podium above now shrinks itself on a
+            // short screen (see WinnerReveal's compact mode), but if it didn't,
+            // this guarantees the board still gets enough room for a couple of
+            // rows rather than being squeezed to nothing.
+            flex: "1 1 0",
+            minHeight: "clamp(100px, 16vh, 200px)",
+            maxHeight: "100%",
+            justifyContent: "flex-start",
           }}
         >
           <h3
@@ -123,9 +140,9 @@ export function GameOverScreen({
             Final Standings
           </h3>
           {teamLeaderboard ? (
-            <TeamLeaderboard entries={teamLeaderboard.slice(3)} maxDisplay={20} />
+            <TeamLeaderboard entries={teamLeaderboard.slice(3)} maxDisplay={20} avatarSize="md" constrainHeight />
           ) : (
-            <Leaderboard entries={leaderboard.slice(3)} maxDisplay={20} />
+            <Leaderboard entries={leaderboard.slice(3)} maxDisplay={20} avatarSize="lg" constrainHeight />
           )}
         </motion.div>
       )}

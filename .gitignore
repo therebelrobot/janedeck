@@ -155,3 +155,7 @@ docker-compose.override.yml
 # Self-hosted persistent data (docker-compose.prod.yml bind mount)
 /data
 .claude
+
+# Temporary files
+*.tmp.mjs
+

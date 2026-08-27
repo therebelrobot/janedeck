@@ -12,7 +12,7 @@ import {
   parseFrame,
   parseKind,
 } from "@/shared/media";
-import { DEFAULT_TIME_LIMIT, DEFAULT_POINT_VALUE } from "@/shared/constants";
+import { DEFAULT_TIME_LIMIT, DEFAULT_POINT_VALUE, DEFAULT_BINGO_SETTINGS } from "@/shared/constants";
 
 // ─── CSV Headers ──────────────────────────────────────────────────────────────
 
@@ -877,7 +877,7 @@ export function bingoSettingsAndPhrasesToCSV(settings: BingoSettings): string {
  */
 export function bingoTemplateCSV(): string {
   const exampleSettings: BingoSettings = {
-    maxPlayers: 16,
+    maxPlayers: DEFAULT_BINGO_SETTINGS.maxPlayers,
     cardMode: "phrasePool",
     numberRange: 75,
     gridSize: 5,

@@ -2,18 +2,30 @@
 // R1.4: displayName is the chosen name. R5.8: each avatar carries an accessible label.
 import React from "react";
 import type { TeamMemberInfo } from "@/shared/types";
-import { PlayerAvatar } from "./PlayerAvatar";
+import { PlayerAvatar, AVATAR_SIZE_PX } from "./PlayerAvatar";
 import { colors } from "../styles/theme";
 
-type AvatarSize = "sm" | "md" | "lg";
+type AvatarSize = "sm" | "md" | "lg" | "xl" | "2xl" | "3xl";
 
 interface TeamMemberAvatarsProps {
   members: TeamMemberInfo[];
   size?: AvatarSize;
   maxDisplay?: number;
+  /** Bold ring + glow around every member — for hero placements (podium, lobby) */
+  ring?: string | null;
+  /** Center the cluster rather than starting it inline */
+  align?: "start" | "center";
 }
 
-const OVERLAP: Record<AvatarSize, number> = { sm: 10, md: 12, lg: 16 };
+/** Avatars overlap by ~28% of their width at every size, so the cluster reads the same big or small */
+function overlapFor(size: AvatarSize): number {
+  return Math.round(AVATAR_SIZE_PX[size] * 0.28);
+}
+
+/** The cut-out gap between overlapping avatars scales too, or it vanishes at large sizes */
+function cutoutFor(size: AvatarSize): number {
+  return Math.max(2, Math.round(AVATAR_SIZE_PX[size] * 0.05));
+}
 
 /**
  * Overlapping cluster of teammate avatars — the visual identity of a team
@@ -23,13 +35,24 @@ export function TeamMemberAvatars({
   members,
   size = "sm",
   maxDisplay = 6,
+  ring = null,
+  align = "start",
 }: TeamMemberAvatarsProps): React.ReactElement {
-  const shown = members.slice(0, maxDisplay);
+  // A "+1" bubble is exactly as wide as the face it replaces, so hiding a
+  // single member buys nothing and costs the room a face.
+  const shown = members.length === maxDisplay + 1 ? members : members.slice(0, maxDisplay);
   const overflow = members.length - shown.length;
+  const overlap = overlapFor(size);
+  const cutout = cutoutFor(size);
+  const px = AVATAR_SIZE_PX[size];
 
   return (
     <div
-      style={{ display: "flex", alignItems: "center" }}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        justifyContent: align === "center" ? "center" : "flex-start",
+      }}
       role="group"
       aria-label={`Team members: ${members.map((m) => m.displayName).join(", ")}`}
     >
@@ -37,31 +60,43 @@ export function TeamMemberAvatars({
         <div
           key={member.id}
           style={{
-            marginInlineStart: i === 0 ? 0 : -OVERLAP[size],
-            border: `2px solid ${colors.bg}`,
+            marginInlineStart: i === 0 ? 0 : `calc(${-overlap}px * var(--avatar-scale, 1))`,
+            border: `${cutout}px solid ${colors.bg}`,
             borderRadius: "var(--radius-full)",
             lineHeight: 0,
+            // Later avatars sit on top of earlier ones, so the cluster reads
+            // left-to-right like a stack of cards rather than a muddle.
+            zIndex: i,
           }}
         >
-          <PlayerAvatar displayName={member.displayName} avatarSeed={member.avatarSeed} isConnected size={size} />
+          <PlayerAvatar
+            displayName={member.displayName}
+            avatarSeed={member.avatarSeed}
+            isConnected
+            size={size}
+            ring={ring}
+            hideStatus
+          />
         </div>
       ))}
       {overflow > 0 && (
         <div
           style={{
-            marginInlineStart: -OVERLAP[size],
-            width: size === "sm" ? 32 : size === "md" ? 40 : 56,
-            height: size === "sm" ? 32 : size === "md" ? 40 : 56,
+            marginInlineStart: `calc(${-overlap}px * var(--avatar-scale, 1))`,
+            width: `calc(${px}px * var(--avatar-scale, 1))`,
+            height: `calc(${px}px * var(--avatar-scale, 1))`,
             borderRadius: "var(--radius-full)",
-            border: `2px solid ${colors.bg}`,
+            border: `${cutout}px solid ${colors.bg}`,
             backgroundColor: colors.bgElevated,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            fontSize: "var(--text-xs)",
+            fontFamily: "var(--font-display)",
+            fontSize: px >= 88 ? "var(--text-2xl)" : px >= 56 ? "var(--text-base)" : "var(--text-xs)",
             fontWeight: 700,
             color: colors.textSecondary,
             flexShrink: 0,
+            zIndex: shown.length,
           }}
           aria-hidden="true"
         >

@@ -19,6 +19,7 @@
     "wrangler:login": "wrangler login",
     "wrangler:logout": "wrangler logout",
     "capture:screenshots": "node scripts/capture-screenshots.mjs",
+    "load-test": "node scripts/load-test.mjs",
     "templates": "node scripts/write-templates.mjs"
   },
   "keywords": [
