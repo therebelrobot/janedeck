@@ -7,6 +7,10 @@
 //
 // Both trivia flows also attach an image to one question, so every question
 // screen is captured twice: once plain and once with media (`-media` suffix).
+// The same question also gets an answer reveal image — the same photo,
+// unfiltered — so its answer reveal is captured separately too
+// (`-media` suffix on the individual-play `*-answer-reveal` files; Team Play
+// shows it inline since the whole round reveals in one panel).
 //
 // Four players answer each trivia question with a deliberate spread — exact,
 // near-miss, way-off — and the host judges them one by one rather than waving
@@ -202,9 +206,17 @@ const MEDIA_QUESTION = {
 // all of them.
 const MEDIA_ALT = "A tabby cat looking straight at the camera";
 const MEDIA_CAPTION = "The office cat, 2026";
+// The answer reveal reuses the same photo, unfiltered — "the same picture,
+// unveiled" is the feature's headline use case, and Sepia + Film grain
+// desaturating toward brown makes "full color" a true description of what
+// removing it shows.
+const REVEAL_MEDIA_ALT = "The same cat, now in full color with no filter";
 
 /**
  * Attach the sample image to one question and give it a frame + filters.
+ * Also attaches the same photo, unfiltered, to that question's answer reveal
+ * media slot — a second, independent upload shown only once the answer is
+ * revealed (see QuestionMediaEditor's second instance, idPrefix `${qid}-reveal`).
  *
  * Returns false (having logged why) when this server has no R2 bucket bound —
  * the media controls hide themselves in that case, and the caller skips its
@@ -253,6 +265,19 @@ async function attachSampleImage(
   }
 
   await page.waitForTimeout(300);
+
+  const revealFileInput = page.locator(`#${qid}-reveal-media-file`);
+  if ((await revealFileInput.count()) > 0) {
+    await revealFileInput.setInputFiles(file);
+    try {
+      await page.waitForSelector(`#${qid}-reveal-media-alt`, { timeout: 20000 });
+      await fillRetry(page, `#${qid}-reveal-media-alt`, REVEAL_MEDIA_ALT);
+      await page.waitForTimeout(200);
+    } catch {
+      log("SKIP answer reveal media: the upload did not complete");
+    }
+  }
+
   return true;
 }
 
@@ -846,6 +871,12 @@ async function runTriviaFlow({ teamMode }) {
           await player.waitForTimeout(400);
           await shot(player, mode, "player-score-reveal");
           await shotAnswerReveal({ presentation, player, audience }, mode);
+          await host.bringToFront();
+        }
+        // The media question's own reveal — the answer reveal image (the
+        // same photo, unfiltered) alongside the correct answer.
+        if (isMediaQuestion) {
+          await shotAnswerReveal({ presentation, player, audience }, mode, "-media");
           await host.bringToFront();
         }
       }

@@ -148,6 +148,13 @@ export interface Question {
    * before it — see `mediaTiming()` in src/shared/media.ts.
    */
   media?: QuestionMedia;
+  /**
+   * Optional media shown only once the answer is revealed — independent of
+   * `media` above. Covers both "the same picture, unveiled" (host uploads it
+   * again without the obscuring filter) and "a different picture entirely".
+   * Never sent to clients before the question closes — see `QuestionReveal`.
+   */
+  answerRevealMedia?: QuestionMedia;
 }
 
 // === Player ===
@@ -247,6 +254,8 @@ export interface QuestionReveal {
   acceptedAnswers: RevealedAnswer[];
   /** Submitted answers that didn't count, including the bonus-worthy ones */
   rejectedAnswers: RevealedAnswer[];
+  /** Media that only shows once the answer is revealed, if the question had any */
+  answerRevealMedia?: QuestionMedia;
 }
 
 // === Team Play ===

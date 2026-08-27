@@ -16,6 +16,8 @@ export interface QuestionEditorData {
   timeLimit: number;
   /** Optional host-uploaded image shown alongside the question */
   media?: QuestionMedia;
+  /** Optional image shown only once the answer is revealed */
+  answerRevealMedia?: QuestionMedia;
 }
 
 interface QuestionEditorProps {
@@ -53,6 +55,10 @@ export function QuestionEditor({
 
   const handleMediaChange = (media: QuestionMedia | undefined) => {
     onChange(index, { ...question, media });
+  };
+
+  const handleAnswerRevealMediaChange = (answerRevealMedia: QuestionMedia | undefined) => {
+    onChange(index, { ...question, answerRevealMedia });
   };
 
   return (
@@ -175,6 +181,19 @@ export function QuestionEditor({
         media={question.media}
         onChange={handleMediaChange}
         idPrefix={qId}
+        title="Question image"
+      />
+
+      {/* Answer reveal media — a second, independent image shown only once the
+          answer is revealed. Point it at the same underlying photo with the
+          obscuring filter removed to unveil the question's picture, or upload
+          something different entirely. */}
+      <QuestionMediaEditor
+        media={question.answerRevealMedia}
+        onChange={handleAnswerRevealMediaChange}
+        idPrefix={`${qId}-reveal`}
+        title="Answer reveal image (optional)"
+        description="Shown only once the answer is revealed — reveal the question's own photo without its filter, or show something new."
       />
 
       {/* Time override */}

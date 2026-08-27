@@ -481,6 +481,15 @@ export function GameCreator(): React.ReactElement {
           );
           return false;
         }
+        if (
+          q.answerRevealMedia &&
+          knownMediaAvailability(q.answerRevealMedia.id) === "missing"
+        ) {
+          setValidationError(
+            `Round ${ri + 1}, Question ${qi + 1}: the answer reveal image "${q.answerRevealMedia.fileName}" isn't on this server. Upload it again on that question, or remove the image.`,
+          );
+          return false;
+        }
       }
     }
     setValidationError(null);
@@ -535,6 +544,7 @@ export function GameCreator(): React.ReactElement {
             timeLimit: q.timeLimit,
             type: "text" as const,
             media: q.media,
+            answerRevealMedia: q.answerRevealMedia,
           })),
         })),
       },

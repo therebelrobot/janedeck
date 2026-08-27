@@ -605,6 +605,7 @@ export class GameRoom extends Server<Env> {
         type: qInput.type,
         choices: qInput.choices,
         media: qInput.media,
+        answerRevealMedia: qInput.answerRevealMedia,
       })),
     }));
 

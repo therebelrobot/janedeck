@@ -43,6 +43,7 @@ export interface HostCreateGameMessage {
         type: "text" | "multiple-choice" | "true-false";
         choices?: string[];
         media?: QuestionMedia;
+        answerRevealMedia?: QuestionMedia;
       }>;
     }>;
   };

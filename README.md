@@ -15,7 +15,7 @@ Players join from their phones, the host controls (or, for Bingo, simply starts/
   - **Player** — mobile-first interface for answering questions or marking a bingo card (phone)
   - **Audience** — spectator mode with reactions (phone)
 - **Spreadsheet authoring** — write a whole quiz in Google Sheets from a [downloadable template](docs/templates/), export one CSV, import, and run. Games export back out the same way, so a quiz is a file you can keep, edit and share
-- **Question images** — hosts can attach an image to any trivia question, present it in a frame (Polaroid, TV screen, 35mm slide, gallery frame, phone screen) and stack filters over it (black & white, sepia, halftone, film grain, vignette, VHS, blur, pixelate). Stored in Cloudflare R2, shown on the presentation screen and every player's phone alongside the question. Audio and video are architected for but not enabled yet — see [Question Media](#question-media).
+- **Question images** — hosts can attach an image to any trivia question, present it in a frame (Polaroid, TV screen, 35mm slide, gallery frame, phone screen) and stack filters over it (black & white, sepia, halftone, film grain, vignette, VHS, blur, pixelate). Stored in Cloudflare R2, shown on the presentation screen and every player's phone alongside the question. A second, independent image can be attached to show only once the answer is revealed — unveil the question's own picture without its filter, or show something new. Audio and video are architected for but not enabled yet — see [Question Media](#question-media).
 - **Real-time** WebSocket communication via PartyServer
 - **In-app notifications** — toasts and synthesized sound effects (mutable) for marks, wins, and other live events, so players don't need to be watching the shared presentation screen
 - **Animated** transitions, score reveals, and celebrations (Framer Motion)
@@ -81,6 +81,8 @@ Each game mode has its own host (desktop), player (phone), presentation (desktop
 
 Once a question closes — after every question in individual play, at the end of the round in Team Play — every screen shows what the answer actually was: the one being looked for, the alternates the question was set up to accept, the near-misses the host waved through by hand, and the ones that didn't count. A wrong answer the host thought was funny enough to award bonus points for gets a ⭐ and its own color. Players see their own answers ringed and tagged.
 
+A question can also carry a second, independent image that shows only here, at the reveal — see [Answer Reveal Media](#answer-reveal-media).
+
 <table>
 <tr>
 <td colspan="2" align="center"><sub><b>Individual play</b> — the answer for the question just played</sub></td>
@@ -97,7 +99,21 @@ Once a question closes — after every question in individual play, at the end o
 
 <table>
 <tr>
-<td colspan="2" align="center"><sub><b>Team Play</b> — the whole round at once, since teams are judged a round at a time</sub></td>
+<td colspan="2" align="center"><sub>The same question's <b>answer reveal image</b> — the picture question's photo, unveiled without its filter</sub></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/trivia-individual/presentation-answer-reveal-media.png" width="420"></td>
+<td><img src="docs/screenshots/trivia-individual/player-answer-reveal-media.png" width="200"></td>
+</tr>
+<tr>
+<td align="center"><sub>Presentation</sub></td>
+<td align="center"><sub>Player</sub></td>
+</tr>
+</table>
+
+<table>
+<tr>
+<td colspan="2" align="center"><sub><b>Team Play</b> — the whole round at once, since teams are judged a round at a time (notice the middle question's reveal image)</sub></td>
 </tr>
 <tr>
 <td><img src="docs/screenshots/trivia-team/presentation-answer-reveal.png" width="560"></td>
@@ -875,6 +891,51 @@ The uploaded `Content-Type` header is never trusted. Files are identified by the
 Not enabled yet, but the whole path underneath is already kind-agnostic: storage, the upload route, the byte sniffer, range requests (which video seeking needs), and the `QuestionMedia` record all handle all three kinds. What's missing is the presentation half.
 
 Images sit *beside* the question; audio and video are meant to play *before* it, so players hear or watch the clip and only then see what they're being asked. That needs one new state in the trivia state machine, `MEDIA_PLAYBACK`, plus host playback controls — the seam is documented in `src/shared/gameStates.ts`. Flipping `ENABLED_MEDIA_KINDS` in `src/shared/media.ts` is what turns uploads on once that exists.
+
+## Answer Reveal Media
+
+A question can carry a second image, completely independent of the one above, that only shows once its answer is revealed. It's the same `QuestionMedia` record — same upload flow, same frames and filters — attached separately, so a question can have either image, both, or neither. Two ways hosts use it:
+
+- **Unveil the question's own picture.** Upload the same photo twice: filtered (blurred, pixelated, black & white) for the question, plain for the reveal. Players guess from the obscured version; the answer reveal shows what it actually was.
+- **Show something new.** A different photo entirely — the answer written on a card, a wider shot, a follow-up punchline — that has nothing to do with the question image, or that a text-only question never had one to begin with.
+
+The host editor shows it as a second, clearly-labelled upload slot right under the question's own image, with the identical frame/filter/alt-text/caption controls documented above:
+
+<p><img src="docs/screenshots/trivia-individual/host-create-media.png" width="640"></p>
+
+<table>
+<tr>
+<td colspan="2" align="center"><sub>The reveal image on the shared screen and a player's phone</sub></td>
+</tr>
+<tr>
+<td><img src="docs/screenshots/trivia-individual/presentation-answer-reveal-media.png" width="420"></td>
+<td><img src="docs/screenshots/trivia-individual/player-answer-reveal-media.png" width="200"></td>
+</tr>
+<tr>
+<td align="center"><sub>Presentation</sub></td>
+<td align="center"><sub>Player</sub></td>
+</tr>
+</table>
+
+It's held to the same scraping protection as the question image: never broadcast to any client until that question's answer is actually revealed, so it can't be found early by opening dev tools on the socket.
+
+### CSV import/export
+
+The answer reveal image travels through the CSV too, in nine columns that mirror the question media ones exactly:
+
+| Column | Example | Notes |
+|---|---|---|
+| `Answer Reveal Media` | `yes` | The switch. `no` imports the row without the reveal image but keeps the settings in the file. |
+| `Answer Reveal Media File` | `eiffel-clear.jpg` | Original filename — how you recognise the row in a spreadsheet |
+| `Answer Reveal Media ID` | `38_aFdppJturby58AcE6Mlcs` | The R2 object id. This is the part that actually resolves. |
+| `Answer Reveal Media Kind` | `image` | `image`, `audio` or `video` (only `image` renders today) |
+| `Answer Reveal Media Frame` | `none` | `none`, `polaroid`, `tv`, `slide`, `gallery`, `phone` |
+| `Answer Reveal Media Filters` | *(blank)* | Semicolon-separated, same catalog as `Media Filters` |
+| `Answer Reveal Media Intensity` | `0` | 0–100, used by blur/pixelate |
+| `Answer Reveal Media Alt` | `The Eiffel Tower, unobscured` | Screen-reader description |
+| `Answer Reveal Media Caption` | *(blank)* | Printed on frames that have a caption slot |
+
+Same rules as the question media columns: every one is optional, `Answer Reveal Media ID` is the one field you can't author by hand (add the image on the question, then **Export CSV**), and a missing reference gets the same amber *"isn't on the server"* notice and blocks **Start Game** until it's fixed.
 
 ## Accessibility
 

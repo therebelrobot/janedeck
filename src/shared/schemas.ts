@@ -244,6 +244,7 @@ export const HostCreateGameSchema = z.object({
             type: QuestionTypeSchema,
             choices: z.array(z.string()).optional(),
             media: QuestionMediaSchema.optional(),
+            answerRevealMedia: QuestionMediaSchema.optional(),
           }),
         ),
       }),

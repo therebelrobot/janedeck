@@ -159,3 +159,4 @@ docker-compose.override.yml
 # Temporary files
 *.tmp.mjs
 
+.DS_Store

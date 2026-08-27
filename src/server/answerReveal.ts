@@ -90,6 +90,7 @@ export function buildQuestionReveal(
     acceptableAnswers,
     acceptedAnswers: groupSubmissions(accepted),
     rejectedAnswers: groupSubmissions(rejected),
+    answerRevealMedia: question.answerRevealMedia,
   };
 }
 

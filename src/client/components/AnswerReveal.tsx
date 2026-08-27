@@ -8,6 +8,7 @@ import React from "react";
 import { motion, useReducedMotion } from "framer-motion";
 import type { QuestionReveal, RevealedAnswer } from "@/shared/types";
 import { colors, spacing, radii, shadows } from "../styles/theme";
+import { QuestionMedia, type QuestionMediaSize } from "./QuestionMedia";
 
 /**
  * How much room the surface has — drives type scale and density.
@@ -30,6 +31,13 @@ interface AnswerRevealPanelProps {
 
 /** How many submitter names to spell out before collapsing into a count */
 const MAX_NAMES = 3;
+
+/** Answer reveal media size per surface — matches the question-display convention */
+const MEDIA_SIZE: Record<RevealVariant, QuestionMediaSize> = {
+  presentation: "md",
+  "presentation-dense": "sm",
+  player: "sm",
+};
 
 /** Type scale per surface — the shared screen reads from across the room */
 const SCALE: Record<RevealVariant, {
@@ -263,6 +271,18 @@ export function AnswerRevealCard({
           {reveal.questionText}
         </h3>
       </header>
+
+      {/* Media revealed alongside the answer — the question's own picture
+          unveiled, or something new entirely */}
+      {reveal.answerRevealMedia && (
+        <div style={{ display: "flex", justifyContent: "center" }}>
+          <QuestionMedia
+            media={reveal.answerRevealMedia}
+            size={MEDIA_SIZE[variant]}
+            questionNumber={reveal.questionNumber}
+          />
+        </div>
+      )}
 
       {/* The answer everyone was after */}
       <div

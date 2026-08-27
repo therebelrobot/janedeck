@@ -37,12 +37,18 @@ interface QuestionMediaEditorProps {
   onChange: (media: QuestionMedia | undefined) => void;
   /** Unique id prefix for label/input association */
   idPrefix: string;
+  /** Heading shown above this media slot — distinguishes multiple instances */
+  title: string;
+  /** Optional supporting text shown under the title */
+  description?: string;
 }
 
 export function QuestionMediaEditor({
   media,
   onChange,
   idPrefix,
+  title,
+  description,
 }: QuestionMediaEditorProps): React.ReactElement | null {
   const { config, accept, isUploading, progress, upload, remove } =
     useMediaUpload();
@@ -142,6 +148,30 @@ export function QuestionMediaEditor({
         borderTop: `1px dashed ${colors.border}`,
       }}
     >
+      <div>
+        <p
+          style={{
+            fontSize: "var(--text-sm)",
+            fontWeight: 600,
+            color: colors.text,
+            margin: 0,
+          }}
+        >
+          {title}
+        </p>
+        {description && (
+          <p
+            style={{
+              fontSize: "var(--text-xs)",
+              color: colors.textSecondary,
+              margin: `${spacing[1]} 0 0`,
+            }}
+          >
+            {description}
+          </p>
+        )}
+      </div>
+
       <input
         ref={fileInputRef}
         id={`${idPrefix}-media-file`}

@@ -32,6 +32,15 @@ const CSV_HEADERS = [
   "Media Intensity",
   "Media Alt",
   "Media Caption",
+  "Answer Reveal Media",
+  "Answer Reveal Media File",
+  "Answer Reveal Media ID",
+  "Answer Reveal Media Kind",
+  "Answer Reveal Media Frame",
+  "Answer Reveal Media Filters",
+  "Answer Reveal Media Intensity",
+  "Answer Reveal Media Alt",
+  "Answer Reveal Media Caption",
 ] as const;
 
 // ─── The media columns ────────────────────────────────────────────────────────
@@ -58,6 +67,12 @@ const CSV_HEADERS = [
 //
 // Every media column is optional. Deleting them all, or hand-writing a sheet
 // that never had them, imports exactly as it did before media existed.
+//
+// The "Answer Reveal Media" columns mirror all nine, one-for-one, for a
+// second image shown only once the answer is revealed — independent of the
+// question media above, whether or not the question has one. Point it at the
+// same "Media ID" with the obscuring filter removed to unveil the question's
+// own picture, or at a different upload entirely.
 
 // UTF-8 BOM so Excel correctly detects encoding
 const UTF8_BOM = "\uFEFF";
@@ -178,6 +193,16 @@ const CSV_HEADER_HINTS: Partial<Record<(typeof CSV_HEADERS)[number], string>> = 
   "Media Intensity": "0-100; only blur and pixelate use it",
   "Media Alt": "describes the image for players using a screen reader",
   "Media Caption": "printed on the polaroid, slide and gallery frames",
+  "Answer Reveal Media": "yes or no; shown once the answer is revealed, leave blank for none",
+  "Answer Reveal Media File": "the original filename, for your reference",
+  "Answer Reveal Media ID": "comes from the app: add the image on the question, then Export CSV",
+  "Answer Reveal Media Kind": "image",
+  "Answer Reveal Media Frame": "none, polaroid, tv, slide, gallery or phone",
+  "Answer Reveal Media Filters":
+    "separate with semicolons: bw, sepia, halftone, grain, vignette, vhs, blur, pixelate",
+  "Answer Reveal Media Intensity": "0-100; only blur and pixelate use it",
+  "Answer Reveal Media Alt": "describes the image for players using a screen reader",
+  "Answer Reveal Media Caption": "printed on the polaroid, slide and gallery frames",
 };
 
 /**
@@ -263,6 +288,7 @@ export function gameToCSV(rounds: RoundEditorData[]): string {
           acceptableAnswers,
           String(question.timeLimit),
           ...mediaCells(question.media),
+          ...mediaCells(question.answerRevealMedia),
         ]),
       );
     }
@@ -291,6 +317,7 @@ export function templateCSV(): string {
       "paris; París",
       "30",
       ...EMPTY_MEDIA_CELLS,
+      ...EMPTY_MEDIA_CELLS,
     ]),
   );
   lines.push(
@@ -301,6 +328,7 @@ export function templateCSV(): string {
       "1969",
       "nineteen sixty-nine",
       "30",
+      ...EMPTY_MEDIA_CELLS,
       ...EMPTY_MEDIA_CELLS,
     ]),
   );
@@ -315,6 +343,7 @@ export function templateCSV(): string {
       "spielberg; Spielberg",
       "25",
       ...EMPTY_MEDIA_CELLS,
+      ...EMPTY_MEDIA_CELLS,
     ]),
   );
   lines.push(
@@ -326,15 +355,18 @@ export function templateCSV(): string {
       "avatar",
       "30",
       ...EMPTY_MEDIA_CELLS,
+      ...EMPTY_MEDIA_CELLS,
     ]),
   );
 
   // Example Round 3: a picture round, showing what filled-in media columns
-  // look like. Both rows are switched off ("Media" = no) because the image
-  // itself can't come from a spreadsheet — "Media ID" identifies a file
-  // already uploaded to this server. The workflow is: add the image on the
-  // question in the app, Export CSV, and the real id lands in this column.
-  // Until then these rows import as ordinary questions with no image.
+  // look like — both the question image and, in the second row, an answer
+  // reveal image too. Every row is switched off ("Media" / "Answer Reveal
+  // Media" = no) because the image itself can't come from a spreadsheet —
+  // "Media ID" identifies a file already uploaded to this server. The
+  // workflow is: add the image on the question in the app, Export CSV, and
+  // the real id lands in this column. Until then these rows import as
+  // ordinary questions with no image.
   lines.push(
     toCSVRow([
       "Picture Round",
@@ -352,6 +384,15 @@ export function templateCSV(): string {
       "40",
       "A tabby cat looking straight at the camera",
       "The office cat, 2026",
+      "no",
+      "office-cat-closeup.jpg",
+      MEDIA_ID_PLACEHOLDER,
+      "image",
+      "gallery",
+      "",
+      "0",
+      "A close-up of the same cat, in full color",
+      "Gotcha",
     ]),
   );
   lines.push(
@@ -370,6 +411,15 @@ export function templateCSV(): string {
       "pixelate",
       "70",
       "A heavily pixelated photograph of a landmark",
+      "",
+      "no",
+      "landmark.jpg",
+      MEDIA_ID_PLACEHOLDER,
+      "image",
+      "none",
+      "",
+      "0",
+      "The same photograph, no longer pixelated — the Eiffel Tower at night",
       "",
     ]),
   );
@@ -508,6 +558,16 @@ export function csvToGame(csvContent: string): CSVImportResult {
   const mediaIntensityIdx = normalizedHeaders.findIndex((h) => h === expectedHeaders[12]);
   const mediaAltIdx = normalizedHeaders.findIndex((h) => h === expectedHeaders[13]);
   const mediaCaptionIdx = normalizedHeaders.findIndex((h) => h === expectedHeaders[14]);
+  // Answer reveal media columns — same optionality, same nine-column shape.
+  const revealMediaIdx = normalizedHeaders.findIndex((h) => h === expectedHeaders[15]);
+  const revealMediaFileIdx = normalizedHeaders.findIndex((h) => h === expectedHeaders[16]);
+  const revealMediaIdIdx = normalizedHeaders.findIndex((h) => h === expectedHeaders[17]);
+  const revealMediaKindIdx = normalizedHeaders.findIndex((h) => h === expectedHeaders[18]);
+  const revealMediaFrameIdx = normalizedHeaders.findIndex((h) => h === expectedHeaders[19]);
+  const revealMediaFiltersIdx = normalizedHeaders.findIndex((h) => h === expectedHeaders[20]);
+  const revealMediaIntensityIdx = normalizedHeaders.findIndex((h) => h === expectedHeaders[21]);
+  const revealMediaAltIdx = normalizedHeaders.findIndex((h) => h === expectedHeaders[22]);
+  const revealMediaCaptionIdx = normalizedHeaders.findIndex((h) => h === expectedHeaders[23]);
 
   if (roundNameIdx === -1 || questionIdx === -1 || correctAnswerIdx === -1) {
     errors.push(
@@ -548,6 +608,17 @@ export function csvToGame(csvContent: string): CSVImportResult {
       intensity: getCell(mediaIntensityIdx),
       alt: getCell(mediaAltIdx),
       caption: getCell(mediaCaptionIdx),
+    };
+    const revealMediaCellValues: MediaCells = {
+      enabled: getCell(revealMediaIdx),
+      fileName: getCell(revealMediaFileIdx),
+      id: getCell(revealMediaIdIdx),
+      kind: getCell(revealMediaKindIdx),
+      frame: getCell(revealMediaFrameIdx),
+      filters: getCell(revealMediaFiltersIdx),
+      intensity: getCell(revealMediaIntensityIdx),
+      alt: getCell(revealMediaAltIdx),
+      caption: getCell(revealMediaCaptionIdx),
     };
 
     // Validate required fields
@@ -611,6 +682,14 @@ export function csvToGame(csvContent: string): CSVImportResult {
     warnings.push(...mediaResult.warnings);
     const media = mediaResult.media;
 
+    const revealMediaResult = parseMediaCells(
+      revealMediaCellValues,
+      csvLineNum,
+      "Answer Reveal Media",
+    );
+    warnings.push(...revealMediaResult.warnings);
+    const answerRevealMedia = revealMediaResult.media;
+
     // Build question
     const question: QuestionEditorData = {
       text: questionText,
@@ -618,6 +697,7 @@ export function csvToGame(csvContent: string): CSVImportResult {
       acceptableAnswers,
       timeLimit,
       media,
+      answerRevealMedia,
     };
 
     // Group into rounds
@@ -684,6 +764,7 @@ const MEDIA_ON_VALUES = new Set(["yes", "y", "true", "1", "on"]);
 function parseMediaCells(
   cells: MediaCells,
   csvLineNum: number,
+  columnPrefix = "Media",
 ): { media?: QuestionMedia; warnings: string[] } {
   const warnings: string[] = [];
   const flag = cells.enabled.toLowerCase();
@@ -695,7 +776,7 @@ function parseMediaCells(
   if (!cells.id) {
     if (MEDIA_ON_VALUES.has(flag)) {
       warnings.push(
-        `Row ${csvLineNum}: "Media" is set to "${cells.enabled}" but "Media ID" is empty, so this question was imported without an image.`,
+        `Row ${csvLineNum}: "${columnPrefix}" is set to "${cells.enabled}" but "${columnPrefix} ID" is empty, so this question was imported without an image.`,
       );
     }
     return { warnings };
@@ -703,7 +784,7 @@ function parseMediaCells(
 
   if (!MEDIA_ID_PATTERN.test(cells.id)) {
     warnings.push(
-      `Row ${csvLineNum}: "Media ID" value "${cells.id}" isn't a valid media reference, so this question was imported without an image.`,
+      `Row ${csvLineNum}: "${columnPrefix} ID" value "${cells.id}" isn't a valid media reference, so this question was imported without an image.`,
     );
     return { warnings };
   }
@@ -711,14 +792,14 @@ function parseMediaCells(
   const kind = cells.kind ? parseKind(cells.kind) : "image";
   if (!kind) {
     warnings.push(
-      `Row ${csvLineNum}: "Media Kind" value "${cells.kind}" isn't recognised. Using "image".`,
+      `Row ${csvLineNum}: "${columnPrefix} Kind" value "${cells.kind}" isn't recognised. Using "image".`,
     );
   }
 
   let frame = parseFrame(cells.frame ?? "");
   if (cells.frame && !frame) {
     warnings.push(
-      `Row ${csvLineNum}: "Media Frame" value "${cells.frame}" isn't recognised. Using "none".`,
+      `Row ${csvLineNum}: "${columnPrefix} Frame" value "${cells.frame}" isn't recognised. Using "none".`,
     );
   }
   frame = frame ?? "none";
@@ -734,7 +815,7 @@ function parseMediaCells(
   );
   if (dropped.length > 0) {
     warnings.push(
-      `Row ${csvLineNum}: these "Media Filters" were skipped — ${dropped.join(", ")}. Filters must be one of: bw, sepia, halftone, grain, vignette, vhs, blur, pixelate (and only one of bw/sepia/halftone, and one of blur/pixelate).`,
+      `Row ${csvLineNum}: these "${columnPrefix} Filters" were skipped — ${dropped.join(", ")}. Filters must be one of: bw, sepia, halftone, grain, vignette, vhs, blur, pixelate (and only one of bw/sepia/halftone, and one of blur/pixelate).`,
     );
   }
 
@@ -743,7 +824,7 @@ function parseMediaCells(
     const parsed = parseInt(cells.intensity, 10);
     if (Number.isNaN(parsed) || parsed < 0 || parsed > 100) {
       warnings.push(
-        `Row ${csvLineNum}: "Media Intensity" value "${cells.intensity}" is not a number from 0 to 100. Using ${DEFAULT_MEDIA_INTENSITY}.`,
+        `Row ${csvLineNum}: "${columnPrefix} Intensity" value "${cells.intensity}" is not a number from 0 to 100. Using ${DEFAULT_MEDIA_INTENSITY}.`,
       );
     } else {
       intensity = parsed;
