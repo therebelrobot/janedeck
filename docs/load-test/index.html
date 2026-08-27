@@ -27,7 +27,7 @@
   .lead { color:var(--dim); margin:2rem 0 0; padding-top:1rem; border-top:1px dashed var(--line); }
 </style>
 <h1>Shared screen at scale</h1>
-<p class="stamp">2026-08-27 15:50 UTC · every screen, at every display size, for every crowd.
+<p class="stamp">2026-08-27 17:59 UTC · every screen, at every display size, for every crowd.
 “Rung” is the step of its layout ladder a roster settled on — 0 is the boldest, and a
 higher number means it had to tighten to fit. Regenerate with <code>npm run load-test</code>.</p>
 <table>
@@ -47,27 +47,27 @@ higher number means it had to tighten to fit. Regenerate with <code>npm run load
       </tr><tr>
         <td><a href="#scale-32p-teams-of-4">32 players · teams of 4</a></td>
         <td>8</td>
-        <td>32/32 in 0.3s</td>
+        <td>32/32 in 0.4s</td>
         <td>Accept All Remaining (21)</td>
-        <td class="bad">3 clipped</td>
+        <td class="ok">all fit</td>
       </tr><tr>
         <td><a href="#scale-68p-teams-of-4">68 players · teams of 4</a></td>
         <td>17</td>
-        <td>68/68 in 0.9s</td>
+        <td>68/68 in 0.8s</td>
         <td>Accept All Remaining (48)</td>
         <td class="ok">all fit</td>
       </tr><tr>
         <td><a href="#scale-100p-teams-of-4">100 players · teams of 4</a></td>
         <td>25</td>
-        <td>100/100 in 1.5s</td>
+        <td>100/100 in 1.3s</td>
         <td>Accept All Remaining (72)</td>
         <td class="ok">all fit</td>
       </tr><tr>
         <td><a href="#scale-68p-individual">68 players · individual</a></td>
         <td>—</td>
-        <td>68/68 in 0.7s</td>
+        <td>68/68 in 0.9s</td>
         <td>—</td>
-        <td class="bad">3 clipped</td>
+        <td class="ok">all fit</td>
       </tr>
 </table>
 <article id="scale-4p-teams-of-2">
@@ -268,13 +268,13 @@ higher number means it had to tighten to fit. Regenerate with <code>npm run load
           <figcaption><b>laptop share</b> 1280×800<br><span class="ok">fits</span><br><span class="notes">rung 2 · +2 more teams</span></figcaption>
         </figure></div></section><section><h3>game-over</h3><div class="row"><figure>
           <a href="32p-teams-of-4/game-over-1920x1080.png" target="_blank"><img src="32p-teams-of-4/game-over-1920x1080.png" loading="lazy" alt="game-over at 1920×1080"></a>
-          <figcaption><b>projector</b> 1920×1080<br><span class="bad">clipped 13 — “&lt;image&gt;”</span><br><span class="notes">rung 0</span></figcaption>
+          <figcaption><b>projector</b> 1920×1080<br><span class="ok">fits</span><br><span class="notes">rung 2 · +4 more teams</span></figcaption>
         </figure><figure>
           <a href="32p-teams-of-4/game-over-1366x768.png" target="_blank"><img src="32p-teams-of-4/game-over-1366x768.png" loading="lazy" alt="game-over at 1366×768"></a>
-          <figcaption><b>conf room</b> 1366×768<br><span class="bad">clipped 16 — “#7”</span><br><span class="notes">rung 2 · +4 more teams</span></figcaption>
+          <figcaption><b>conf room</b> 1366×768<br><span class="ok">fits</span><br><span class="notes">rung 2 · +4 more teams</span></figcaption>
         </figure><figure>
           <a href="32p-teams-of-4/game-over-1280x800.png" target="_blank"><img src="32p-teams-of-4/game-over-1280x800.png" loading="lazy" alt="game-over at 1280×800"></a>
-          <figcaption><b>laptop share</b> 1280×800<br><span class="bad">clipped 16 — “#7”</span><br><span class="notes">rung 2</span></figcaption>
+          <figcaption><b>laptop share</b> 1280×800<br><span class="ok">fits</span><br><span class="notes">rung 2 · +4 more teams</span></figcaption>
         </figure></div></section>
       <p class="lead">Other roles — these scroll, so length is a workload measure, not a defect.
       Shots are full-page; a sticky action bar renders once, at its viewport position, so
@@ -517,13 +517,13 @@ higher number means it had to tighten to fit. Regenerate with <code>npm run load
           <figcaption><b>laptop share</b> 1280×800<br><span class="ok">fits</span><br><span class="notes">rung 2 · +62 more players</span></figcaption>
         </figure></div></section><section><h3>game-over</h3><div class="row"><figure>
           <a href="68p-individual/game-over-1920x1080.png" target="_blank"><img src="68p-individual/game-over-1920x1080.png" loading="lazy" alt="game-over at 1920×1080"></a>
-          <figcaption><b>projector</b> 1920×1080<br><span class="bad">clipped 64 — “#8”</span><br><span class="notes">rung 2 · +63 more players</span></figcaption>
+          <figcaption><b>projector</b> 1920×1080<br><span class="ok">fits</span><br><span class="notes">rung 2 · +64 more players</span></figcaption>
         </figure><figure>
           <a href="68p-individual/game-over-1366x768.png" target="_blank"><img src="68p-individual/game-over-1366x768.png" loading="lazy" alt="game-over at 1366×768"></a>
-          <figcaption><b>conf room</b> 1366×768<br><span class="bad">clipped 69 — “#7”</span><br><span class="notes">rung 2 · +45 more players</span></figcaption>
+          <figcaption><b>conf room</b> 1366×768<br><span class="ok">fits</span><br><span class="notes">rung 2 · +64 more players</span></figcaption>
         </figure><figure>
           <a href="68p-individual/game-over-1280x800.png" target="_blank"><img src="68p-individual/game-over-1280x800.png" loading="lazy" alt="game-over at 1280×800"></a>
-          <figcaption><b>laptop share</b> 1280×800<br><span class="bad">clipped 68 — “#7”</span><br><span class="notes">rung 2 · +64 more players</span></figcaption>
+          <figcaption><b>laptop share</b> 1280×800<br><span class="ok">fits</span><br><span class="notes">rung 2 · +64 more players</span></figcaption>
         </figure></div></section>
       <p class="lead">Other roles — these scroll, so length is a workload measure, not a defect.
       Shots are full-page; a sticky action bar renders once, at its viewport position, so
